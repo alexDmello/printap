@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+**/node_modules
+/.pnp
+.pnp.*
+
+# Build outputs
+/apps/desktop/out
+/apps/desktop/dist
+/apps/web/.next
+/apps/web/out
+/apps/web/build
+/packages/*/dist
+dist
+out
+build
+.next
+.turbo
+.vercel
+
+# Cache & temporary files
+.vite
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment files
+.env*.local
+.env
+
+# System files
+.DS_Store
+Thumbs.db
+*.pem

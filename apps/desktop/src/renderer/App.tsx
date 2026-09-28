@@ -1,0 +1,433 @@
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Sidebar, type AdminPage } from "./components/Sidebar";
+import { Login } from "./components/Login";
+import { LiveDashboard, type LiveJob } from "./components/LiveDashboard";
+import { Profile } from "./components/Profile";
+import { PrintersControl, type PrinterAssignment } from "./components/PrintersControl";
+import { Analytics } from "./components/Analytics";
+import { CounterQr } from "./components/CounterQr";
+import {
+  startShopSignaling,
+  stopShopSignaling,
+} from "./lib/shop-signaling";
+import { getSupabase } from "@printap/shared";
+
+function ShopAdminShell(): React.ReactElement {
+  const { isAuthenticated, isLoading, shopId } = useAuth();
+  const [currentPage, setCurrentPage] = useState<AdminPage>("live");
+
+  // Live session state
+  const [isListening, setIsListening] = useState(false);
+  const [activeJob, setActiveJob] = useState<LiveJob | null>(null);
+  const [recentJobs, setRecentJobs] = useState<LiveJob[]>([]);
+  const [todayPrintsCount, setTodayPrintsCount] = useState<number>(0);
+  const [printers, setPrinters] = useState<PrinterInfo[]>(() => {
+    try {
+      const cached = localStorage.getItem("printap_cached_printers");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
+
+  // Ref to hold current assignments for printer routing
+  const assignmentsRef = useRef<Record<string, PrinterAssignment>>({});
+
+  // Manual or initial printer detection
+  const rescanPrinters = useCallback(async () => {
+    setIsLoadingPrinters(true);
+    try {
+      const result = await window.electronAPI.listPrinters();
+      if (result.success && result.printers) {
+        setPrinters(result.printers);
+        try {
+          localStorage.setItem("printap_cached_printers", JSON.stringify(result.printers));
+        } catch {}
+      }
+    } catch (err) {
+      console.error("[App] Printer discovery error:", err);
+    } finally {
+      setIsLoadingPrinters(false);
+    }
+  }, []);
+
+  // 1. Discover printers ONLY once on fresh app launch
+  useEffect(() => {
+    rescanPrinters();
+  }, [rescanPrinters]);
+
+  // 2. Fetch today's print count from Supabase when shopId is loaded
+  const loadTodayPrintsCount = useCallback(async (id: string) => {
+    try {
+      const supabase = getSupabase();
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const { count, error } = await supabase
+        .from("print_events")
+        .select("*", { count: "exact", head: true })
+        .eq("shop_id", id)
+        .gte("created_at", startOfToday.toISOString());
+
+      if (!error && typeof count === "number") {
+        setTodayPrintsCount(count);
+      }
+    } catch (e) {
+      console.warn("[App] Could not load today's count:", e);
+    }
+  }, []);
+
+  // 3. Load printer assignments into ref for automatic routing
+  const refreshAssignments = useCallback((id: string) => {
+    try {
+      const cached = localStorage.getItem(`printap_printers_${id}`);
+      if (cached) {
+        assignmentsRef.current = JSON.parse(cached);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 4. Listen to hardware status events from Electron Main
+  useEffect(() => {
+    const cleanup = window.electronAPI.onPrintStatus((data) => {
+      setActiveJob((prev) => {
+        if (!prev || prev.sessionId !== data.sessionId) return prev;
+        let newStatus = prev.status;
+        if (data.stage === "saving" || data.stage === "saved") newStatus = "saving";
+        else if (data.stage === "printing" || data.stage === "printed")
+          newStatus = "printing";
+        else if (data.stage === "shredding" || data.stage === "shredded")
+          newStatus = "shredding";
+        else if (data.stage === "complete") newStatus = "done";
+        else if (data.stage === "error") newStatus = "error";
+
+        return {
+          ...prev,
+          status: newStatus,
+          stage: data.stage,
+          detail: data.detail,
+        };
+      });
+    });
+
+    return cleanup;
+  }, []);
+
+  // 5. Connect WebRTC Signaling when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !shopId) {
+      setIsListening(false);
+      return;
+    }
+
+    loadTodayPrintsCount(shopId);
+    refreshAssignments(shopId);
+
+    console.log(`[App] Initializing signaling for shop ${shopId}...`);
+    setIsListening(true);
+
+    const channel = startShopSignaling(shopId, {
+      onSessionStart: (sessionId) => {
+        setActiveJob({
+          sessionId,
+          status: "receiving",
+          progressPct: 0,
+          timestamp: new Date(),
+        });
+      },
+
+      onFileProgress: (sessionId, fileName, pct) => {
+        setActiveJob((prev) => ({
+          sessionId,
+          fileName,
+          status: "receiving",
+          progressPct: pct,
+          timestamp: prev?.timestamp || new Date(),
+        }));
+      },
+
+      onFileReceived: async (sessionId, buffer, fileName) => {
+        console.log(
+          `[App] File received: ${fileName || sessionId}, bytes: ${buffer.byteLength}`
+        );
+
+        setActiveJob((prev) => ({
+          sessionId,
+          fileName: fileName || prev?.fileName,
+          status: "saving",
+          detail: "PDF received, forwarding to printer driver...",
+          timestamp: prev?.timestamp || new Date(),
+        }));
+
+        // Determine destination printer from assignments
+        refreshAssignments(shopId);
+        const map = assignmentsRef.current;
+        let targetPrinter: string | undefined = undefined;
+
+        // Check for an explicit default or first active printer
+        const defaultAssignment = Object.values(map).find(
+          (a) => a.is_default && a.role !== "disabled"
+        );
+        if (defaultAssignment) {
+          targetPrinter = defaultAssignment.printer_name;
+        } else {
+          const firstActive = Object.values(map).find(
+            (a) => a.role !== "disabled"
+          );
+          if (firstActive) {
+            targetPrinter = firstActive.printer_name;
+          }
+        }
+
+        try {
+          const result = await window.electronAPI.printPdf(buffer, sessionId, {
+            printer: targetPrinter,
+            copies: 1,
+          });
+
+          if (result.success) {
+            // Record print event in Supabase ledger
+            try {
+              const supabase = getSupabase();
+              await supabase.from("print_events").insert({
+                shop_id: shopId,
+                session_id: sessionId,
+                fee_amount: 1.0,
+              });
+            } catch (err) {
+              console.warn("[App] Could not insert print_event:", err);
+            }
+
+            const completedJob: LiveJob = {
+              sessionId,
+              fileName: fileName || `Print #${sessionId.slice(0, 8)}`,
+              status: "done",
+              detail: `Printed on ${targetPrinter || "default printer"} & shredded`,
+              timestamp: new Date(),
+            };
+
+            setRecentJobs((prev) => [completedJob, ...prev.slice(0, 19)]);
+            setTodayPrintsCount((c) => c + 1);
+
+            // Keep "Completed" visible for 3 seconds then return to idle
+            setActiveJob((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: "done",
+                    detail: "Job completed & shredded safely",
+                  }
+                : null
+            );
+            setTimeout(() => {
+              setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
+            }, 3500);
+          } else {
+            const failedJob: LiveJob = {
+              sessionId,
+              fileName: fileName || `Print #${sessionId.slice(0, 8)}`,
+              status: "error",
+              detail: result.error || "Spool failed",
+              timestamp: new Date(),
+            };
+
+            setRecentJobs((prev) => [failedJob, ...prev.slice(0, 19)]);
+            setActiveJob(failedJob);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const failedJob: LiveJob = {
+            sessionId,
+            fileName: fileName || `Print #${sessionId.slice(0, 8)}`,
+            status: "error",
+            detail: msg,
+            timestamp: new Date(),
+          };
+          setRecentJobs((prev) => [failedJob, ...prev.slice(0, 19)]);
+          setActiveJob(failedJob);
+        }
+      },
+
+      onSessionError: (sessionId, error) => {
+        console.error(`[App] Session ${sessionId} error:`, error);
+        setActiveJob((prev) =>
+          prev && prev.sessionId === sessionId
+            ? { ...prev, status: "error", detail: error }
+            : null
+        );
+      },
+    });
+
+    return () => {
+      console.log(`[App] Tearing down signaling channel...`);
+      stopShopSignaling(channel);
+      setIsListening(false);
+    };
+  }, [isAuthenticated, shopId, loadTodayPrintsCount, refreshAssignments]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div
+        className="login-container"
+        style={{
+          flexDirection: "column",
+          gap: 16,
+          color: "var(--text-secondary)",
+          fontSize: 14,
+        }}
+      >
+        <div style={{ fontSize: 32 }}>🖨️</div>
+        <div>Initializing Printap Terminal...</div>
+      </div>
+    );
+  }
+
+  // Unauthenticated -> Login page
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  // Authenticated -> Full Shop Admin Shell
+  return (
+    <div className="app-shell">
+      <Sidebar currentPage={currentPage} onSelectPage={setCurrentPage} />
+
+      <div className="main-workspace">
+        <div className="window-drag-strip">
+          <div className="window-drag-title">
+            <span style={{ fontWeight: 700, color: "#09090b" }}>Printap Agent</span>
+            <span style={{ color: "var(--text-faint)" }}>•</span>
+            <span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
+              {currentPage === "live"
+                ? "Live Monitor"
+                : currentPage === "printers"
+                ? "Printers Control"
+                : currentPage === "analytics"
+                ? "Revenue & Analytics"
+                : currentPage === "qr"
+                ? "Counter QR Stand"
+                : "Shop Profile"}
+            </span>
+          </div>
+          <div
+            className="no-drag"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              color: isListening ? "var(--accent-emerald)" : "var(--text-muted)",
+            }}
+          >
+            <span
+              className="beacon-dot"
+              style={{
+                background: isListening ? "var(--accent-emerald)" : "var(--text-muted)",
+                boxShadow: isListening ? "0 0 8px rgba(16, 185, 129, 0.4)" : "none",
+              }}
+            />
+            <span>
+              {isListening ? "Direct P2P Active" : "Hardware Offline"}
+            </span>
+          </div>
+        </div>
+
+        <main style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+          <div
+            style={{
+              display: currentPage === "live" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <LiveDashboard
+              currentJob={activeJob}
+              recentJobs={recentJobs}
+              todayPrintsCount={todayPrintsCount}
+              isListening={isListening}
+              connectedPrintersCount={
+                printers.filter((p) => p.isPhysical && p.isOnline).length
+              }
+            />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "printers" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <PrintersControl
+              printers={printers}
+              isLoadingPrinters={isLoadingPrinters}
+              onRescanPrinters={rescanPrinters}
+              onAssignmentsSaved={(newAssignments) => {
+                assignmentsRef.current = newAssignments;
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "analytics" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <Analytics />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "qr" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <CounterQr />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "profile" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <Profile onNavigateToQr={() => setCurrentPage("qr")} />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default function App(): React.ReactElement {
+  return (
+    <AuthProvider>
+      <ShopAdminShell />
+    </AuthProvider>
+  );
+}

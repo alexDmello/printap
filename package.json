@@ -1,0 +1,17 @@
+{
+  "name": "printap",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm -w apps/web run dev",
+    "dev:desktop": "npm -w apps/desktop run dev",
+    "build:web": "npm -w apps/web run build",
+    "build:desktop": "npm -w apps/desktop run build"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

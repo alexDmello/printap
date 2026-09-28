@@ -1,0 +1,66 @@
+/** Type declaration for the API exposed by preload via contextBridge. */
+
+interface PrintResult {
+  success: boolean;
+  sessionId: string;
+  copies?: number;
+  error?: string;
+}
+
+interface PrinterInfo {
+  name: string;
+  isDefault: boolean;
+  isPhysical: boolean;
+  connectionType:
+    | "USB"
+    | "Network (TCP/IP)"
+    | "Network (WSD)"
+    | "Network (Shared)"
+    | "Network (IPP)"
+    | "Bluetooth"
+    | "Parallel (LPT)"
+    | "Virtual / Software";
+  portName: string;
+  driverName: string;
+  hostAddress?: string | null;
+  status: "Online" | "Offline" | "Printing" | "Error" | "Unknown";
+  isOnline: boolean;
+  details: string;
+}
+
+interface ListPrintersResult {
+  success: boolean;
+  printers: PrinterInfo[];
+  error?: string;
+}
+
+interface PrintStatusData {
+  sessionId: string;
+  stage: string;
+  detail: string;
+}
+
+interface NetworkInfo {
+  localIp: string;
+  allIps: string[];
+}
+
+interface ElectronAPI {
+  printPdf: (
+    buffer: ArrayBuffer,
+    sessionId: string,
+    options?: { printer?: string; copies?: number }
+  ) => Promise<PrintResult>;
+
+  listPrinters: () => Promise<ListPrintersResult>;
+
+  getNetworkInfo: () => Promise<NetworkInfo>;
+
+  onPrintStatus: (
+    callback: (data: PrintStatusData) => void
+  ) => () => void;
+}
+
+interface Window {
+  electronAPI: ElectronAPI;
+}

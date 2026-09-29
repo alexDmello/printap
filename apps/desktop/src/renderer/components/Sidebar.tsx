@@ -7,9 +7,10 @@ import {
   IconProfile,
   IconLogout,
   IconQr,
+  IconTag,
 } from "./Icons";
 
-export type AdminPage = "live" | "printers" | "analytics" | "qr" | "profile";
+export type AdminPage = "live" | "printers" | "services" | "analytics" | "qr" | "profile";
 
 interface SidebarProps {
   currentPage: AdminPage;
@@ -32,6 +33,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: "printers",
       label: "Printers Control",
       icon: <IconPrinter size={18} className="sidebar-item-icon" />,
+    },
+    {
+      id: "services",
+      label: "Services & Rates",
+      icon: <IconTag size={18} className="sidebar-item-icon" />,
     },
     {
       id: "analytics",

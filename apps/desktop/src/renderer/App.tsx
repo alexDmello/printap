@@ -7,6 +7,7 @@ import { Profile } from "./components/Profile";
 import { PrintersControl, type PrinterAssignment } from "./components/PrintersControl";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
+import { ServicesControl } from "./components/ServicesControl";
 import {
   startShopSignaling,
   stopShopSignaling,
@@ -513,6 +514,19 @@ function ShopAdminShell(): React.ReactElement {
                 assignmentsRef.current = newAssignments;
               }}
             />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "services" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <ServicesControl />
           </div>
 
           <div

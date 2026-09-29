@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme inline {
+:root {
   --color-background: #050510;
   --color-foreground: #e8e8f0;
   --color-accent: #6366f1;

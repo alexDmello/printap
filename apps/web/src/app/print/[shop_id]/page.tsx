@@ -1,4 +1,4 @@
-import { getSupabase, getCustomerPrintUrl } from "@printap/shared";
+import { getSupabase, getShopCustomerUrl } from "@printap/shared";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Legacy path handler for /print/[shop_id].
  * Permanently redirects customers to the canonical shop subdomain:
- * https://{shop_slug}.mellod.in
+ * https://{shop_name_or_slug}.mellod.in
  */
 export default async function LegacyPrintPage({ params }: Props) {
   const { shop_id } = await params;
@@ -30,7 +30,7 @@ export default async function LegacyPrintPage({ params }: Props) {
     notFound();
   }
 
-  // Permanent 308 redirect to the dedicated subdomain
-  const targetSubdomainUrl = getCustomerPrintUrl(shop.slug || shop.id);
+  // Permanent 308 redirect to the dedicated shop name subdomain (never UID)
+  const targetSubdomainUrl = getShopCustomerUrl(shop);
   redirect(targetSubdomainUrl);
 }

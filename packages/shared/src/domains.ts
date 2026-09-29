@@ -42,9 +42,33 @@ export function sanitizeSubdomain(input: string): string {
  * Computes the customer print URL for a specific shop.
  * Example: "rahuls-xerox" -> "https://rahuls-xerox.mellod.in"
  */
-export function getCustomerPrintUrl(slugOrId: string): string {
-  const clean = sanitizeSubdomain(slugOrId);
+export function getCustomerPrintUrl(slugOrName: string): string {
+  const clean = sanitizeSubdomain(slugOrName);
   return `https://${clean}.${ROOT_DOMAIN}`;
+}
+
+/**
+ * Computes the canonical customer print URL from a shop object.
+ * Guaranteed to use the shop name or slug — never the raw UID!
+ * Priority:
+ *   1. shop.slug (if present)
+ *   2. sanitizeSubdomain(shop.name) (if present)
+ *   3. fallbackName (if provided)
+ */
+export function getShopCustomerUrl(
+  shop?: { slug?: string | null; name?: string | null; id?: string } | null,
+  fallbackName?: string
+): string {
+  if (shop?.slug && shop.slug.trim()) {
+    return getCustomerPrintUrl(shop.slug);
+  }
+  if (shop?.name && shop.name.trim()) {
+    return getCustomerPrintUrl(shop.name);
+  }
+  if (fallbackName && fallbackName.trim()) {
+    return getCustomerPrintUrl(fallbackName);
+  }
+  return `https://counter.${ROOT_DOMAIN}`;
 }
 
 export type SubdomainType =

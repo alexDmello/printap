@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getCustomerPrintUrl, ROOT_DOMAIN } from "@printap/shared";
+import { getShopCustomerUrl, ROOT_DOMAIN } from "@printap/shared";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import {
   IconQr,
@@ -11,19 +11,17 @@ import {
 } from "./Icons";
 
 export const CounterQr: React.FC = () => {
-  const { shop, shopId } = useAuth();
+  const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<HTMLDivElement>(null);
 
-  // Canonical customer print URL on mellod.in
+  // Canonical customer print URL on mellod.in (uses shop slug/name, never UUID)
   const targetUrl = React.useMemo(() => {
-    if (shop?.slug) return getCustomerPrintUrl(shop.slug);
-    if (shopId) return getCustomerPrintUrl(shopId);
-    return "";
-  }, [shop?.slug, shopId]);
+    return getShopCustomerUrl(shop, shop?.name || "shop");
+  }, [shop]);
 
   const copyToClipboard = () => {
     if (!targetUrl) return;

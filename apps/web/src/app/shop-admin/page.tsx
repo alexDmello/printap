@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { getSupabase, getCustomerPrintUrl, ROOT_DOMAIN, type ShopInfo } from "@printap/shared";
+import { getSupabase, getCustomerPrintUrl, getShopCustomerUrl, ROOT_DOMAIN, type ShopInfo } from "@printap/shared";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 
 type Tab = "overview" | "qr" | "printers" | "analytics" | "profile";
@@ -42,7 +42,7 @@ export default function ShopAdminPage() {
   const [newPrinterName, setNewPrinterName] = useState("");
   const [newPrinterRole, setNewPrinterRole] = useState<"bw" | "color" | "both">("bw");
 
-  const customerUrl = shop ? getCustomerPrintUrl(shop.slug || shop.id) : "";
+  const customerUrl = getShopCustomerUrl(shop);
 
   // 1. Restore login from localStorage
   const loadShop = useCallback(async (id: string) => {

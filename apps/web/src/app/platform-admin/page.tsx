@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   getSupabase,
   getCustomerPrintUrl,
+  getShopCustomerUrl,
   ROOT_DOMAIN,
   SHOP_ADMIN_URL,
   sanitizeSubdomain,
@@ -384,7 +385,7 @@ export default function PlatformAdminPage() {
                 </thead>
                 <tbody className="divide-y divide-[--color-border]/40">
                   {filteredShops.map((s) => {
-                    const shopUrl = getCustomerPrintUrl(s.slug || s.id);
+                    const shopUrl = getShopCustomerUrl(s);
                     const isSuspended = s.status === "suspended";
 
                     return (

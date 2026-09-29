@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getCustomerPrintUrl } from "@printap/shared";
+import { getShopCustomerUrl } from "@printap/shared";
 import { IconLive, IconPrinter, IconQr, IconCopy, IconCheck } from "./Icons";
 
 export interface LiveJob {
@@ -33,14 +33,10 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   isListening,
   connectedPrintersCount,
 }) => {
-  const { shop, shopId } = useAuth();
+  const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const customerUrl = shop?.slug
-    ? getCustomerPrintUrl(shop.slug)
-    : shopId
-    ? getCustomerPrintUrl(shopId)
-    : "";
+  const customerUrl = getShopCustomerUrl(shop, shop?.name || "shop");
 
   const handleCopyLink = () => {
     if (!customerUrl) return;

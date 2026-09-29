@@ -15,6 +15,7 @@ export {
   PLATFORM_ADMIN_URL,
   sanitizeSubdomain,
   getCustomerPrintUrl,
+  getShopCustomerUrl,
   extractSubdomain,
   type SubdomainType,
 } from "./domains";

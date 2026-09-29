@@ -49,14 +49,14 @@ export const Login: React.FC = () => {
                 display: "block",
               }}
             >
-              Shop ID (Terminal UUID)
+              Shop Name, Slug, or Terminal ID
             </label>
           </div>
 
           <input
             type="text"
             className="login-input"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            placeholder="e.g. my-test-shop, My Test Shop, or UUID"
             value={shopIdInput}
             onChange={(e) => {
               setShopIdInput(e.target.value);

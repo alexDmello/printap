@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getCustomerPrintUrl } from "@printap/shared";
+import { getShopCustomerUrl } from "@printap/shared";
 import { IconCopy, IconCheck, IconQr, IconShield } from "./Icons";
 
 interface ProfileProps {
@@ -17,11 +17,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigateToQr }) => {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const customerUrl = shop?.slug
-    ? getCustomerPrintUrl(shop.slug)
-    : shopId
-    ? getCustomerPrintUrl(shopId)
-    : "";
+  const customerUrl = getShopCustomerUrl(shop, shop?.name || "shop");
 
   return (
     <div className="content fade-in">

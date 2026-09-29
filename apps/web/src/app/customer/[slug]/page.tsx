@@ -1,4 +1,4 @@
-import { getSupabase } from "@printap/shared";
+import { getSupabase, sanitizeSubdomain } from "@printap/shared";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import PrintClient from "@/components/customer/print-client";
@@ -11,15 +11,19 @@ async function fetchShopBySlugOrId(slugOrId: string) {
   const supabase = getSupabase();
   const clean = decodeURIComponent(slugOrId).toLowerCase().trim();
 
-  // 1. Try finding by slug first
-  const { data: shopBySlug } = await supabase
-    .from("shops")
-    .select("id, name, upi_vpa, status, slug, price_bw, price_color")
-    .eq("slug", clean)
-    .maybeSingle();
+  // 1. Try finding by slug first (resilient select *)
+  try {
+    const { data: shopBySlug, error: slugErr } = await supabase
+      .from("shops")
+      .select("*")
+      .eq("slug", clean)
+      .maybeSingle();
 
-  if (shopBySlug) {
-    return shopBySlug;
+    if (shopBySlug && !slugErr) {
+      return shopBySlug;
+    }
+  } catch (err) {
+    console.warn("[Customer] Slug query exception:", err);
   }
 
   // 2. If not found by slug, check if input is a valid UUID
@@ -29,15 +33,43 @@ async function fetchShopBySlugOrId(slugOrId: string) {
     );
 
   if (isUuid) {
-    const { data: shopById } = await supabase
-      .from("shops")
-      .select("id, name, upi_vpa, status, slug, price_bw, price_color")
-      .eq("id", clean)
-      .maybeSingle();
+    try {
+      const { data: shopById, error: idErr } = await supabase
+        .from("shops")
+        .select("*")
+        .eq("id", clean)
+        .maybeSingle();
 
-    if (shopById) {
-      return shopById;
+      if (shopById && !idErr) {
+        return shopById;
+      }
+    } catch (err) {
+      console.warn("[Customer] UUID query exception:", err);
     }
+  }
+
+  // 3. Fallback: match by sanitized shop name (e.g. "My Test Shop" -> "my-test-shop")
+  try {
+    const { data: allShops } = await supabase
+      .from("shops")
+      .select("*")
+      .eq("status", "active");
+
+    if (allShops && allShops.length > 0) {
+      // Find shop whose sanitized name matches `clean`
+      const matched = allShops.find((s) => sanitizeSubdomain(s.name) === clean);
+      if (matched) {
+        return matched;
+      }
+
+      // If there is only one active shop on the platform, fall back to it
+      // so customers scanning a counter QR never get stranded on a 404
+      if (allShops.length === 1) {
+        return allShops[0];
+      }
+    }
+  } catch (err) {
+    console.warn("[Customer] Fallback name query exception:", err);
   }
 
   return null;

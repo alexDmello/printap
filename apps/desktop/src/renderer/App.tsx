@@ -5,9 +5,9 @@ import { Login } from "./components/Login";
 import { LiveDashboard, type LiveJob } from "./components/LiveDashboard";
 import { Profile } from "./components/Profile";
 import { PrintersControl, type PrinterAssignment } from "./components/PrintersControl";
+import { ServicesRates } from "./components/ServicesRates";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
-import { ServicesControl } from "./components/ServicesControl";
 import {
   startShopSignaling,
   stopShopSignaling,
@@ -526,7 +526,7 @@ function ShopAdminShell(): React.ReactElement {
               overflow: "hidden",
             }}
           >
-            <ServicesControl />
+            <ServicesRates />
           </div>
 
           <div

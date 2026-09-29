@@ -49,7 +49,11 @@ interface ElectronAPI {
   printPdf: (
     buffer: ArrayBuffer,
     sessionId: string,
-    options?: { printer?: string; copies?: number }
+    options?: {
+      printer?: string;
+      copies?: number;
+      orientation?: "portrait" | "landscape";
+    }
   ) => Promise<PrintResult>;
 
   listPrinters: () => Promise<ListPrintersResult>;

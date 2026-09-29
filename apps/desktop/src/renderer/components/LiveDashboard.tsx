@@ -11,6 +11,11 @@ export interface LiveJob {
   stage?: string;
   detail?: string;
   timestamp: Date;
+  tokenCode?: string;
+  pickupPin?: string;
+  fileCount?: number;
+  totalAmount?: number;
+  paymentMethod?: string;
 }
 
 interface LiveDashboardProps {
@@ -178,6 +183,36 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               <span className="status-badge active">
                 {getStatusBadge(currentJob.status).label}
               </span>
+              {currentJob.tokenCode && (
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: "6px",
+                    background: "rgba(99, 102, 241, 0.15)",
+                    color: "#6366f1",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  Token: {currentJob.tokenCode}
+                </span>
+              )}
+              {currentJob.pickupPin && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontFamily: "Geist Mono, monospace",
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                    background: "rgba(16, 185, 129, 0.12)",
+                    color: "#10b981",
+                    fontWeight: 600,
+                  }}
+                >
+                  PIN: {currentJob.pickupPin}
+                </span>
+              )}
               <span
                 style={{
                   fontSize: 12,
@@ -373,9 +408,37 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 >
                   <span className={getStatusBadge(job.status).className} />
                   <div className="job-name">
+                    {job.tokenCode && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: "4px",
+                          background: "rgba(99, 102, 241, 0.15)",
+                          color: "#6366f1",
+                          marginRight: 6,
+                        }}
+                      >
+                        {job.tokenCode}
+                      </span>
+                    )}
                     <span>
                       {job.fileName || `Document #${job.sessionId.slice(0, 8)}`}
                     </span>
+                    {job.pickupPin && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "Geist Mono, monospace",
+                          color: "var(--accent-emerald)",
+                          marginLeft: 6,
+                          fontWeight: 600,
+                        }}
+                      >
+                        (PIN: {job.pickupPin})
+                      </span>
+                    )}
                     {job.detail && (
                       <span
                         style={{

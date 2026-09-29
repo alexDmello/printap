@@ -14,7 +14,7 @@ async function fetchShopBySlugOrId(slugOrId: string) {
   // 1. Try finding by slug first
   const { data: shopBySlug } = await supabase
     .from("shops")
-    .select("id, name, upi_vpa, status, slug")
+    .select("id, name, upi_vpa, status, slug, price_bw, price_color")
     .eq("slug", clean)
     .maybeSingle();
 
@@ -31,7 +31,7 @@ async function fetchShopBySlugOrId(slugOrId: string) {
   if (isUuid) {
     const { data: shopById } = await supabase
       .from("shops")
-      .select("id, name, upi_vpa, status, slug")
+      .select("id, name, upi_vpa, status, slug, price_bw, price_color")
       .eq("id", clean)
       .maybeSingle();
 
@@ -108,6 +108,8 @@ export default async function CustomerShopPage({ params }: Props) {
       shopId={shop.id}
       shopName={shop.name}
       upiVpa={shop.upi_vpa}
+      priceBw={shop.price_bw ?? undefined}
+      priceColor={shop.price_color ?? undefined}
     />
   );
 }

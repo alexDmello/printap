@@ -1,0 +1,283 @@
+/**
+ * Printap — Shared Type Definitions
+ *
+ * Defines all data contracts for the customer print flow,
+ * shop rate cards, finishing services, and queue/token system.
+ */
+
+// ─── Print Settings (per-document) ───
+
+export type ColorMode = "bw" | "color";
+export type DuplexMode = "single" | "double";
+export type PagesPerSheet = 1 | 2 | 4 | 6 | 9;
+export type PageFit = "fit" | "fill";
+export type Orientation = "portrait" | "landscape";
+
+export interface PrintSettings {
+  copies: number;
+  colorMode: ColorMode;
+  duplex: DuplexMode;
+  pagesPerSheet: PagesPerSheet;
+  pageFit: PageFit;
+  orientation: Orientation;
+}
+
+export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
+  copies: 1,
+  colorMode: "bw",
+  duplex: "single",
+  pagesPerSheet: 1,
+  pageFit: "fit",
+  orientation: "portrait",
+};
+
+// ─── Uploaded Document ───
+
+export type DocumentType = "pdf" | "image";
+
+export interface UploadedDocument {
+  /** Client-side unique ID for this document in the batch */
+  id: string;
+  file: File;
+  type: DocumentType;
+  /** Page count (parsed client-side for PDFs, 1 for images) */
+  pageCount: number;
+  /** Thumbnail data URL (first page render for PDFs, image preview for photos) */
+  thumbnailUrl?: string;
+  /** Per-document print settings */
+  settings: PrintSettings;
+}
+
+// ─── Finishing / Add-on Services ───
+
+export type FinishingServiceType =
+  | "spiral_binding"
+  | "corner_staple"
+  | "hard_binding"
+  | "lamination";
+
+export type FinishingChargeUnit = "per_copy" | "per_sheet";
+
+export interface FinishingService {
+  type: FinishingServiceType;
+  label: string;
+  price: number;
+  chargeUnit: FinishingChargeUnit;
+  enabled: boolean;
+}
+
+export const DEFAULT_FINISHING_SERVICES: FinishingService[] = [
+  { type: "spiral_binding", label: "Spiral Binding", price: 30, chargeUnit: "per_copy", enabled: false },
+  { type: "corner_staple", label: "Corner Staple", price: 5, chargeUnit: "per_copy", enabled: false },
+  { type: "hard_binding", label: "Hard Binding", price: 80, chargeUnit: "per_copy", enabled: false },
+  { type: "lamination", label: "Lamination", price: 10, chargeUnit: "per_sheet", enabled: false },
+];
+
+// ─── Shop Rate Card ───
+
+export interface ShopRateCard {
+  /** Price per B&W printed page in ₹ */
+  priceBwPerPage: number;
+  /** Price per Color printed page in ₹ */
+  priceColorPerPage: number;
+  /** Finishing services offered with custom pricing */
+  finishingServices: FinishingService[];
+}
+
+export const DEFAULT_RATE_CARD: ShopRateCard = {
+  priceBwPerPage: 2,
+  priceColorPerPage: 10,
+  finishingServices: [...DEFAULT_FINISHING_SERVICES],
+};
+
+// ─── Payment ───
+
+export type PaymentMethod = "upi" | "cash";
+
+export type PaymentStatus =
+  | "pending"
+  | "awaiting_cash_confirmation"
+  | "confirmed"
+  | "failed";
+
+export interface PaymentInfo {
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amount: number;
+  upiTransactionRef?: string;
+}
+
+// ─── Queue / Token ───
+
+export type JobStatus =
+  | "pending_payment"
+  | "queued"
+  | "printing"
+  | "ready_for_pickup"
+  | "picked_up"
+  | "cancelled";
+
+export interface QueueToken {
+  /** Display code like "A-14" */
+  tokenCode: string;
+  /** 4-digit PIN for secure pickup */
+  pickupPin: string;
+  /** Current position in queue (1-indexed) */
+  queuePosition: number;
+  /** Estimated wait in minutes */
+  estimatedWaitMinutes: number;
+}
+
+// ─── Print Order (full session) ───
+
+export interface PrintOrder {
+  /** Unique order ID */
+  id: string;
+  /** Shop this order belongs to */
+  shopId: string;
+  /** WebRTC session ID */
+  sessionId: string;
+  /** All documents in this order */
+  documents: UploadedDocument[];
+  /** Selected finishing services */
+  finishingServices: FinishingService[];
+  /** Payment info */
+  payment: PaymentInfo;
+  /** Queue/token info (set after payment confirmation) */
+  token?: QueueToken;
+  /** Current job status */
+  status: JobStatus;
+  /** Timestamp of order creation */
+  createdAt: string;
+}
+
+// ─── Price Calculation Helpers ───
+
+/**
+ * Calculates the number of physical sheets for a document
+ * based on its settings (duplex, pages per sheet, page count).
+ */
+export function calculateSheets(pageCount: number, settings: PrintSettings): number {
+  const logicalPages = Math.ceil(pageCount / settings.pagesPerSheet);
+  const sheets = settings.duplex === "double"
+    ? Math.ceil(logicalPages / 2)
+    : logicalPages;
+  return sheets;
+}
+
+/**
+ * Calculates the total price for a single document.
+ */
+export function calculateDocumentPrice(
+  doc: UploadedDocument,
+  rateCard: ShopRateCard
+): number {
+  const sheets = calculateSheets(doc.pageCount, doc.settings);
+  const pricePerPage = doc.settings.colorMode === "color"
+    ? rateCard.priceColorPerPage
+    : rateCard.priceBwPerPage;
+  return sheets * pricePerPage * doc.settings.copies;
+}
+
+/**
+ * Calculates the finishing services cost for a single document.
+ */
+export function calculateFinishingCost(
+  doc: UploadedDocument,
+  activeFinishing: FinishingService[]
+): number {
+  const sheets = calculateSheets(doc.pageCount, doc.settings);
+  let cost = 0;
+  for (const service of activeFinishing) {
+    if (service.chargeUnit === "per_sheet") {
+      cost += service.price * sheets * doc.settings.copies;
+    } else {
+      cost += service.price * doc.settings.copies;
+    }
+  }
+  return cost;
+}
+
+/**
+ * Calculates the grand total for an entire order.
+ */
+export function calculateOrderTotal(
+  documents: UploadedDocument[],
+  rateCard: ShopRateCard,
+  activeFinishing: FinishingService[]
+): number {
+  let total = 0;
+  for (const doc of documents) {
+    total += calculateDocumentPrice(doc, rateCard);
+    total += calculateFinishingCost(doc, activeFinishing);
+  }
+  return total;
+}
+
+export const SESSION_STORAGE_KEY = (shopId: string) =>
+  `printap_active_order_${shopId}`;
+
+export interface PersistedSession {
+  orderId: string;
+  shopId: string;
+  token: QueueToken;
+  status: JobStatus;
+  createdAt: string;
+}
+
+// ─── WebRTC Transfer Protocol Payloads ───
+
+export interface TransferManifestOrder {
+  tokenCode: string;
+  pickupPin: string;
+  queuePosition: number;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  finishingServices?: { type: string; label: string; price: number }[];
+  totalFiles: number;
+}
+
+export interface TransferManifestFile {
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  pageCount: number;
+  settings: PrintSettings;
+}
+
+export interface TransferManifestMessage {
+  type: "order-manifest";
+  sessionId: string;
+  order: TransferManifestOrder;
+  files: TransferManifestFile[];
+}
+
+export interface TransferFileHeaderMessage {
+  type: "file-header";
+  sessionId: string;
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  totalChunks: number;
+  pageCount: number;
+  settings: PrintSettings;
+}
+
+export interface TransferFileEofMessage {
+  type: "file-eof";
+  sessionId: string;
+  fileId: string;
+}
+
+export interface TransferOrderCompleteMessage {
+  type: "order-complete";
+  sessionId: string;
+}
+
+export type TransferMessage =
+  | TransferManifestMessage
+  | TransferFileHeaderMessage
+  | TransferFileEofMessage
+  | TransferOrderCompleteMessage;
+

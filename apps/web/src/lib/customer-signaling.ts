@@ -1,22 +1,28 @@
 /**
- * Customer-side WebRTC handler.
+ * Customer-side WebRTC handler for Multi-File & Print Settings Streaming.
  *
  * Creates a peer connection, generates an SDP offer, and sends it via
  * Supabase Realtime Broadcast. Once the shop's Electron agent answers,
- * a DataChannel is opened and the file is streamed in 64KB chunks.
- *
- * Flow:
- *   1. joinSignalingChannel(shopId)
- *   2. createOffer → broadcast "webrtc-offer"
- *   3. Listen for "webrtc-answer" → setRemoteDescription
- *   4. Exchange ICE candidates via "webrtc-ice"
- *   5. DataChannel opens → sendFile()
+ * a DataChannel is opened and:
+ *   1. Sends order manifest (token code, pickup PIN, total, settings, file list)
+ *   2. Sequentially streams each file in 64KB chunks with backpressure
+ *   3. Emits per-file and overall progress updates
+ *   4. Sends order completion signal
  */
 
 import {
   joinSignalingChannel,
   broadcast,
   type SignalPayload,
+  type UploadedDocument,
+  type QueueToken,
+  type PaymentMethod,
+  type PaymentStatus,
+  type FinishingService,
+  type TransferManifestMessage,
+  type TransferFileHeaderMessage,
+  type TransferFileEofMessage,
+  type TransferOrderCompleteMessage,
 } from "@printap/shared";
 
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks
@@ -35,59 +41,78 @@ export type TransferStatus =
 
 export interface TransferProgress {
   status: TransferStatus;
-  /** 0–100 */
+  /** 0–100 overall progress */
   percent: number;
-  /** Bytes sent so far */
+  /** Bytes sent so far across all files */
   bytesSent: number;
-  /** Total file size */
+  /** Total bytes of all files combined */
   totalBytes: number;
+  /** 1-indexed number of the file currently being transferred */
+  currentFileIndex?: number;
+  /** Name of the current file being transferred */
+  currentFileName?: string;
+  /** Total number of files in this order */
+  totalFiles?: number;
   error?: string;
 }
 
-type ProgressCallback = (progress: TransferProgress) => void;
+export type ProgressCallback = (progress: TransferProgress) => void;
+
+export interface SendOrderPayload {
+  shopId: string;
+  sessionId: string;
+  documents: UploadedDocument[];
+  token: QueueToken;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  totalAmount: number;
+  finishingServices: FinishingService[];
+}
 
 /**
- * Connect to the shop's Electron agent and stream a file over WebRTC.
- *
- * Returns the sessionId so the caller can correlate the transfer.
+ * Connect to the shop's Electron agent and stream an entire order
+ * (manifest + multiple files with print settings) over WebRTC.
  */
-export async function sendFileToShop(
-  shopId: string,
-  file: File,
-  sessionId: string,
+export async function sendOrderToShop(
+  payload: SendOrderPayload,
   onProgress: ProgressCallback
 ): Promise<void> {
+  const { shopId, sessionId, documents } = payload;
+  const totalBytes = documents.reduce((acc, d) => acc + d.file.size, 0);
+
   onProgress({
     status: "connecting",
     percent: 0,
     bytesSent: 0,
-    totalBytes: file.size,
+    totalBytes,
+    totalFiles: documents.length,
+    currentFileIndex: 1,
+    currentFileName: documents[0]?.file.name,
   });
 
   const channel = joinSignalingChannel(shopId);
 
-  // Wait for channel to be subscribed
+  // Wait for channel to subscribe
   await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Channel subscribe timeout")), 10_000);
-    const checkStatus = () => {
-      // Channel status is logged; we give it a short delay to connect
-      setTimeout(() => {
-        clearTimeout(timeout);
-        resolve();
-      }, 1500);
-    };
-    checkStatus();
+    const timeout = setTimeout(
+      () => reject(new Error("Channel subscribe timeout")),
+      10_000
+    );
+    setTimeout(() => {
+      clearTimeout(timeout);
+      resolve();
+    }, 1200);
   });
 
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
-  // Create the DataChannel BEFORE creating the offer (required by WebRTC spec)
-  const dc = pc.createDataChannel("file-transfer", {
+  // Create DataChannel before offer
+  const dc = pc.createDataChannel("order-transfer", {
     ordered: true,
   });
   dc.binaryType = "arraybuffer";
 
-  // Relay our ICE candidates
+  // Relay ICE candidates
   pc.onicecandidate = (event) => {
     if (event.candidate) {
       broadcast(channel, "webrtc-ice", {
@@ -97,9 +122,9 @@ export async function sendFileToShop(
     }
   };
 
-  // Listen for the shop's answer
-  channel.on("broadcast", { event: "webrtc-answer" }, async ({ payload }) => {
-    const { sessionId: answerSessionId, data } = payload as SignalPayload;
+  // Listen for shop answer
+  channel.on("broadcast", { event: "webrtc-answer" }, async ({ payload: resPayload }) => {
+    const { sessionId: answerSessionId, data } = resPayload as SignalPayload;
     if (answerSessionId !== sessionId) return;
 
     console.log(`[customer] Received answer for session ${sessionId}`);
@@ -108,9 +133,9 @@ export async function sendFileToShop(
     );
   });
 
-  // Listen for the shop's ICE candidates
-  channel.on("broadcast", { event: "webrtc-ice" }, async ({ payload }) => {
-    const { sessionId: iceSessionId, data } = payload as SignalPayload;
+  // Listen for shop ICE candidates
+  channel.on("broadcast", { event: "webrtc-ice" }, async ({ payload: resPayload }) => {
+    const { sessionId: iceSessionId, data } = resPayload as SignalPayload;
     if (iceSessionId !== sessionId) return;
 
     try {
@@ -120,17 +145,31 @@ export async function sendFileToShop(
     }
   });
 
-  // When DataChannel opens, stream the file
-  dc.onopen = () => {
-    console.log(`[customer] DataChannel open — starting file transfer`);
+  // Handle data channel lifecycle
+  dc.onopen = async () => {
+    console.log(`[customer] DataChannel opened — streaming order manifest & files`);
     onProgress({
       status: "connected",
       percent: 0,
       bytesSent: 0,
-      totalBytes: file.size,
+      totalBytes,
+      totalFiles: documents.length,
+      currentFileIndex: 1,
+      currentFileName: documents[0]?.file.name,
     });
 
-    streamFile(dc, file, onProgress);
+    try {
+      await streamOrder(dc, payload, onProgress);
+    } catch (err) {
+      console.error(`[customer] Error during order stream:`, err);
+      onProgress({
+        status: "error",
+        percent: 0,
+        bytesSent: 0,
+        totalBytes,
+        error: String(err),
+      });
+    }
   };
 
   dc.onerror = (err) => {
@@ -139,12 +178,12 @@ export async function sendFileToShop(
       status: "error",
       percent: 0,
       bytesSent: 0,
-      totalBytes: file.size,
+      totalBytes,
       error: "DataChannel error",
     });
   };
 
-  // Create and send the offer
+  // Create and send offer
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
@@ -157,111 +196,188 @@ export async function sendFileToShop(
 }
 
 /**
- * Stream a file over the DataChannel in 64KB chunks.
- * Uses bufferedAmountLowThreshold to apply backpressure and prevent
- * browser memory issues with large PDFs.
+ * Streams the order manifest and sequentially transmits each document.
  */
-async function streamFile(
+async function streamOrder(
   dc: RTCDataChannel,
-  file: File,
+  payload: SendOrderPayload,
   onProgress: ProgressCallback
 ): Promise<void> {
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  const {
+    documents,
+    token,
+    sessionId,
+    paymentMethod,
+    paymentStatus,
+    totalAmount,
+    finishingServices,
+  } = payload;
+  const totalBytes = documents.reduce((acc, d) => acc + d.file.size, 0);
 
-  // Send metadata first
-  dc.send(
-    JSON.stringify({
+  // 1. Send Order Manifest
+  const manifest: TransferManifestMessage = {
+    type: "order-manifest",
+    sessionId,
+    order: {
+      tokenCode: token.tokenCode,
+      pickupPin: token.pickupPin,
+      queuePosition: token.queuePosition,
+      totalAmount,
+      paymentMethod,
+      paymentStatus,
+      finishingServices: finishingServices.map((f) => ({
+        type: f.type,
+        label: f.label,
+        price: f.price,
+      })),
+      totalFiles: documents.length,
+    },
+    files: documents.map((d) => ({
+      fileId: d.id,
+      fileName: d.file.name,
+      fileSize: d.file.size,
+      pageCount: d.pageCount,
+      settings: d.settings,
+    })),
+  };
+
+  dc.send(JSON.stringify(manifest));
+
+  // Set backpressure threshold
+  dc.bufferedAmountLowThreshold = 128 * 1024;
+  let overallBytesSent = 0;
+
+  // 2. Stream each document
+  for (let i = 0; i < documents.length; i++) {
+    const doc = documents[i];
+    const file = doc.file;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    // Send file header
+    const fileHeader: TransferFileHeaderMessage = {
+      type: "file-header",
+      sessionId,
+      fileId: doc.id,
       fileName: file.name,
       fileSize: file.size,
       totalChunks,
-    })
-  );
+      pageCount: doc.pageCount,
+      settings: doc.settings,
+    };
+    dc.send(JSON.stringify(fileHeader));
+
+    onProgress({
+      status: "sending",
+      percent: totalBytes > 0 ? Math.round((overallBytesSent / totalBytes) * 100) : 0,
+      bytesSent: overallBytesSent,
+      totalBytes,
+      currentFileIndex: i + 1,
+      currentFileName: file.name,
+      totalFiles: documents.length,
+    });
+
+    let offset = 0;
+    while (offset < file.size) {
+      // Check buffer drain if approaching threshold
+      if (dc.bufferedAmount > dc.bufferedAmountLowThreshold) {
+        await new Promise<void>((resolve) => {
+          dc.onbufferedamountlow = () => {
+            dc.onbufferedamountlow = null;
+            resolve();
+          };
+        });
+      }
+
+      const end = Math.min(offset + CHUNK_SIZE, file.size);
+      const slice = file.slice(offset, end);
+      const buf = await slice.arrayBuffer();
+
+      dc.send(buf);
+      overallBytesSent += (end - offset);
+      offset = end;
+
+      onProgress({
+        status: "sending",
+        percent: totalBytes > 0 ? Math.round((overallBytesSent / totalBytes) * 100) : 0,
+        bytesSent: overallBytesSent,
+        totalBytes,
+        currentFileIndex: i + 1,
+        currentFileName: file.name,
+        totalFiles: documents.length,
+      });
+    }
+
+    // Send file-eof for this file
+    const fileEof: TransferFileEofMessage = {
+      type: "file-eof",
+      sessionId,
+      fileId: doc.id,
+    };
+    dc.send(JSON.stringify(fileEof));
+    // Also send legacy "EOF" string for older shop terminals
+    dc.send("EOF");
+  }
+
+  // 3. Send order-complete message
+  const orderComplete: TransferOrderCompleteMessage = {
+    type: "order-complete",
+    sessionId,
+  };
+  dc.send(JSON.stringify(orderComplete));
 
   onProgress({
-    status: "sending",
-    percent: 0,
-    bytesSent: 0,
-    totalBytes: file.size,
+    status: "complete",
+    percent: 100,
+    bytesSent: totalBytes,
+    totalBytes,
+    currentFileIndex: documents.length,
+    currentFileName: documents[documents.length - 1]?.file.name,
+    totalFiles: documents.length,
   });
+}
 
-  // Set backpressure threshold (128KB buffer)
-  dc.bufferedAmountLowThreshold = 128 * 1024;
-
-  let offset = 0;
-  let chunkIndex = 0;
-
-  const sendNextChunk = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const sendChunk = () => {
-        while (offset < file.size) {
-          // If buffer is getting full, wait for it to drain
-          if (dc.bufferedAmount > dc.bufferedAmountLowThreshold) {
-            dc.onbufferedamountlow = () => {
-              dc.onbufferedamountlow = null;
-              sendChunk();
-            };
-            return;
-          }
-
-          const end = Math.min(offset + CHUNK_SIZE, file.size);
-          const slice = file.slice(offset, end);
-
-          // Read the slice as ArrayBuffer and send
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              dc.send(reader.result as ArrayBuffer);
-              chunkIndex++;
-              offset = end;
-
-              onProgress({
-                status: "sending",
-                percent: Math.round((offset / file.size) * 100),
-                bytesSent: offset,
-                totalBytes: file.size,
-              });
-
-              // Continue with next chunk
-              if (offset < file.size) {
-                sendChunk();
-              } else {
-                // All chunks sent — send EOF
-                dc.send("EOF");
-                onProgress({
-                  status: "complete",
-                  percent: 100,
-                  bytesSent: file.size,
-                  totalBytes: file.size,
-                });
-                resolve();
-              }
-            } catch (err) {
-              reject(err);
-            }
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsArrayBuffer(slice);
-          return; // Wait for FileReader callback
-        }
-
-        // Shouldn't reach here, but just in case
-        resolve();
-      };
-
-      sendChunk();
-    });
+/**
+ * Legacy single-file transfer wrapper for backwards compatibility.
+ */
+export async function sendFileToShop(
+  shopId: string,
+  file: File,
+  sessionId: string,
+  onProgress: ProgressCallback
+): Promise<void> {
+  const dummyDoc: UploadedDocument = {
+    id: crypto.randomUUID(),
+    file,
+    type: file.type.includes("pdf") ? "pdf" : "image",
+    pageCount: 1,
+    settings: {
+      copies: 1,
+      colorMode: "bw",
+      duplex: "single",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+    },
   };
 
-  try {
-    await sendNextChunk();
-  } catch (err) {
-    console.error(`[customer] File transfer error:`, err);
-    onProgress({
-      status: "error",
-      percent: Math.round((offset / file.size) * 100),
-      bytesSent: offset,
-      totalBytes: file.size,
-      error: String(err),
-    });
-  }
+  const dummyToken: QueueToken = {
+    tokenCode: "A-01",
+    pickupPin: "1234",
+    queuePosition: 1,
+    estimatedWaitMinutes: 2,
+  };
+
+  return sendOrderToShop(
+    {
+      shopId,
+      sessionId,
+      documents: [dummyDoc],
+      token: dummyToken,
+      paymentMethod: "upi",
+      paymentStatus: "confirmed",
+      totalAmount: 0,
+      finishingServices: [],
+    },
+    onProgress
+  );
 }

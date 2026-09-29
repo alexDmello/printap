@@ -4,12 +4,18 @@
  * Listens on the Supabase Realtime Broadcast channel for WebRTC offers
  * from customers. For each offer, creates a peer connection, generates
  * an answer, and relays ICE candidates back through the same channel.
+ *
+ * Supports both legacy single-file transfers and rich multi-file orders
+ * with print settings, token codes, and pickup PINs.
  */
 
 import {
   joinSignalingChannel,
   broadcast,
   type SignalPayload,
+  type PrintSettings,
+  type TransferManifestOrder,
+  type TransferFileHeaderMessage,
 } from "@printap/shared";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -29,11 +35,28 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun1.l.google.com:19302" },
 ];
 
+export interface ReceivedOrderFile {
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  pageCount: number;
+  settings: PrintSettings;
+  buffer: ArrayBuffer;
+}
+
+export interface ReceivedOrder {
+  sessionId: string;
+  order: TransferManifestOrder;
+  files: ReceivedOrderFile[];
+}
+
 export type FileReceivedCallback = (
   sessionId: string,
   fileBuffer: ArrayBuffer,
   fileName?: string
 ) => void;
+
+export type OrderReceivedCallback = (order: ReceivedOrder) => void;
 
 export interface SignalingCallbacks {
   onSessionStart?: (sessionId: string) => void;
@@ -42,9 +65,12 @@ export interface SignalingCallbacks {
     fileName: string,
     pct: number,
     received: number,
-    total: number
+    total: number,
+    fileIndex?: number,
+    totalFiles?: number
   ) => void;
   onFileReceived: FileReceivedCallback;
+  onOrderReceived?: OrderReceivedCallback;
   onSessionError?: (sessionId: string, error: string) => void;
 }
 
@@ -191,11 +217,7 @@ async function handleOffer(
 }
 
 /**
- * Set up the DataChannel to receive file chunks.
- * Protocol:
- *   - First message: JSON metadata { fileName, fileSize, totalChunks }
- *   - Subsequent messages: ArrayBuffer chunks (64KB each)
- *   - Last message: string "EOF"
+ * Set up the DataChannel to receive multi-file orders and file chunks.
  */
 function setupDataChannelReceiver(
   session: ShopSession,
@@ -204,50 +226,159 @@ function setupDataChannelReceiver(
   const dc = session.dataChannel!;
   dc.binaryType = "arraybuffer";
 
+  let manifest: TransferManifestOrder | null = null;
+  const receivedFiles: ReceivedOrderFile[] = [];
+
+  let currentFileHeader: TransferFileHeaderMessage | null = null;
   let chunks: ArrayBuffer[] = [];
   let expectedSize = 0;
   let receivedSize = 0;
-  let metadata: { fileName: string; fileSize: number; totalChunks: number } | null = null;
+  let legacyMetadata: { fileName: string; fileSize: number; totalChunks: number } | null = null;
 
   dc.onmessage = (event) => {
-    // String messages: metadata or EOF
+    // String messages: JSON messages or EOF
     if (typeof event.data === "string") {
+      // 1. Check for legacy plain EOF
       if (event.data === "EOF") {
-        console.log(
-          `[shop] Transfer complete: ${receivedSize}/${expectedSize} bytes`
-        );
-        // Assemble the file
-        const assembled = new Uint8Array(receivedSize);
-        let offset = 0;
-        for (const chunk of chunks) {
-          assembled.set(new Uint8Array(chunk), offset);
-          offset += chunk.byteLength;
-        }
-        const fileName = metadata?.fileName;
-        callbacks.onFileReceived(session.sessionId, assembled.buffer, fileName);
-
-        // Clean up
-        chunks = [];
-        metadata = null;
-        receivedSize = 0;
-      } else {
-        // Parse metadata
-        try {
-          metadata = JSON.parse(event.data);
-          expectedSize = metadata?.fileSize || 0;
-          console.log(`[shop] File metadata:`, metadata);
-          if (metadata) {
-            callbacks.onFileProgress?.(
-              session.sessionId,
-              metadata.fileName,
-              0,
-              0,
-              expectedSize
-            );
+        if (chunks.length > 0) {
+          const assembled = new Uint8Array(receivedSize);
+          let offset = 0;
+          for (const chunk of chunks) {
+            assembled.set(new Uint8Array(chunk), offset);
+            offset += chunk.byteLength;
           }
-        } catch (err) {
-          console.error(`[shop] Failed to parse metadata:`, err);
+
+          const fileName =
+            currentFileHeader?.fileName ||
+            legacyMetadata?.fileName ||
+            `file_${receivedFiles.length + 1}`;
+
+          if (currentFileHeader) {
+            const alreadyPushed = receivedFiles.some(
+              (f) => f.fileId === currentFileHeader!.fileId
+            );
+            if (!alreadyPushed) {
+              receivedFiles.push({
+                fileId: currentFileHeader.fileId,
+                fileName: currentFileHeader.fileName,
+                fileSize: currentFileHeader.fileSize,
+                pageCount: currentFileHeader.pageCount,
+                settings: currentFileHeader.settings,
+                buffer: assembled.buffer,
+              });
+            }
+          }
+
+          // Trigger single-file callback
+          callbacks.onFileReceived(session.sessionId, assembled.buffer, fileName);
+
+          chunks = [];
+          receivedSize = 0;
+          legacyMetadata = null;
         }
+        return;
+      }
+
+      // 2. Parse JSON
+      try {
+        const msg = JSON.parse(event.data);
+
+        // Case A: Order Manifest
+        if (msg.type === "order-manifest") {
+          console.log(`[shop] Order manifest received:`, msg);
+          manifest = msg.order;
+          return;
+        }
+
+        // Case B: File Header
+        if (msg.type === "file-header") {
+          console.log(`[shop] File header received:`, msg);
+          currentFileHeader = msg as TransferFileHeaderMessage;
+          expectedSize = currentFileHeader.fileSize;
+          receivedSize = 0;
+          chunks = [];
+          callbacks.onFileProgress?.(
+            session.sessionId,
+            currentFileHeader.fileName,
+            0,
+            0,
+            expectedSize,
+            receivedFiles.length + 1,
+            manifest?.totalFiles ?? 1
+          );
+          return;
+        }
+
+        // Case C: File EOF
+        if (msg.type === "file-eof") {
+          console.log(`[shop] File EOF received for ${msg.fileId}`);
+          if (currentFileHeader && chunks.length > 0) {
+            const assembled = new Uint8Array(receivedSize);
+            let offset = 0;
+            for (const chunk of chunks) {
+              assembled.set(new Uint8Array(chunk), offset);
+              offset += chunk.byteLength;
+            }
+
+            const alreadyPushed = receivedFiles.some(
+              (f) => f.fileId === currentFileHeader!.fileId
+            );
+            if (!alreadyPushed) {
+              receivedFiles.push({
+                fileId: currentFileHeader.fileId,
+                fileName: currentFileHeader.fileName,
+                fileSize: currentFileHeader.fileSize,
+                pageCount: currentFileHeader.pageCount,
+                settings: currentFileHeader.settings,
+                buffer: assembled.buffer,
+              });
+            }
+
+            callbacks.onFileReceived(
+              session.sessionId,
+              assembled.buffer,
+              currentFileHeader.fileName
+            );
+            chunks = [];
+            receivedSize = 0;
+          }
+          return;
+        }
+
+        // Case D: Order Complete
+        if (msg.type === "order-complete") {
+          console.log(
+            `[shop] Order complete received! Total files: ${receivedFiles.length}`
+          );
+          if (manifest && callbacks.onOrderReceived) {
+            callbacks.onOrderReceived({
+              sessionId: session.sessionId,
+              order: manifest,
+              files: receivedFiles,
+            });
+          }
+          return;
+        }
+
+        // Case E: Legacy metadata { fileName, fileSize, totalChunks }
+        if (msg.fileName && typeof msg.fileSize === "number") {
+          legacyMetadata = msg;
+          expectedSize = msg.fileSize;
+          receivedSize = 0;
+          chunks = [];
+          callbacks.onFileProgress?.(
+            session.sessionId,
+            msg.fileName,
+            0,
+            0,
+            expectedSize,
+            1,
+            1
+          );
+          return;
+        }
+      } catch (err) {
+        console.error(`[shop] Failed to parse message on DataChannel:`, err);
       }
       return;
     }
@@ -257,14 +388,24 @@ function setupDataChannelReceiver(
     chunks.push(chunk);
     receivedSize += chunk.byteLength;
 
-    if (metadata && expectedSize > 0) {
-      const pct = Math.min(100, Math.round((receivedSize / expectedSize) * 100));
+    const currentName =
+      currentFileHeader?.fileName ||
+      legacyMetadata?.fileName ||
+      "receiving...";
+
+    if (expectedSize > 0) {
+      const pct = Math.min(
+        100,
+        Math.round((receivedSize / expectedSize) * 100)
+      );
       callbacks.onFileProgress?.(
         session.sessionId,
-        metadata.fileName,
+        currentName,
         pct,
         receivedSize,
-        expectedSize
+        expectedSize,
+        receivedFiles.length + 1,
+        manifest?.totalFiles ?? 1
       );
     }
   };

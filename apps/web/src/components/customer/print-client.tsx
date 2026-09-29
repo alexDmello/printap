@@ -1,117 +1,238 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import React, { useState, useCallback, useEffect } from "react";
+import type {
+  UploadedDocument,
+  FinishingService,
+  ShopRateCard,
+  PaymentMethod,
+  QueueToken,
+  JobStatus,
+} from "@printap/shared";
 import {
-  sendFileToShop,
+  DEFAULT_RATE_CARD,
+  DEFAULT_FINISHING_SERVICES,
+  calculateOrderTotal,
+  SESSION_STORAGE_KEY,
+} from "@printap/shared";
+import {
+  sendOrderToShop,
   type TransferProgress,
 } from "@/lib/customer-signaling";
+
+import FileUpload from "./FileUpload";
+import PrintSettingsPanel from "./PrintSettings";
+import Checkout from "./Checkout";
+import TransferView from "./TransferView";
+import TokenConfirmation from "./TokenConfirmation";
+import LiveQueueTracker from "./LiveQueueTracker";
+import PickupReady from "./PickupReady";
+
+// ─── Step definitions ───
+
+type Step =
+  | "upload"
+  | "settings"
+  | "checkout"
+  | "transferring"
+  | "token"
+  | "queue"
+  | "pickup"
+  | "error";
+
+const STEP_LABELS: { key: Step; label: string }[] = [
+  { key: "upload", label: "Upload" },
+  { key: "settings", label: "Settings" },
+  { key: "checkout", label: "Pay" },
+  { key: "transferring", label: "Transfer" },
+  { key: "token", label: "Token" },
+  { key: "queue", label: "Queue" },
+  { key: "pickup", label: "Pickup" },
+];
 
 interface Props {
   shopId: string;
   shopName: string;
   upiVpa: string;
+  /** Optional rate card from database; falls back to defaults */
+  priceBw?: number;
+  priceColor?: number;
 }
 
-type Step = "upload" | "pay" | "transferring" | "done" | "error";
-
-const STEPS: { key: Step; label: string }[] = [
-  { key: "upload", label: "Upload" },
-  { key: "pay", label: "Pay" },
-  { key: "transferring", label: "Transfer" },
-  { key: "done", label: "Done" },
-];
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+/**
+ * Generates a token code like "A-14"
+ */
+function generateTokenCode(): string {
+  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  const num = Math.floor(Math.random() * 50) + 1;
+  return `${letter}-${num}`;
 }
 
-export default function PrintClient({ shopId, shopName, upiVpa }: Props) {
+/**
+ * Generates a 4-digit PIN
+ */
+function generatePickupPin(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+export default function PrintClient({
+  shopId,
+  shopName,
+  upiVpa,
+  priceBw,
+  priceColor,
+}: Props) {
+  // ─── State ───
   const [step, setStep] = useState<Step>("upload");
-  const [file, setFile] = useState<File | null>(null);
+  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  const [finishingServices, setFinishingServices] = useState<FinishingService[]>(
+    [...DEFAULT_FINISHING_SERVICES]
+  );
   const [progress, setProgress] = useState<TransferProgress | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string>("");
-  const [copies, setCopies] = useState(1);
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [token, setToken] = useState<QueueToken | null>(null);
+  const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
 
-  const amount = copies * 10;
+  // Build rate card from props or defaults
+  const rateCard: ShopRateCard = {
+    priceBwPerPage: priceBw ?? DEFAULT_RATE_CARD.priceBwPerPage,
+    priceColorPerPage: priceColor ?? DEFAULT_RATE_CARD.priceColorPerPage,
+    finishingServices,
+  };
 
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(upiVpa)}&pn=${encodeURIComponent(shopName)}&am=${amount.toFixed(2)}&cu=INR&tn=Printap-${shopId.slice(0, 8)}`;
+  const activeFinishing = finishingServices.filter((s) => s.enabled);
 
-  // Step index for the progress bar
-  const stepIndex = STEPS.findIndex((s) => s.key === step);
+  const totalAmount = calculateOrderTotal(documents, rateCard, activeFinishing);
+
+  // Step index for progress bar
+  const stepIndex = STEP_LABELS.findIndex((s) => s.key === step);
   const isError = step === "error";
 
-  const processFile = useCallback((selected: File) => {
-    if (selected.type !== "application/pdf") {
-      setErrorMsg("Only PDF files are supported");
-      return;
-    }
-    if (selected.size > 50 * 1024 * 1024) {
-      setErrorMsg("Maximum file size is 50 MB");
-      return;
-    }
-    setFile(selected);
-    setErrorMsg("");
-    setStep("pay");
-  }, []);
-
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selected = e.target.files?.[0];
-      if (selected) processFile(selected);
-    },
-    [processFile]
-  );
-
-  // Drag & drop support
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-  const handleDragLeave = useCallback(() => setIsDragging(false), []);
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const dropped = e.dataTransfer.files[0];
-      if (dropped) processFile(dropped);
-    },
-    [processFile]
-  );
-
-  const handleStartTransfer = useCallback(async () => {
-    if (!file) return;
-    const sessionId = crypto.randomUUID();
-    setStep("transferring");
-    setProgress({ status: "connecting", percent: 0, bytesSent: 0, totalBytes: file.size });
-
+  // ─── Session Recovery ───
+  useEffect(() => {
     try {
-      await sendFileToShop(shopId, file, sessionId, (p) => {
-        setProgress(p);
-        if (p.status === "complete") setStep("done");
-        else if (p.status === "error") {
-          setStep("error");
-          setErrorMsg(p.error || "Transfer failed");
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY(shopId));
+      if (saved) {
+        const session = JSON.parse(saved);
+        if (session.token && session.status !== "picked_up") {
+          setToken(session.token);
+          setJobStatus(session.status);
+          setStep(
+            session.status === "ready_for_pickup" ? "pickup" : "queue"
+          );
         }
-      });
-    } catch (err) {
-      setStep("error");
-      setErrorMsg(String(err));
+      }
+    } catch {
+      // ignore parse errors
     }
-  }, [file, shopId]);
+  }, [shopId]);
 
-  const handleReset = () => {
+  // ─── Persist session when token is set ───
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem(
+        SESSION_STORAGE_KEY(shopId),
+        JSON.stringify({
+          orderId: crypto.randomUUID(),
+          shopId,
+          token,
+          status: jobStatus,
+          createdAt: new Date().toISOString(),
+        })
+      );
+    }
+  }, [token, jobStatus, shopId]);
+
+  // ─── Handlers ───
+
+  const handlePaymentConfirmed = useCallback(
+    async (method: PaymentMethod) => {
+      if (documents.length === 0) return;
+
+      const sessionId = crypto.randomUUID();
+      const newToken: QueueToken = {
+        tokenCode: generateTokenCode(),
+        pickupPin: generatePickupPin(),
+        queuePosition: Math.floor(Math.random() * 5) + 1,
+        estimatedWaitMinutes: Math.floor(Math.random() * 8) + 2,
+      };
+
+      setToken(newToken);
+      setStep("transferring");
+
+      const totalBytes = documents.reduce((acc, d) => acc + d.file.size, 0);
+      setProgress({
+        status: "connecting",
+        percent: 0,
+        bytesSent: 0,
+        totalBytes,
+        totalFiles: documents.length,
+        currentFileIndex: 1,
+        currentFileName: documents[0]?.file.name,
+      });
+
+      try {
+        await sendOrderToShop(
+          {
+            shopId,
+            sessionId,
+            documents,
+            token: newToken,
+            paymentMethod: method,
+            paymentStatus:
+              method === "cash" ? "awaiting_cash_confirmation" : "confirmed",
+            totalAmount,
+            finishingServices: activeFinishing,
+          },
+          (p) => {
+            setProgress(p);
+            if (p.status === "complete") {
+              setJobStatus("queued");
+              setStep("token");
+            } else if (p.status === "error") {
+              setStep("error");
+              setErrorMsg(p.error || "Transfer failed");
+            }
+          }
+        );
+      } catch (err) {
+        setStep("error");
+        setErrorMsg(String(err));
+      }
+    },
+    [documents, shopId, totalAmount, activeFinishing]
+  );
+
+  const handleReset = useCallback(() => {
     setStep("upload");
-    setFile(null);
+    setDocuments([]);
+    setFinishingServices([...DEFAULT_FINISHING_SERVICES]);
     setProgress(null);
     setErrorMsg("");
-    setCopies(1);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+    setToken(null);
+    setJobStatus("queued");
+    localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+  }, [shopId]);
+
+  const handleJobStatusChange = useCallback(
+    (status: JobStatus) => {
+      setJobStatus(status);
+      // Update persisted session
+      if (token) {
+        localStorage.setItem(
+          SESSION_STORAGE_KEY(shopId),
+          JSON.stringify({
+            orderId: crypto.randomUUID(),
+            shopId,
+            token,
+            status,
+            createdAt: new Date().toISOString(),
+          })
+        );
+      }
+    },
+    [shopId, token]
+  );
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-between px-5 py-8 safe-area-inset">
@@ -121,36 +242,48 @@ export default function PrintClient({ shopId, shopName, upiVpa }: Props) {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg shadow-lg shadow-indigo-500/20">
             🖨️
           </div>
-          <h1 className="text-2xl font-bold gradient-text tracking-tight">Printap</h1>
+          <h1 className="text-2xl font-bold gradient-text tracking-tight">
+            Printap
+          </h1>
         </div>
-        <p className="text-sm text-[--color-muted]">
-          {shopName}
-        </p>
+        <p className="text-sm text-[--color-muted]">{shopName}</p>
       </header>
 
       {/* ─── Step Indicator ─── */}
-      <nav className="flex items-center gap-2 mb-8 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-        {STEPS.map((s, i) => {
-          const isCurrent = s.key === step || (isError && s.key === "transferring");
+      <nav
+        className="flex items-center gap-1.5 mb-8 animate-fade-in-up overflow-x-auto max-w-full px-2"
+        style={{ animationDelay: "0.1s" }}
+      >
+        {STEP_LABELS.map((s, i) => {
+          const isCurrent =
+            s.key === step || (isError && s.key === "transferring");
           const isComplete = i < stepIndex && !isError;
           return (
             <React.Fragment key={s.key}>
               {i > 0 && (
                 <div
-                  className={`h-px w-6 transition-all duration-500 ${
+                  className={`h-px w-4 transition-all duration-500 flex-shrink-0 ${
                     isComplete ? "bg-[--color-success]" : "bg-[--color-border]"
                   }`}
                 />
               )}
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
                 <div
-                  className={`step-dot w-2.5 h-2.5 rounded-full ${
-                    isComplete ? "complete" : isCurrent ? "active" : "bg-[--color-border]"
+                  className={`step-dot w-2 h-2 rounded-full ${
+                    isComplete
+                      ? "complete"
+                      : isCurrent
+                      ? "active"
+                      : "bg-[--color-border]"
                   }`}
                 />
                 <span
-                  className={`text-[10px] font-medium tracking-wide uppercase ${
-                    isCurrent ? "text-[--color-accent-light]" : isComplete ? "text-[--color-success]" : "text-[--color-muted]"
+                  className={`text-[9px] font-medium tracking-wide uppercase ${
+                    isCurrent
+                      ? "text-[--color-accent-light]"
+                      : isComplete
+                      ? "text-[--color-success]"
+                      : "text-[--color-muted]"
                   }`}
                 >
                   {s.label}
@@ -163,258 +296,102 @@ export default function PrintClient({ shopId, shopName, upiVpa }: Props) {
 
       {/* ─── Main Content ─── */}
       <main className="w-full max-w-sm flex-1 flex flex-col justify-center">
-
         {/* STEP 1 — Upload */}
         {step === "upload" && (
-          <div className="animate-fade-in-up">
-            <div className="glass rounded-2xl p-6 glow-sm">
-              <h2 className="text-base font-semibold mb-1">Upload your document</h2>
-              <p className="text-xs text-[--color-muted] mb-5">PDF files up to 50 MB</p>
-
-              <label
-                htmlFor="file-upload"
-                className={`drop-zone flex flex-col items-center justify-center w-full h-44 rounded-xl cursor-pointer transition-all ${
-                  isDragging
-                    ? "border-[--color-accent] bg-[--color-accent]/5 scale-[1.01]"
-                    : ""
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-[--color-accent]/10 flex items-center justify-center mb-3 transition-transform hover:scale-105">
-                  <svg className="w-7 h-7 text-[--color-accent-light]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16V4m0 0L8 8m4-4l4 4" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2" />
-                  </svg>
-                </div>
-                <span className="text-sm text-[--color-foreground]/70 font-medium">
-                  Tap to choose a PDF
-                </span>
-                <span className="text-[11px] text-[--color-muted] mt-1">
-                  or drag and drop here
-                </span>
-                <input
-                  id="file-upload"
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </label>
-
-              {errorMsg && (
-                <div className="mt-4 flex items-center gap-2 text-[--color-danger] text-sm">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  {errorMsg}
-                </div>
-              )}
-            </div>
-
-            {/* Privacy badge */}
-            <div className="privacy-badge rounded-xl px-4 py-3 mt-4 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-emerald-400">Zero cloud storage</p>
-                <p className="text-[11px] text-[--color-muted]">File goes directly to the printer via encrypted P2P</p>
-              </div>
-            </div>
-          </div>
+          <FileUpload
+            documents={documents}
+            onDocumentsChange={setDocuments}
+            onContinue={() => setStep("settings")}
+            errorMsg={errorMsg}
+            onError={setErrorMsg}
+          />
         )}
 
-        {/* STEP 2 — Pay */}
-        {step === "pay" && file && (
-          <div className="animate-fade-in-up space-y-4">
-            {/* File info */}
-            <div className="glass rounded-2xl p-5 glow-sm">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-11 h-11 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-[--color-muted]">{formatBytes(file.size)}</p>
-                </div>
-                <button
-                  onClick={handleReset}
-                  className="text-[--color-muted] hover:text-[--color-foreground] transition p-1"
-                  aria-label="Remove file"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Copies selector */}
-              <div className="flex items-center justify-between py-3 border-t border-[--color-border]">
-                <span className="text-sm text-[--color-muted]">Copies</span>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setCopies((c) => Math.max(1, c - 1))}
-                    className="w-8 h-8 rounded-lg bg-[--color-surface-light] hover:bg-[--color-border] transition flex items-center justify-center text-lg"
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center font-mono font-semibold">{copies}</span>
-                  <button
-                    onClick={() => setCopies((c) => Math.min(20, c + 1))}
-                    className="w-8 h-8 rounded-lg bg-[--color-surface-light] hover:bg-[--color-border] transition flex items-center justify-center text-lg"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="flex items-center justify-between pt-3 border-t border-[--color-border]">
-                <span className="text-sm text-[--color-muted]">Total</span>
-                <span className="text-xl font-bold text-[--color-success]">₹{amount}</span>
-              </div>
-            </div>
-
-            {/* UPI QR */}
-            <div className="glass rounded-2xl p-5 glow-sm">
-              <p className="text-sm font-medium mb-4 text-center">Scan to pay via UPI</p>
-              <div className="bg-white rounded-xl p-3 mx-auto w-fit">
-                <QRCodeSVG
-                  value={upiUrl}
-                  size={180}
-                  level="M"
-                  includeMargin={false}
-                  bgColor="#ffffff"
-                  fgColor="#111111"
-                />
-              </div>
-              <p className="text-[11px] text-[--color-muted] text-center mt-3">
-                Pay to <span className="font-mono text-[--color-foreground]/70">{upiVpa}</span>
-              </p>
-            </div>
-
-            {/* CTA */}
-            <button
-              onClick={handleStartTransfer}
-              className="btn-primary w-full py-3.5 rounded-xl font-semibold text-white text-sm tracking-wide"
-            >
-              I've Paid — Send to Printer →
-            </button>
-          </div>
+        {/* STEP 2 — Print Settings */}
+        {step === "settings" && (
+          <PrintSettingsPanel
+            documents={documents}
+            onDocumentsChange={setDocuments}
+            rateCard={rateCard}
+            finishingServices={finishingServices}
+            onFinishingChange={setFinishingServices}
+            onContinue={() => setStep("checkout")}
+            onBack={() => setStep("upload")}
+          />
         )}
 
-        {/* STEP 3 — Transferring */}
+        {/* STEP 3 — Checkout & Payment */}
+        {step === "checkout" && (
+          <Checkout
+            shopName={shopName}
+            shopId={shopId}
+            upiVpa={upiVpa}
+            totalAmount={totalAmount}
+            onPaymentConfirmed={handlePaymentConfirmed}
+            onBack={() => setStep("settings")}
+          />
+        )}
+
+        {/* STEP 4 — Transferring */}
         {step === "transferring" && progress && (
-          <div className="animate-fade-in-up text-center">
-            <div className="glass rounded-2xl p-8 glow-sm animate-pulse-glow">
-              {/* Circular progress */}
-              <div className="relative w-28 h-28 mx-auto mb-6">
-                <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50" cy="50" r="42"
-                    strokeWidth="6" fill="none"
-                    className="circular-progress-track"
-                  />
-                  <circle
-                    cx="50" cy="50" r="42"
-                    stroke="url(#progressGrad)"
-                    strokeWidth="6" fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray={`${2 * Math.PI * 42}`}
-                    strokeDashoffset={`${2 * Math.PI * 42 * (1 - progress.percent / 100)}`}
-                    className="circular-progress-fill"
-                  />
-                  <defs>
-                    <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#6366f1" />
-                      <stop offset="100%" stopColor="#a78bfa" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold tabular-nums">{progress.percent}</span>
-                  <span className="text-[10px] text-[--color-muted] -mt-0.5">%</span>
-                </div>
-              </div>
-
-              <h2 className="text-base font-semibold mb-1">
-                {progress.status === "connecting" && "Connecting..."}
-                {progress.status === "connected" && "Connected!"}
-                {progress.status === "sending" && "Sending to printer"}
-              </h2>
-              <p className="text-xs text-[--color-muted]">
-                {formatBytes(progress.bytesSent)} of {formatBytes(progress.totalBytes)}
-              </p>
-
-              {/* Shimmer bar */}
-              <div className="mt-5 h-1 rounded-full bg-[--color-border] overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
-                  style={{ width: `${progress.percent}%` }}
-                />
-              </div>
-            </div>
-
-            <p className="text-[11px] text-[--color-muted] mt-4">
-              ⚡ Encrypted peer-to-peer transfer — no server involved
-            </p>
-          </div>
+          <TransferView
+            progress={progress}
+            fileCount={documents.length}
+          />
         )}
 
-        {/* STEP 4 — Done */}
-        {step === "done" && (
-          <div className="animate-fade-in-up text-center">
-            <div className="glass rounded-2xl p-8 glow-success">
-              <div className="animate-checkmark-pop">
-                <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </div>
+        {/* STEP 5 — Token Confirmation */}
+        {step === "token" && token && (
+          <TokenConfirmation
+            token={token}
+            onContinue={() => setStep("queue")}
+          />
+        )}
 
-              <h2 className="text-xl font-bold text-[--color-success] mb-2">
-                Sent to Printer!
-              </h2>
-              <p className="text-sm text-[--color-muted] leading-relaxed">
-                Your document is being printed.<br />
-                Collect it from the counter.
-              </p>
+        {/* STEP 6 — Live Queue Tracker */}
+        {step === "queue" && token && (
+          <LiveQueueTracker
+            token={token}
+            jobStatus={jobStatus}
+            onStatusChange={handleJobStatusChange}
+            onPickupReady={() => setStep("pickup")}
+          />
+        )}
 
-              <div className="mt-6 p-3 rounded-lg bg-[--color-surface-light] text-xs text-[--color-muted]">
-                🔥 File was securely shredded from the printer's memory
-              </div>
-
-              <button
-                onClick={handleReset}
-                className="mt-5 px-6 py-2.5 rounded-xl bg-[--color-surface-light] hover:bg-[--color-border] text-sm font-medium transition-all"
-              >
-                Print another file
-              </button>
-            </div>
-          </div>
+        {/* STEP 7 — Pickup Ready */}
+        {step === "pickup" && token && (
+          <PickupReady
+            token={token}
+            onPrintAnother={handleReset}
+          />
         )}
 
         {/* ERROR */}
         {step === "error" && (
           <div className="animate-fade-in-up text-center">
-            <div className="glass rounded-2xl p-8" style={{ borderColor: "rgba(248, 113, 113, 0.15)" }}>
+            <div
+              className="glass rounded-2xl p-8"
+              style={{ borderColor: "rgba(248, 113, 113, 0.15)" }}
+            >
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
-                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+                <svg
+                  className="w-8 h-8 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
+                  />
                 </svg>
               </div>
-
-              <h2 className="text-lg font-bold text-[--color-danger] mb-2">Transfer Failed</h2>
+              <h2 className="text-lg font-bold text-[--color-danger] mb-2">
+                Transfer Failed
+              </h2>
               <p className="text-sm text-[--color-muted]">{errorMsg}</p>
-
               <button
                 onClick={handleReset}
                 className="mt-6 px-6 py-2.5 rounded-xl bg-[--color-surface-light] hover:bg-[--color-border] text-sm font-medium transition-all"
@@ -427,9 +404,14 @@ export default function PrintClient({ shopId, shopName, upiVpa }: Props) {
       </main>
 
       {/* ─── Footer ─── */}
-      <footer className="mt-8 text-center animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+      <footer
+        className="mt-8 text-center animate-fade-in-up"
+        style={{ animationDelay: "0.2s" }}
+      >
         <p className="text-[11px] text-[--color-muted]/60">
-          Powered by <span className="gradient-text font-semibold">Printap</span> · Peer-to-peer · Zero data retention
+          Powered by{" "}
+          <span className="gradient-text font-semibold">Printap</span> ·
+          Peer-to-peer · Zero data retention
         </p>
       </footer>
     </div>

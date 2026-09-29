@@ -34,6 +34,8 @@ function ShopAdminShell(): React.ReactElement {
 
   // Ref to hold current assignments for printer routing
   const assignmentsRef = useRef<Record<string, PrinterAssignment>>({});
+  // Track handled order sessions to avoid duplicate processing with legacy onFileReceived
+  const handledOrderSessions = useRef<Set<string>>(new Set());
 
   // Manual or initial printer detection
   const rescanPrinters = useCallback(async () => {
@@ -140,19 +142,152 @@ function ShopAdminShell(): React.ReactElement {
         });
       },
 
-      onFileProgress: (sessionId, fileName, pct) => {
+      onFileProgress: (sessionId, fileName, pct, _received, _total, fileIndex, totalFiles) => {
         setActiveJob((prev) => ({
           sessionId,
-          fileName,
+          fileName:
+            totalFiles && totalFiles > 1
+              ? `File ${fileIndex || 1}/${totalFiles}: ${fileName}`
+              : fileName,
           status: "receiving",
           progressPct: pct,
+          fileCount: totalFiles,
           timestamp: prev?.timestamp || new Date(),
         }));
       },
 
-      onFileReceived: async (sessionId, buffer, fileName) => {
+      onOrderReceived: async (receivedOrder) => {
+        const { sessionId, order, files } = receivedOrder;
+        handledOrderSessions.current.add(sessionId);
+
         console.log(
-          `[App] File received: ${fileName || sessionId}, bytes: ${buffer.byteLength}`
+          `[App] Order received: ${order.tokenCode}, PIN: ${order.pickupPin}, ${files.length} files`
+        );
+
+        setActiveJob({
+          sessionId,
+          tokenCode: order.tokenCode,
+          pickupPin: order.pickupPin,
+          fileCount: files.length,
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          fileName:
+            files.length > 1
+              ? `${files.length} documents (${order.tokenCode})`
+              : files[0]?.fileName,
+          status: "saving",
+          detail: `Order ${order.tokenCode} received (${files.length} files). Spooling...`,
+          timestamp: new Date(),
+        });
+
+        refreshAssignments(shopId);
+        const map = assignmentsRef.current;
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const settings = file.settings;
+
+          // Intelligently select printer based on color setting
+          let targetPrinter: string | undefined = undefined;
+          if (settings.colorMode === "color") {
+            const colorPrinter = Object.values(map).find(
+              (a) => a.role === "color"
+            );
+            if (colorPrinter) targetPrinter = colorPrinter.printer_name;
+          } else if (settings.colorMode === "bw") {
+            const bwPrinter = Object.values(map).find(
+              (a) => a.role === "bw"
+            );
+            if (bwPrinter) targetPrinter = bwPrinter.printer_name;
+          }
+
+          if (!targetPrinter) {
+            const defaultAssignment = Object.values(map).find(
+              (a) => a.is_default && a.role !== "disabled"
+            );
+            targetPrinter = defaultAssignment?.printer_name;
+          }
+
+          if (!targetPrinter) {
+            const firstActive = Object.values(map).find(
+              (a) => a.role !== "disabled"
+            );
+            targetPrinter = firstActive?.printer_name;
+          }
+
+          setActiveJob((prev) => ({
+            ...prev!,
+            status: "printing",
+            detail: `Printing ${i + 1}/${files.length}: ${file.fileName} (${settings.copies} copy, ${settings.colorMode.toUpperCase()}) on ${targetPrinter || "default printer"}`,
+          }));
+
+          try {
+            await window.electronAPI.printPdf(file.buffer, sessionId, {
+              printer: targetPrinter,
+              copies: settings.copies,
+              orientation: settings.orientation,
+            });
+          } catch (err) {
+            console.error(`[App] Error printing file ${file.fileName}:`, err);
+          }
+        }
+
+        // Record print event in Supabase ledger
+        try {
+          const supabase = getSupabase();
+          await supabase.from("print_events").insert({
+            shop_id: shopId,
+            session_id: sessionId,
+            fee_amount: 1.0,
+          });
+        } catch (err) {
+          console.warn("[App] Could not insert print_event:", err);
+        }
+
+        const completedJob: LiveJob = {
+          sessionId,
+          tokenCode: order.tokenCode,
+          pickupPin: order.pickupPin,
+          fileCount: files.length,
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          fileName:
+            files.length > 1
+              ? `${files.length} documents`
+              : files[0]?.fileName,
+          status: "done",
+          detail: `Token ${order.tokenCode} (PIN: ${order.pickupPin}) — ${files.length} file(s) printed & shredded`,
+          timestamp: new Date(),
+        };
+
+        setRecentJobs((prev) => [completedJob, ...prev.slice(0, 19)]);
+        setTodayPrintsCount((c) => c + files.length);
+
+        setActiveJob((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "done",
+                detail: `Order ${order.tokenCode} complete! Customer PIN: ${order.pickupPin}`,
+              }
+            : null
+        );
+
+        setTimeout(() => {
+          setActiveJob((prev) =>
+            prev?.sessionId === sessionId ? null : prev
+          );
+        }, 5000);
+      },
+
+      onFileReceived: async (sessionId, buffer, fileName) => {
+        // If this session was already handled as a multi-file order, skip
+        if (handledOrderSessions.current.has(sessionId)) {
+          return;
+        }
+
+        console.log(
+          `[App] Legacy file received: ${fileName || sessionId}, bytes: ${buffer.byteLength}`
         );
 
         setActiveJob((prev) => ({

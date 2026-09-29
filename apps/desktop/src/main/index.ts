@@ -110,7 +110,11 @@ ipcMain.handle(
     _event,
     buffer: ArrayBuffer,
     sessionId: string,
-    options?: { printer?: string; copies?: number }
+    options?: {
+      printer?: string;
+      copies?: number;
+      orientation?: "portrait" | "landscape";
+    }
   ) => {
     const shortId = sessionId.slice(0, 8);
     const fileName = `${FILE_PREFIX}${sessionId}.pdf`;
@@ -146,6 +150,11 @@ ipcMain.handle(
       // If a specific printer was requested
       if (options?.printer) {
         printOptions.printer = options.printer;
+      }
+
+      // If orientation was specified
+      if (options?.orientation) {
+        printOptions.orientation = options.orientation;
       }
 
       // If multiple copies requested, we print one-by-one

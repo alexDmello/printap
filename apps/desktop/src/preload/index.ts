@@ -12,7 +12,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   printPdf: (
     buffer: ArrayBuffer,
     sessionId: string,
-    options?: { printer?: string; copies?: number }
+    options?: {
+      printer?: string;
+      copies?: number;
+      orientation?: "portrait" | "landscape";
+    }
   ) => ipcRenderer.invoke("print-pdf", buffer, sessionId, options),
 
   listPrinters: () => ipcRenderer.invoke("list-printers"),

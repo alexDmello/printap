@@ -5,15 +5,9 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { getSupabase } from "@printap/shared";
+import { getSupabase, type ShopInfo } from "@printap/shared";
 
-export interface ShopInfo {
-  id: string;
-  name: string;
-  upi_vpa: string;
-  status: string;
-  created_at: string;
-}
+export type { ShopInfo };
 
 export interface AuthContextType {
   isAuthenticated: boolean;

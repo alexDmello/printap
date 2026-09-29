@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import { getCustomerPrintUrl, ROOT_DOMAIN } from "@printap/shared";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import {
   IconQr,
@@ -11,38 +12,18 @@ import {
 
 export const CounterQr: React.FC = () => {
   const { shop, shopId } = useAuth();
-  const [localIp, setLocalIp] = useState<string>("127.0.0.1");
-  const [urlMode, setUrlMode] = useState<"lan" | "cloud" | "custom">("lan");
-  const [customDomain, setCustomDomain] = useState<string>("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<HTMLDivElement>(null);
 
-  // Fetch local LAN IP on mount
-  useEffect(() => {
-    if (window.electronAPI?.getNetworkInfo) {
-      window.electronAPI.getNetworkInfo().then((info) => {
-        if (info?.localIp) {
-          setLocalIp(info.localIp);
-        }
-      });
-    }
-  }, []);
-
-  // Compute final print client URL
+  // Canonical customer print URL on mellod.in
   const targetUrl = React.useMemo(() => {
-    if (!shopId) return "";
-    if (urlMode === "lan") {
-      return `http://${localIp}:3001/print/${shopId}`;
-    }
-    if (urlMode === "cloud") {
-      return `https://printap.vercel.app/print/${shopId}`;
-    }
-    const cleanDomain = customDomain.trim().replace(/\/$/, "");
-    return cleanDomain ? `${cleanDomain}/print/${shopId}` : `http://${localIp}:3001/print/${shopId}`;
-  }, [shopId, urlMode, localIp, customDomain]);
+    if (shop?.slug) return getCustomerPrintUrl(shop.slug);
+    if (shopId) return getCustomerPrintUrl(shopId);
+    return "";
+  }, [shop?.slug, shopId]);
 
   const copyToClipboard = () => {
     if (!targetUrl) return;
@@ -273,7 +254,7 @@ export const CounterQr: React.FC = () => {
         </div>
       </div>
 
-      {/* Network / URL Configuration Segment */}
+      {/* Subdomain Destination Banner */}
       <div
         className="card"
         style={{
@@ -281,67 +262,19 @@ export const CounterQr: React.FC = () => {
           padding: 20,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-              QR Code Destination
+              Dedicated Shop Subdomain
             </div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-              Choose which URL customers open on their phone when scanning your counter QR code.
+              Customer print requests route directly to your dedicated subdomain on {ROOT_DOMAIN}.
             </div>
           </div>
-
-          {/* URL Segmented Switch */}
-          <div className="segmented-tabs">
-            <button
-              type="button"
-              className={`segmented-tab ${urlMode === "lan" ? "active" : ""}`}
-              onClick={() => setUrlMode("lan")}
-              title="Best for testing on local shop Wi-Fi"
-            >
-              Shop Wi-Fi (LAN)
-            </button>
-            <button
-              type="button"
-              className={`segmented-tab ${urlMode === "cloud" ? "active" : ""}`}
-              onClick={() => setUrlMode("cloud")}
-              title="Official production cloud app"
-            >
-              Cloud Web URL
-            </button>
-            <button
-              type="button"
-              className={`segmented-tab ${urlMode === "custom" ? "active" : ""}`}
-              onClick={() => setUrlMode("custom")}
-              title="Custom domain or ngrok tunnel"
-            >
-              Custom Domain
-            </button>
-          </div>
+          <span className="status-badge active" style={{ fontSize: 11 }}>
+            ● Production Ready
+          </span>
         </div>
-
-        {urlMode === "custom" && (
-          <div style={{ marginBottom: 12 }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Custom Domain URL
-            </label>
-            <input
-              type="text"
-              className="login-input"
-              placeholder="https://yourprintap.com or https://abc.ngrok.app"
-              value={customDomain}
-              onChange={(e) => setCustomDomain(e.target.value)}
-            />
-          </div>
-        )}
 
         <div
           style={{
@@ -362,17 +295,14 @@ export const CounterQr: React.FC = () => {
             </span>
           </div>
 
-          {urlMode === "lan" && (
-            <span
-              className="status-badge active"
-              style={{
-                fontSize: 11,
-                marginLeft: 12,
-              }}
-            >
-              Wi-Fi Direct ({localIp})
-            </span>
-          )}
+          <button
+            type="button"
+            className="btn-ghost"
+            style={{ padding: "4px 10px", fontSize: 11, marginLeft: 12 }}
+            onClick={copyToClipboard}
+          >
+            {copiedLink ? "✓ Copied" : "Copy URL"}
+          </button>
         </div>
       </div>
 

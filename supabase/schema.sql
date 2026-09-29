@@ -8,16 +8,19 @@
 CREATE TABLE public.shops (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
+  slug        TEXT UNIQUE,              -- e.g. "rahuls-xerox" for {slug}.mellod.in
   upi_vpa     TEXT NOT NULL,            -- e.g. "shop@upi"
   status      TEXT NOT NULL DEFAULT 'active'
                 CHECK (status IN ('active', 'suspended')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Index for quick status lookups (kill-switch check)
+-- Index for quick status lookups (kill-switch check) and subdomain routing
 CREATE INDEX idx_shops_status ON public.shops (status);
+CREATE UNIQUE INDEX idx_shops_slug ON public.shops (slug);
 
 COMMENT ON TABLE  public.shops IS 'Registered xerox shops on the Printap platform.';
+COMMENT ON COLUMN public.shops.slug IS 'Unique URL-safe slug for subdomain routing ({slug}.mellod.in).';
 COMMENT ON COLUMN public.shops.upi_vpa IS 'UPI Virtual Payment Address for dynamic QR generation.';
 COMMENT ON COLUMN public.shops.status  IS 'active = accepting jobs, suspended = dues unpaid (kill-switch).';
 

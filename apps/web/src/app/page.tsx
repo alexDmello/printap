@@ -65,11 +65,14 @@ export default function Home() {
           </div>
         </div>
 
-        <p className="text-xs text-[--color-muted]/50">
+        <p className="text-xs text-[--color-muted]/70">
           Are you a shop owner?{" "}
-          <span className="text-[--color-accent-light] cursor-pointer hover:underline">
-            Get Printap for your shop →
-          </span>
+          <a
+            href="https://shop.mellod.in"
+            className="text-[--color-accent-light] font-medium hover:underline"
+          >
+            Access Shop Portal (shop.mellod.in) →
+          </a>
         </p>
       </div>
 

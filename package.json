@@ -10,7 +10,8 @@
     "dev:web": "npm -w apps/web run dev",
     "dev:desktop": "npm -w apps/desktop run dev",
     "build:web": "npm -w apps/web run build",
-    "build:desktop": "npm -w apps/desktop run build"
+    "build:desktop": "npm -w apps/desktop run build",
+    "dist:desktop": "npm -w apps/desktop run dist"
   },
   "engines": {
     "node": ">=18"

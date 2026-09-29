@@ -1,13 +1,18 @@
 {
   "name": "@printap/desktop",
   "version": "0.0.1",
+  "description": "Printap — Privacy-First Xerox & Print Shop Agent",
+  "author": "Mellod",
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-vite build && electron-builder --win",
+    "dist:portable": "electron-vite build && electron-builder --win portable",
+    "dist:dir": "electron-vite build && electron-builder --win --dir"
   },
   "dependencies": {
     "@printap/shared": "*",
@@ -20,7 +25,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "electron": "^33.2.1",
+    "electron": "33.4.11",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

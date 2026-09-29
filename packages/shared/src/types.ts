@@ -48,18 +48,31 @@ export interface UploadedDocument {
   settings: PrintSettings;
 }
 
-// ─── Finishing / Add-on Services ───
+// ─── Finishing / Add-on & Shop Services ───
+
+export type ServiceUnit = "per_copy" | "per_sheet" | "per_document" | "flat";
+
+export interface ShopServiceItem {
+  id: string;
+  name: string;
+  price: number;
+  unit: ServiceUnit;
+  enabled: boolean;
+  category: "print" | "finishing" | "addon";
+  isCore?: boolean;
+}
 
 export type FinishingServiceType =
   | "spiral_binding"
   | "corner_staple"
   | "hard_binding"
-  | "lamination";
+  | "lamination"
+  | string;
 
-export type FinishingChargeUnit = "per_copy" | "per_sheet";
+export type FinishingChargeUnit = "per_copy" | "per_sheet" | "per_document" | "flat";
 
 export interface FinishingService {
-  type: FinishingServiceType;
+  type: string;
   label: string;
   price: number;
   chargeUnit: FinishingChargeUnit;
@@ -71,6 +84,18 @@ export const DEFAULT_FINISHING_SERVICES: FinishingService[] = [
   { type: "corner_staple", label: "Corner Staple", price: 5, chargeUnit: "per_copy", enabled: false },
   { type: "hard_binding", label: "Hard Binding", price: 80, chargeUnit: "per_copy", enabled: false },
   { type: "lamination", label: "Lamination", price: 10, chargeUnit: "per_sheet", enabled: false },
+];
+
+export const DEFAULT_SHOP_SERVICES: ShopServiceItem[] = [
+  { id: "core_bw", name: "Black & White Printing", price: 2, unit: "per_sheet", enabled: true, category: "print", isCore: true },
+  { id: "core_color", name: "Color Printing", price: 10, unit: "per_sheet", enabled: true, category: "print", isCore: true },
+  { id: "spiral_binding", name: "Spiral Binding", price: 30, unit: "per_copy", enabled: true, category: "finishing" },
+  { id: "soft_binding", name: "Soft / Glue Binding", price: 40, unit: "per_copy", enabled: false, category: "finishing" },
+  { id: "hard_binding", name: "Hard Binding (Project / Thesis)", price: 80, unit: "per_copy", enabled: false, category: "finishing" },
+  { id: "lamination", name: "Document Lamination (A4)", price: 10, unit: "per_sheet", enabled: true, category: "finishing" },
+  { id: "corner_staple", name: "Corner Stapling", price: 5, unit: "per_copy", enabled: true, category: "finishing" },
+  { id: "glossy_photo", name: "Glossy Photo Paper", price: 15, unit: "per_sheet", enabled: false, category: "addon" },
+  { id: "scan_to_device", name: "Document Scanning", price: 10, unit: "per_document", enabled: false, category: "addon" },
 ];
 
 // ─── Shop Rate Card ───

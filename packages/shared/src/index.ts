@@ -23,6 +23,7 @@ export {
 export {
   DEFAULT_PRINT_SETTINGS,
   DEFAULT_FINISHING_SERVICES,
+  DEFAULT_SHOP_SERVICES,
   DEFAULT_RATE_CARD,
   SESSION_STORAGE_KEY,
   calculateSheets,
@@ -37,6 +38,8 @@ export {
   type PrintSettings,
   type DocumentType,
   type UploadedDocument,
+  type ServiceUnit,
+  type ShopServiceItem,
   type FinishingServiceType,
   type FinishingChargeUnit,
   type FinishingService,
@@ -66,5 +69,6 @@ export interface ShopInfo {
   /** Shop rate card (pricing) */
   price_bw?: number;
   price_color?: number;
+  services?: import("./types").ShopServiceItem[];
   created_at: string;
 }

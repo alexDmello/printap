@@ -57,25 +57,27 @@ export default function Checkout({
       {!cashWaiting && (
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => setSelectedMethod("upi")}
-            className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all border ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-bold transition-all border ${
               selectedMethod === "upi"
-                ? "border-[--color-accent] bg-[--color-accent]/10 text-[--color-accent-light]"
-                : "border-[--color-border] bg-[--color-surface-light] text-[--color-muted]"
+                ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
+                : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/60 text-zinc-700"
             }`}
           >
-            <span className="block text-lg mb-1">📱</span>
+            <span className="block text-xl mb-1">📱</span>
             UPI / QR
           </button>
           <button
+            type="button"
             onClick={() => setSelectedMethod("cash")}
-            className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all border ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-bold transition-all border ${
               selectedMethod === "cash"
-                ? "border-[--color-accent] bg-[--color-accent]/10 text-[--color-accent-light]"
-                : "border-[--color-border] bg-[--color-surface-light] text-[--color-muted]"
+                ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
+                : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/60 text-zinc-700"
             }`}
           >
-            <span className="block text-lg mb-1">💵</span>
+            <span className="block text-xl mb-1">💵</span>
             Cash
           </button>
         </div>
@@ -84,10 +86,10 @@ export default function Checkout({
       {/* UPI Payment */}
       {selectedMethod === "upi" && !cashWaiting && (
         <div className="glass rounded-2xl p-5 glow-sm">
-          <p className="text-sm font-medium mb-4 text-center">
-            Scan to pay via UPI
+          <p className="text-sm font-bold mb-4 text-center text-zinc-900">
+            Scan with any UPI app to pay
           </p>
-          <div className="bg-white rounded-xl p-3 mx-auto w-fit">
+          <div className="bg-white rounded-2xl p-3 mx-auto w-fit shadow-md border border-zinc-200">
             <QRCodeSVG
               value={upiUrl}
               size={180}
@@ -97,9 +99,9 @@ export default function Checkout({
               fgColor="#111111"
             />
           </div>
-          <p className="text-[11px] text-[--color-muted] text-center mt-3">
+          <p className="text-[11px] text-zinc-500 text-center mt-3">
             Pay to{" "}
-            <span className="font-mono text-[--color-foreground]/70">
+            <span className="font-mono font-bold text-zinc-800">
               {upiVpa}
             </span>
           </p>
@@ -107,16 +109,17 @@ export default function Checkout({
           {/* UPI Intent deep link (mobile) */}
           <a
             href={upiUrl}
-            className="block mt-4 btn-primary w-full py-3 rounded-xl font-semibold text-white text-sm tracking-wide text-center"
+            className="block mt-4 btn-primary w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-wide text-center"
           >
             Open UPI App to Pay ₹{totalAmount}
           </a>
 
           <button
+            type="button"
             onClick={() => onPaymentConfirmed("upi")}
-            className="block w-full mt-3 py-3 rounded-xl bg-[--color-surface-light] hover:bg-[--color-border] text-sm font-medium text-center transition-all"
+            className="block w-full mt-3 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-sm font-semibold text-zinc-800 text-center transition-all"
           >
-            I&apos;ve Paid — Send to Printer →
+            I&apos;ve Paid — Beam Document to Spooler →
           </button>
         </div>
       )}
@@ -127,14 +130,15 @@ export default function Checkout({
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
             <span className="text-3xl">💵</span>
           </div>
-          <h3 className="text-base font-semibold mb-2">Pay Cash at Counter</h3>
-          <p className="text-sm text-[--color-muted] mb-5">
-            Hand <span className="font-bold text-[--color-foreground]">₹{totalAmount}</span> to
+          <h3 className="text-base font-bold mb-2 text-zinc-900">Pay Cash at Counter</h3>
+          <p className="text-sm text-zinc-600 mb-5">
+            Hand <span className="font-extrabold text-zinc-900 font-mono">₹{totalAmount}</span> to
             the counter operator and they'll confirm receipt on their terminal.
           </p>
           <button
+            type="button"
             onClick={handleCashRequest}
-            className="btn-primary w-full py-3.5 rounded-xl font-semibold text-white text-sm tracking-wide"
+            className="btn-primary w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-wide"
           >
             I&apos;m Paying Cash — Notify Counter
           </button>
@@ -156,23 +160,22 @@ export default function Checkout({
               <span className="text-3xl">🤝</span>
             </div>
           </div>
-          <h3 className="text-base font-semibold text-amber-400 mb-2">
+          <h3 className="text-base font-bold text-amber-600 mb-2">
             Awaiting Counter Verification
           </h3>
-          <p className="text-sm text-[--color-muted]">
-            Hand <span className="font-bold text-amber-300">₹{totalAmount}</span> to
+          <p className="text-sm text-zinc-600">
+            Hand <span className="font-bold text-zinc-900">₹{totalAmount}</span> to
             the counter operator.
           </p>
-          <p className="text-xs text-[--color-muted] mt-3 animate-pulse">
+          <p className="text-xs text-zinc-400 mt-3 animate-pulse">
             Waiting for the shopkeeper to confirm
             {".".repeat((cashPulse % 3) + 1)}
           </p>
 
-          {/* TODO: In production, listen for Supabase Realtime event.
-              For now, provide a manual confirm button for testing. */}
           <button
+            type="button"
             onClick={() => onPaymentConfirmed("cash")}
-            className="mt-6 px-6 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-sm font-medium transition-all"
+            className="mt-6 px-6 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 text-xs font-bold transition-all border border-amber-300"
           >
             [Dev] Simulate Cash Confirmation
           </button>
@@ -182,10 +185,11 @@ export default function Checkout({
       {/* Back button */}
       {!cashWaiting && (
         <button
+          type="button"
           onClick={onBack}
-          className="w-full py-3 rounded-xl bg-[--color-surface-light] hover:bg-[--color-border] text-sm font-medium transition-all"
+          className="w-full py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-sm font-semibold text-zinc-700 transition-all"
         >
-          ← Back to Settings
+          ← Back to Preview
         </button>
       )}
     </div>

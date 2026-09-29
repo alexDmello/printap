@@ -215,7 +215,7 @@ export default function LiveQueueTracker({
             onClick={() => onStatusChange("ready_for_pickup")}
             className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
               jobStatus === "ready_for_pickup"
-                ? "bg-emerald-500/20 text-emerald-400"
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold"
                 : "bg-[--color-surface-light] text-[--color-muted]"
             }`}
           >

@@ -22,7 +22,7 @@ export default function TransferView({ progress, fileCount }: TransferViewProps)
       <div className="glass rounded-2xl p-8 glow-sm animate-pulse-glow">
         {/* Multi-file badge */}
         {isMulti && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-medium text-indigo-300 mb-4">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700 mb-4">
             <span>📦</span>
             <span>
               Batch Transfer: {progress.currentFileIndex ?? 1} /{" "}
@@ -90,7 +90,7 @@ export default function TransferView({ progress, fileCount }: TransferViewProps)
         </h2>
 
         {progress.currentFileName && progress.status === "sending" && (
-          <p className="text-xs font-mono text-indigo-300 truncate max-w-[240px] mx-auto mb-1">
+          <p className="text-xs font-mono text-indigo-700 font-medium truncate max-w-[240px] mx-auto mb-1">
             {progress.currentFileName}
           </p>
         )}

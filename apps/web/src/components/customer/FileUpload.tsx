@@ -295,9 +295,9 @@ export default function FileUpload({
       )}
 
       {/* Privacy badge */}
-      <div className="privacy-badge rounded-xl px-4 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-          <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+      <div className="rounded-xl px-4 py-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200">
+        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"
               d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
@@ -306,8 +306,8 @@ export default function FileUpload({
           </svg>
         </div>
         <div>
-          <p className="text-xs font-medium text-emerald-400">Zero cloud storage</p>
-          <p className="text-[11px] text-[--color-muted]">
+          <p className="text-xs font-semibold text-emerald-800">Zero cloud storage</p>
+          <p className="text-[11px] text-emerald-700/80">
             Files go directly to the printer via encrypted P2P
           </p>
         </div>

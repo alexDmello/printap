@@ -142,6 +142,7 @@ export default async function CustomerShopPage({ params }: Props) {
       upiVpa={shop.upi_vpa}
       priceBw={shop.price_bw ?? undefined}
       priceColor={shop.price_color ?? undefined}
+      services={shop.services ?? undefined}
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import type {
   UploadedDocument,
   FinishingService,
@@ -8,6 +8,8 @@ import type {
   PaymentMethod,
   QueueToken,
   JobStatus,
+  ShopServiceItem,
+  FinishingChargeUnit,
 } from "@printap/shared";
 import {
   DEFAULT_RATE_CARD,
@@ -22,6 +24,8 @@ import {
 
 import FileUpload from "./FileUpload";
 import PrintSettingsPanel from "./PrintSettings";
+import PagePreview from "./PagePreview";
+import BottomPriceBar from "./BottomPriceBar";
 import Checkout from "./Checkout";
 import TransferView from "./TransferView";
 import TokenConfirmation from "./TokenConfirmation";
@@ -33,6 +37,7 @@ import PickupReady from "./PickupReady";
 type Step =
   | "upload"
   | "settings"
+  | "preview"
   | "checkout"
   | "transferring"
   | "token"
@@ -43,6 +48,7 @@ type Step =
 const STEP_LABELS: { key: Step; label: string }[] = [
   { key: "upload", label: "Upload" },
   { key: "settings", label: "Settings" },
+  { key: "preview", label: "Preview" },
   { key: "checkout", label: "Pay" },
   { key: "transferring", label: "Transfer" },
   { key: "token", label: "Token" },
@@ -54,23 +60,19 @@ interface Props {
   shopId: string;
   shopName: string;
   upiVpa: string;
-  /** Optional rate card from database; falls back to defaults */
+  /** Optional rate card from database */
   priceBw?: number;
   priceColor?: number;
+  /** Optional shop custom services */
+  services?: ShopServiceItem[];
 }
 
-/**
- * Generates a token code like "A-14"
- */
 function generateTokenCode(): string {
   const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
   const num = Math.floor(Math.random() * 50) + 1;
   return `${letter}-${num}`;
 }
 
-/**
- * Generates a 4-digit PIN
- */
 function generatePickupPin(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
@@ -81,19 +83,49 @@ export default function PrintClient({
   upiVpa,
   priceBw,
   priceColor,
+  services,
 }: Props) {
   // ─── State ───
   const [step, setStep] = useState<Step>("upload");
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
-  const [finishingServices, setFinishingServices] = useState<FinishingService[]>(
-    [...DEFAULT_FINISHING_SERVICES]
-  );
+
+  // Initialize finishing services from shop custom services if available
+  const initialFinishing = useMemo<FinishingService[]>(() => {
+    if (services && services.length > 0) {
+      const customOnes = services
+        .filter((s) => !s.isCore && s.enabled)
+        .map((s) => ({
+          type: s.id,
+          label: s.name,
+          price: s.price,
+          chargeUnit: (s.unit === "per_sheet" ? "per_sheet" : "per_copy") as FinishingChargeUnit,
+          enabled: false,
+        }));
+      if (customOnes.length > 0) return customOnes;
+    }
+    return [...DEFAULT_FINISHING_SERVICES];
+  }, [services]);
+
+  const [finishingServices, setFinishingServices] = useState<FinishingService[]>(initialFinishing);
+
+  // Sync if services prop updates
+  useEffect(() => {
+    setFinishingServices(initialFinishing);
+  }, [initialFinishing]);
+
   const [progress, setProgress] = useState<TransferProgress | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [token, setToken] = useState<QueueToken | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
 
-  // Build rate card from props or defaults
+  // Determine if color printing is enabled by the shop
+  const colorAvailable = useMemo(() => {
+    if (!services || services.length === 0) return true;
+    const colorService = services.find((s) => s.id === "core_color");
+    return colorService ? colorService.enabled : true;
+  }, [services]);
+
+  // Rate card from props or defaults
   const rateCard: ShopRateCard = {
     priceBwPerPage: priceBw ?? DEFAULT_RATE_CARD.priceBwPerPage,
     priceColorPerPage: priceColor ?? DEFAULT_RATE_CARD.priceColorPerPage,
@@ -101,8 +133,17 @@ export default function PrintClient({
   };
 
   const activeFinishing = finishingServices.filter((s) => s.enabled);
-
   const totalAmount = calculateOrderTotal(documents, rateCard, activeFinishing);
+
+  // Total sheets calculated
+  const totalSheets = useMemo(() => {
+    return documents.reduce((sum, doc) => {
+      const sheetsPerSet = Math.ceil(doc.pageCount / doc.settings.pagesPerSheet);
+      return sum + sheetsPerSet * doc.settings.copies;
+    }, 0);
+  }, [documents]);
+
+  const globalColorMode = documents[0]?.settings.colorMode || "bw";
 
   // Step index for progress bar
   const stepIndex = STEP_LABELS.findIndex((s) => s.key === step);
@@ -117,9 +158,7 @@ export default function PrintClient({
         if (session.token && session.status !== "picked_up") {
           setToken(session.token);
           setJobStatus(session.status);
-          setStep(
-            session.status === "ready_for_pickup" ? "pickup" : "queue"
-          );
+          setStep(session.status === "ready_for_pickup" ? "pickup" : "queue");
         }
       }
     } catch {
@@ -206,18 +245,17 @@ export default function PrintClient({
   const handleReset = useCallback(() => {
     setStep("upload");
     setDocuments([]);
-    setFinishingServices([...DEFAULT_FINISHING_SERVICES]);
+    setFinishingServices([...initialFinishing]);
     setProgress(null);
     setErrorMsg("");
     setToken(null);
     setJobStatus("queued");
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-  }, [shopId]);
+  }, [shopId, initialFinishing]);
 
   const handleJobStatusChange = useCallback(
     (status: JobStatus) => {
       setJobStatus(status);
-      // Update persisted session
       if (token) {
         localStorage.setItem(
           SESSION_STORAGE_KEY(shopId),
@@ -235,24 +273,26 @@ export default function PrintClient({
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between px-5 py-8 safe-area-inset">
+    <div className="min-h-screen bg-[#f8fafc] text-zinc-900 flex flex-col items-center justify-between px-4 py-6 sm:px-6 safe-area-inset relative">
       {/* ─── Header ─── */}
-      <header className="text-center mb-6 animate-fade-in-up">
-        <div className="inline-flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg shadow-lg shadow-indigo-500/20">
+      <header className="text-center mb-5 animate-fade-in-up w-full max-w-md">
+        <div className="inline-flex items-center gap-2 mb-1.5">
+          <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center text-sm shadow-md">
             🖨️
           </div>
-          <h1 className="text-2xl font-bold gradient-text tracking-tight">
+          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">
             Printap
           </h1>
         </div>
-        <p className="text-sm text-[--color-muted]">{shopName}</p>
+        <p className="text-xs font-semibold text-zinc-500">
+          Counter Terminal • <span className="text-zinc-900 font-bold">{shopName}</span>
+        </p>
       </header>
 
       {/* ─── Step Indicator ─── */}
       <nav
-        className="flex items-center gap-1.5 mb-8 animate-fade-in-up overflow-x-auto max-w-full px-2"
-        style={{ animationDelay: "0.1s" }}
+        className="flex items-center gap-1.5 mb-6 animate-fade-in-up overflow-x-auto max-w-full px-2"
+        style={{ animationDelay: "0.05s" }}
       >
         {STEP_LABELS.map((s, i) => {
           const isCurrent =
@@ -262,28 +302,28 @@ export default function PrintClient({
             <React.Fragment key={s.key}>
               {i > 0 && (
                 <div
-                  className={`h-px w-4 transition-all duration-500 flex-shrink-0 ${
-                    isComplete ? "bg-[--color-success]" : "bg-[--color-border]"
+                  className={`h-0.5 w-3 sm:w-4 transition-all duration-300 flex-shrink-0 ${
+                    isComplete ? "bg-emerald-500" : "bg-zinc-200"
                   }`}
                 />
               )}
               <div className="flex flex-col items-center gap-1 flex-shrink-0">
                 <div
-                  className={`step-dot w-2 h-2 rounded-full ${
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
                     isComplete
-                      ? "complete"
+                      ? "bg-emerald-500 ring-2 ring-emerald-500/20"
                       : isCurrent
-                      ? "active"
-                      : "bg-[--color-border]"
+                      ? "bg-zinc-900 ring-4 ring-zinc-900/15"
+                      : "bg-zinc-300"
                   }`}
                 />
                 <span
-                  className={`text-[9px] font-medium tracking-wide uppercase ${
+                  className={`text-[9px] font-bold tracking-wider uppercase ${
                     isCurrent
-                      ? "text-[--color-accent-light]"
+                      ? "text-zinc-900"
                       : isComplete
-                      ? "text-[--color-success]"
-                      : "text-[--color-muted]"
+                      ? "text-emerald-600"
+                      : "text-zinc-400"
                   }`}
                 >
                   {s.label}
@@ -295,7 +335,7 @@ export default function PrintClient({
       </nav>
 
       {/* ─── Main Content ─── */}
-      <main className="w-full max-w-sm flex-1 flex flex-col justify-center">
+      <main className="w-full max-w-md flex-1 flex flex-col justify-center">
         {/* STEP 1 — Upload */}
         {step === "upload" && (
           <FileUpload
@@ -315,24 +355,36 @@ export default function PrintClient({
             rateCard={rateCard}
             finishingServices={finishingServices}
             onFinishingChange={setFinishingServices}
-            onContinue={() => setStep("checkout")}
-            onBack={() => setStep("upload")}
+            colorAvailable={colorAvailable}
           />
         )}
 
-        {/* STEP 3 — Checkout & Payment */}
-        {step === "checkout" && (
-          <Checkout
-            shopName={shopName}
-            shopId={shopId}
-            upiVpa={upiVpa}
-            totalAmount={totalAmount}
-            onPaymentConfirmed={handlePaymentConfirmed}
+        {/* STEP 3 — Interactive Preview */}
+        {step === "preview" && (
+          <PagePreview
+            documents={documents}
+            rateCard={rateCard}
+            finishingServices={finishingServices}
             onBack={() => setStep("settings")}
+            onContinue={() => setStep("checkout")}
           />
         )}
 
-        {/* STEP 4 — Transferring */}
+        {/* STEP 4 — Checkout & Payment */}
+        {step === "checkout" && (
+          <div className="pb-28">
+            <Checkout
+              shopName={shopName}
+              shopId={shopId}
+              upiVpa={upiVpa}
+              totalAmount={totalAmount}
+              onPaymentConfirmed={handlePaymentConfirmed}
+              onBack={() => setStep("preview")}
+            />
+          </div>
+        )}
+
+        {/* STEP 5 — Transferring */}
         {step === "transferring" && progress && (
           <TransferView
             progress={progress}
@@ -340,7 +392,7 @@ export default function PrintClient({
           />
         )}
 
-        {/* STEP 5 — Token Confirmation */}
+        {/* STEP 6 — Token Confirmation */}
         {step === "token" && token && (
           <TokenConfirmation
             token={token}
@@ -348,7 +400,7 @@ export default function PrintClient({
           />
         )}
 
-        {/* STEP 6 — Live Queue Tracker */}
+        {/* STEP 7 — Live Queue Tracker */}
         {step === "queue" && token && (
           <LiveQueueTracker
             token={token}
@@ -358,7 +410,7 @@ export default function PrintClient({
           />
         )}
 
-        {/* STEP 7 — Pickup Ready */}
+        {/* STEP 8 — Pickup Ready */}
         {step === "pickup" && token && (
           <PickupReady
             token={token}
@@ -366,52 +418,66 @@ export default function PrintClient({
           />
         )}
 
-        {/* ERROR */}
+        {/* ERROR STATE */}
         {step === "error" && (
           <div className="animate-fade-in-up text-center">
-            <div
-              className="glass rounded-2xl p-8"
-              style={{ borderColor: "rgba(248, 113, 113, 0.15)" }}
-            >
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
-                  />
-                </svg>
+            <div className="glass rounded-2xl p-8 border border-red-200 shadow-xl">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl font-bold">
+                ✕
               </div>
-              <h2 className="text-lg font-bold text-[--color-danger] mb-2">
-                Transfer Failed
+              <h2 className="text-lg font-bold text-zinc-900 mb-2">
+                Transfer Interrupted
               </h2>
-              <p className="text-sm text-[--color-muted]">{errorMsg}</p>
+              <p className="text-xs text-zinc-600">{errorMsg}</p>
               <button
+                type="button"
                 onClick={handleReset}
-                className="mt-6 px-6 py-2.5 rounded-xl bg-[--color-surface-light] hover:bg-[--color-border] text-sm font-medium transition-all"
+                className="mt-6 px-6 py-2.5 rounded-xl btn-primary text-xs font-bold text-white shadow"
               >
-                Try again
+                Start Over
               </button>
             </div>
           </div>
         )}
       </main>
 
+      {/* ─── Persistent Bottom Price Bar from Settings Onwards ─── */}
+      {step === "settings" && (
+        <BottomPriceBar
+          totalPrice={totalAmount}
+          documentCount={documents.length}
+          totalSheets={totalSheets}
+          colorMode={globalColorMode}
+          activeFinishingCount={activeFinishing.length}
+          activeFinishingLabels={activeFinishing.map((s) => s.label)}
+          buttonLabel="View Preview →"
+          onContinue={() => setStep("preview")}
+          onBack={() => setStep("upload")}
+        />
+      )}
+
+      {step === "preview" && (
+        <BottomPriceBar
+          totalPrice={totalAmount}
+          documentCount={documents.length}
+          totalSheets={totalSheets}
+          colorMode={globalColorMode}
+          activeFinishingCount={activeFinishing.length}
+          activeFinishingLabels={activeFinishing.map((s) => s.label)}
+          buttonLabel="Proceed to Payment →"
+          onContinue={() => setStep("checkout")}
+          onBack={() => setStep("settings")}
+        />
+      )}
+
       {/* ─── Footer ─── */}
       <footer
-        className="mt-8 text-center animate-fade-in-up"
+        className="mt-6 text-center animate-fade-in-up"
         style={{ animationDelay: "0.2s" }}
       >
-        <p className="text-[11px] text-[--color-muted]/60">
-          Powered by{" "}
-          <span className="gradient-text font-semibold">Printap</span> ·
-          Peer-to-peer · Zero data retention
+        <p className="text-[11px] text-zinc-400">
+          Powered by <span className="font-bold text-zinc-700">Printap</span> ·
+          Direct Device-to-Printer · Zero Cloud Storage
         </p>
       </footer>
     </div>

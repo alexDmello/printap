@@ -1,10 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { getSupabase, getCustomerPrintUrl, getShopCustomerUrl, ROOT_DOMAIN, type ShopInfo } from "@printap/shared";
+import {
+  getSupabase,
+  getCustomerPrintUrl,
+  getShopCustomerUrl,
+  ROOT_DOMAIN,
+  DEFAULT_SHOP_SERVICES,
+  type ShopInfo,
+  type ShopServiceItem,
+  type ServiceUnit,
+} from "@printap/shared";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 
-type Tab = "overview" | "qr" | "printers" | "analytics" | "profile";
+type Tab = "overview" | "services" | "qr" | "printers" | "analytics" | "profile";
 
 interface PrinterAssignment {
   id: string;
@@ -43,6 +52,125 @@ export default function ShopAdminPage() {
   const [newPrinterRole, setNewPrinterRole] = useState<"bw" | "color" | "both">("bw");
 
   const customerUrl = getShopCustomerUrl(shop);
+
+  // Pricing & Services State
+  const [priceBw, setPriceBw] = useState<number>(2);
+  const [priceColor, setPriceColor] = useState<number>(10);
+  const [colorEnabled, setColorEnabled] = useState<boolean>(true);
+  const [servicesList, setServicesList] = useState<ShopServiceItem[]>(DEFAULT_SHOP_SERVICES);
+  const [isSavingServices, setIsSavingServices] = useState(false);
+  const [saveServicesMsg, setSaveServicesMsg] = useState("");
+
+  // New Custom Service Form State
+  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServicePrice, setNewServicePrice] = useState<number>(25);
+  const [newServiceUnit, setNewServiceUnit] = useState<ServiceUnit>("per_copy");
+  const [newServiceCategory, setNewServiceCategory] = useState<"print" | "finishing" | "addon">("finishing");
+
+  // Sync pricing state when shop loads
+  useEffect(() => {
+    if (shop) {
+      if (shop.price_bw !== undefined && shop.price_bw !== null) setPriceBw(Number(shop.price_bw));
+      if (shop.price_color !== undefined && shop.price_color !== null) setPriceColor(Number(shop.price_color));
+      if (shop.services && Array.isArray(shop.services) && shop.services.length > 0) {
+        setServicesList(shop.services);
+        const colorItem = shop.services.find((s) => s.id === "core_color");
+        if (colorItem) setColorEnabled(colorItem.enabled);
+      } else {
+        setServicesList(
+          DEFAULT_SHOP_SERVICES.map((s) => {
+            if (s.id === "core_bw" && shop.price_bw !== undefined) return { ...s, price: Number(shop.price_bw) };
+            if (s.id === "core_color" && shop.price_color !== undefined) return { ...s, price: Number(shop.price_color) };
+            return s;
+          })
+        );
+      }
+    }
+  }, [shop]);
+
+  const handleToggleService = (id: string) => {
+    if (id === "core_color") {
+      setColorEnabled((prev) => !prev);
+    }
+    setServicesList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s))
+    );
+  };
+
+  const handleUpdateServicePrice = (id: string, newPrice: number) => {
+    if (id === "core_bw") setPriceBw(newPrice);
+    if (id === "core_color") setPriceColor(newPrice);
+    setServicesList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, price: newPrice } : s))
+    );
+  };
+
+  const handleAddCustomService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newServiceName.trim()) return;
+    const newService: ShopServiceItem = {
+      id: "custom_" + Date.now(),
+      name: newServiceName.trim(),
+      price: Number(newServicePrice) || 0,
+      unit: newServiceUnit,
+      enabled: true,
+      category: newServiceCategory,
+    };
+    setServicesList((prev) => [...prev, newService]);
+    setNewServiceName("");
+    setNewServicePrice(25);
+    setShowAddCustom(false);
+  };
+
+  const handleDeleteService = (id: string) => {
+    setServicesList((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleSaveServices = async () => {
+    if (!shopId) return;
+    setIsSavingServices(true);
+    setSaveServicesMsg("");
+    try {
+      const updatedServices = servicesList.map((item) => {
+        if (item.id === "core_bw") return { ...item, price: priceBw, enabled: true };
+        if (item.id === "core_color") return { ...item, price: priceColor, enabled: colorEnabled };
+        return item;
+      });
+
+      const res = await fetch("/api/shop/pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopId,
+          priceBw,
+          priceColor,
+          services: updatedServices,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || "Failed to update pricing");
+
+      setServicesList(updatedServices);
+      setShop((prev) =>
+        prev
+          ? {
+              ...prev,
+              price_bw: priceBw,
+              price_color: priceColor,
+              services: updatedServices,
+            }
+          : prev
+      );
+      setSaveServicesMsg("Pricing and services updated successfully!");
+      setTimeout(() => setSaveServicesMsg(""), 3500);
+    } catch (err) {
+      alert("Error saving: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsSavingServices(false);
+    }
+  };
 
   // 1. Restore login from localStorage
   const loadShop = useCallback(async (id: string) => {
@@ -436,6 +564,7 @@ export default function ShopAdminPage() {
       <nav className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
         {[
           { key: "overview", label: "Overview & Activity" },
+          { key: "services", label: "🏷️ Services & Rates" },
           { key: "qr", label: "Counter QR & Standee" },
           { key: "printers", label: "Printer Assignments" },
           { key: "analytics", label: "Analytics & Ledger" },
@@ -551,6 +680,322 @@ export default function ShopAdminPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: SERVICES & RATES */}
+      {activeTab === "services" && (
+        <div className="space-y-6 animate-fade-in-up">
+          {/* Top Header & Save Action */}
+          <div className="flex items-center justify-between flex-wrap gap-4 glass rounded-2xl p-6 glow-sm">
+            <div>
+              <h2 className="text-base font-bold text-[--color-foreground]">
+                Services & Custom Pricing Management
+              </h2>
+              <p className="text-xs text-[--color-muted] mt-1 max-w-lg">
+                Configure your shop's per-page printing rates, toggle color printing availability, and manage additional finishing services offered to customers.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {saveServicesMsg && (
+                <span className="text-xs font-semibold text-emerald-400 animate-fade-in-up">
+                  ✓ {saveServicesMsg}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveServices}
+                disabled={isSavingServices}
+                className="btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+              >
+                {isSavingServices ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>💾 Save All Pricing & Services</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Section 1: Default Core Printing Services */}
+          <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[--color-muted]">
+                Default Core Services (Standard Document Printing)
+              </h3>
+              <span className="text-[11px] text-emerald-400 font-medium">
+                ● Always accessible to customer phone scans
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Core 1: Black & White */}
+              <div className="glass rounded-2xl p-5 glow-sm border border-[--color-border]/60">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm shadow">
+                      📄
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-[--color-foreground]">
+                        Black & White Printing
+                      </div>
+                      <div className="text-[10px] text-[--color-muted]">
+                        Monochrome standard A4/Legal
+                      </div>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Active • Core
+                  </span>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-[--color-border]/50 flex items-center justify-between">
+                  <label className="text-xs text-[--color-muted]">
+                    Price per Page (₹)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-[--color-foreground]">₹</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      value={priceBw}
+                      onChange={(e) => handleUpdateServicePrice("core_bw", Math.max(0.5, Number(e.target.value)))}
+                      className="w-24 px-3 py-1.5 rounded-lg bg-[--color-surface-light] border border-[--color-border] text-sm text-[--color-foreground] font-bold text-center focus:outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-xs text-[--color-muted]">/ page</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Core 2: Color Printing */}
+              <div className="glass rounded-2xl p-5 glow-sm border border-[--color-border]/60">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-sm shadow">
+                      🎨
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-[--color-foreground]">
+                        Color Printing
+                      </div>
+                      <div className="text-[10px] text-[--color-muted]">
+                        Full color A4/Photo reproduction
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleService("core_color")}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1.5 ${
+                      colorEnabled
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${colorEnabled ? "bg-emerald-400" : "bg-zinc-500"}`} />
+                    {colorEnabled ? "Enabled" : "Disabled (Out of Ink/Offline)"}
+                  </button>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-[--color-border]/50 flex items-center justify-between">
+                  <label className="text-xs text-[--color-muted]">
+                    Price per Page (₹)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-[--color-foreground]">₹</span>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={priceColor}
+                      onChange={(e) => handleUpdateServicePrice("core_color", Math.max(1, Number(e.target.value)))}
+                      className="w-24 px-3 py-1.5 rounded-lg bg-[--color-surface-light] border border-[--color-border] text-sm text-[--color-foreground] font-bold text-center focus:outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-xs text-[--color-muted]">/ page</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Additional & Finishing Services */}
+          <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[--color-muted]">
+                Additional & Finishing Services (Customer Add-ons)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddCustom((p: boolean) => !p)}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition"
+              >
+                {showAddCustom ? "− Hide Add Form" : "+ Add New Custom Service"}
+              </button>
+            </div>
+
+            {/* Optional Inline Add Form */}
+            {showAddCustom && (
+              <form
+                onSubmit={handleAddCustomService}
+                className="glass rounded-2xl p-5 mb-4 glow-sm border border-indigo-500/30 space-y-3 animate-fade-in-up"
+              >
+                <div className="text-xs font-bold text-[--color-foreground]">
+                  Create New Shop Service
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      Service Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Glossy Sticker Sheet, A3 Large Format, Thesis Hardbound"
+                      value={newServiceName}
+                      onChange={(e) => setNewServiceName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground] focus:outline-none focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={newServicePrice}
+                      onChange={(e) => setNewServicePrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground] font-mono focus:outline-none focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      Billing Unit
+                    </label>
+                    <select
+                      value={newServiceUnit}
+                      onChange={(e) => setNewServiceUnit(e.target.value as ServiceUnit)}
+                      className="w-full px-3 py-2 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground] focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="per_copy">Per Copy / Document</option>
+                      <option value="per_sheet">Per Printed Sheet</option>
+                      <option value="per_document">Per Entire Job</option>
+                      <option value="flat">Flat Rate</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustom(false)}
+                    className="px-3 py-1.5 rounded-lg text-xs text-[--color-muted] hover:text-[--color-foreground]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary px-4 py-1.5 rounded-lg text-xs font-semibold text-white"
+                  >
+                    Add Service to Menu
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* List of services */}
+            <div className="glass rounded-2xl overflow-hidden glow-sm border border-[--color-border]/60">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[--color-border] text-[--color-muted] bg-[--color-surface-light]/40">
+                    <th className="py-3 px-4 font-semibold">Service Name</th>
+                    <th className="py-3 px-4 font-semibold">Category</th>
+                    <th className="py-3 px-4 font-semibold">Price (₹)</th>
+                    <th className="py-3 px-4 font-semibold">Billing Unit</th>
+                    <th className="py-3 px-4 font-semibold">Status / Toggle</th>
+                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[--color-border]/40">
+                  {servicesList
+                    .filter((s) => !s.isCore)
+                    .map((item) => (
+                      <tr
+                        key={item.id}
+                        className={`hover:bg-[--color-surface-light]/20 transition ${
+                          !item.enabled ? "opacity-60" : ""
+                        }`}
+                      >
+                        <td className="py-3.5 px-4 font-medium text-[--color-foreground]">
+                          {item.name}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[--color-surface-light] text-[--color-muted] capitalize">
+                            {item.category}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[--color-muted]">₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.price}
+                              onChange={(e) =>
+                                handleUpdateServicePrice(item.id, Number(e.target.value))
+                              }
+                              className="w-20 px-2 py-1 rounded bg-[--color-surface-light] border border-[--color-border] text-xs font-semibold font-mono text-[--color-foreground] focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-[--color-muted] capitalize">
+                          {item.unit.replace("_", " ")}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleService(item.id)}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1.5 ${
+                              item.enabled
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                item.enabled ? "bg-emerald-400" : "bg-zinc-500"
+                              }`}
+                            />
+                            {item.enabled ? "Enabled" : "Disabled"}
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {item.id.startsWith("custom_") ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteService(item.id)}
+                              className="text-red-400 hover:text-red-300 text-[11px] font-medium"
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-[--color-muted]">Preset</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

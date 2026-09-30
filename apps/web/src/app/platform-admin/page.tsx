@@ -30,7 +30,31 @@ export default function PlatformAdminPage() {
   const [events, setEvents] = useState<GlobalPrintEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"shops" | "events" | "health">("shops");
+  const [activeTab, setActiveTab] = useState<"shops" | "events" | "pricing" | "health">("shops");
+
+  // Global Platform Fee & GST State (stored in database)
+  const [globalPlatformFee, setGlobalPlatformFee] = useState<number>(0.82);
+  const [globalGstPercentage, setGlobalGstPercentage] = useState<number>(18);
+  const [globalGstAmount, setGlobalGstAmount] = useState<number>(0.18);
+  const [globalTotalCharge, setGlobalTotalCharge] = useState<number>(1.00);
+  const [isSavingGlobalPricing, setIsSavingGlobalPricing] = useState(false);
+  const [globalPricingMsg, setGlobalPricingMsg] = useState("");
+
+  const handleGlobalFeeChange = (val: number) => {
+    const fee = Math.max(0, Number(val) || 0);
+    setGlobalPlatformFee(fee);
+    const gst = Math.round(fee * (globalGstPercentage / 100) * 100) / 100;
+    setGlobalGstAmount(gst);
+    setGlobalTotalCharge(Math.round((fee + gst) * 100) / 100);
+  };
+
+  const handleGlobalGstChange = (val: number) => {
+    const pct = Math.max(0, Math.min(100, Number(val) || 0));
+    setGlobalGstPercentage(pct);
+    const gst = Math.round(globalPlatformFee * (pct / 100) * 100) / 100;
+    setGlobalGstAmount(gst);
+    setGlobalTotalCharge(Math.round((globalPlatformFee + gst) * 100) / 100);
+  };
 
   // Create Shop Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -45,12 +69,54 @@ export default function PlatformAdminPage() {
   const [editName, setEditName] = useState("");
   const [editSlug, setEditSlug] = useState("");
   const [editUpi, setEditUpi] = useState("");
+  const [editPlatformFee, setEditPlatformFee] = useState<number>(0.82);
+  const [editGstPercentage, setEditGstPercentage] = useState<number>(18);
+  const [editGstAmount, setEditGstAmount] = useState<number>(0.18);
+  const [editTotalCharge, setEditTotalCharge] = useState<number>(1.00);
   const [editError, setEditError] = useState("");
+
+  const handleEditFeeChange = (val: number) => {
+    const fee = Math.max(0, Number(val) || 0);
+    setEditPlatformFee(fee);
+    const gst = Math.round(fee * (editGstPercentage / 100) * 100) / 100;
+    setEditGstAmount(gst);
+    setEditTotalCharge(Math.round((fee + gst) * 100) / 100);
+  };
+
+  const handleEditGstChange = (val: number) => {
+    const pct = Math.max(0, Math.min(100, Number(val) || 0));
+    setEditGstPercentage(pct);
+    const gst = Math.round(editPlatformFee * (pct / 100) * 100) / 100;
+    setEditGstAmount(gst);
+    setEditTotalCharge(Math.round((editPlatformFee + gst) * 100) / 100);
+  };
 
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
     try {
       const supabase = getSupabase();
+
+      // Fetch global platform settings
+      try {
+        const { data: psData } = await supabase
+          .from("platform_settings")
+          .select("*")
+          .eq("id", "global")
+          .maybeSingle();
+
+        if (psData) {
+          const pf = Number(psData.platform_fee) || 0.82;
+          const gp = Number(psData.gst_percentage) || 18;
+          const ga = psData.gst_amount !== undefined ? Number(psData.gst_amount) : Math.round(pf * (gp / 100) * 100) / 100;
+          const tc = psData.total_charge !== undefined ? Number(psData.total_charge) : Math.round((pf + ga) * 100) / 100;
+          setGlobalPlatformFee(pf);
+          setGlobalGstPercentage(gp);
+          setGlobalGstAmount(ga);
+          setGlobalTotalCharge(tc);
+        }
+      } catch (psErr) {
+        console.warn("Could not load platform_settings:", psErr);
+      }
 
       // Fetch all shops
       const { data: shopsData, error: shopsErr } = await supabase
@@ -206,6 +272,14 @@ export default function PlatformAdminPage() {
     setEditName(shop.name);
     setEditSlug(shop.slug || sanitizeSubdomain(shop.name));
     setEditUpi(shop.upi_vpa);
+    const pf = shop.platform_fee !== undefined && shop.platform_fee !== null ? Number(shop.platform_fee) : globalPlatformFee;
+    const gp = shop.gst_percentage !== undefined && shop.gst_percentage !== null ? Number(shop.gst_percentage) : globalGstPercentage;
+    const ga = shop.gst_amount !== undefined && shop.gst_amount !== null ? Number(shop.gst_amount) : Math.round(pf * (gp / 100) * 100) / 100;
+    const tc = shop.total_charge !== undefined && shop.total_charge !== null ? Number(shop.total_charge) : Math.round((pf + ga) * 100) / 100;
+    setEditPlatformFee(pf);
+    setEditGstPercentage(gp);
+    setEditGstAmount(ga);
+    setEditTotalCharge(tc);
     setEditError("");
   };
 
@@ -225,6 +299,10 @@ export default function PlatformAdminPage() {
           name: editName.trim(),
           slug: cleanSlug,
           upi_vpa: editUpi.trim(),
+          platform_fee: editPlatformFee,
+          gst_percentage: editGstPercentage,
+          gst_amount: editGstAmount,
+          total_charge: editTotalCharge,
         })
         .eq("id", editingShop.id);
 
@@ -234,6 +312,48 @@ export default function PlatformAdminPage() {
       loadPlatformData();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Save Global Platform Fee & GST
+  const handleSaveGlobalPricing = async (applyToAllShops = false) => {
+    setIsSavingGlobalPricing(true);
+    setGlobalPricingMsg("");
+    try {
+      const supabase = getSupabase();
+      const { error: psErr } = await supabase.from("platform_settings").upsert({
+        id: "global",
+        platform_fee: globalPlatformFee,
+        gst_percentage: globalGstPercentage,
+        gst_amount: globalGstAmount,
+        total_charge: globalTotalCharge,
+        updated_at: new Date().toISOString(),
+      });
+      if (psErr) throw psErr;
+
+      if (applyToAllShops) {
+        await supabase
+          .from("shops")
+          .update({
+            platform_fee: globalPlatformFee,
+            gst_percentage: globalGstPercentage,
+            gst_amount: globalGstAmount,
+            total_charge: globalTotalCharge,
+          })
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+
+      setGlobalPricingMsg(
+        applyToAllShops
+          ? "Global fee & GST saved to database and propagated to all shops!"
+          : "Global fee & GST settings saved to database successfully!"
+      );
+      setTimeout(() => setGlobalPricingMsg(""), 4000);
+      loadPlatformData();
+    } catch (err) {
+      alert("Failed to save global pricing: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsSavingGlobalPricing(false);
     }
   };
 
@@ -344,6 +464,16 @@ export default function PlatformAdminPage() {
           }`}
         >
           Global Print Ledger ({events.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("pricing")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === "pricing"
+              ? "bg-[--color-accent] text-white"
+              : "glass text-[--color-muted] hover:text-[--color-foreground]"
+          }`}
+        >
+          💰 Platform Fee & GST ({`₹${globalTotalCharge.toFixed(2)}`})
         </button>
         <button
           onClick={() => setActiveTab("health")}
@@ -555,6 +685,127 @@ export default function PlatformAdminPage() {
         </div>
       )}
 
+      {/* TAB 4: GLOBAL PLATFORM FEE & GST SETTINGS */}
+      {activeTab === "pricing" && (
+        <div className="space-y-6 animate-fade-in-up">
+          <div className="glass rounded-2xl p-6 glow-sm border border-[--color-border]/60">
+            <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-[--color-foreground]">
+                  Global Platform Convenience Fee & GST Surcharge
+                </h3>
+                <p className="text-xs text-[--color-muted] mt-1 max-w-xl">
+                  Configure the global base fee and tax rate charged to customers per print session. Values are stored in the database (`platform_settings`) and applied across all customer touchpoints.
+                </p>
+              </div>
+
+              {globalPricingMsg && (
+                <span className="text-xs font-semibold text-emerald-400 animate-fade-in-up">
+                  ✓ {globalPricingMsg}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Input 1: Platform Fee */}
+              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
+                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
+                  Base Platform Fee (₹)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-[--color-muted]">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={globalPlatformFee}
+                    onChange={(e) => handleGlobalFeeChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
+                  Net platform convenience fee
+                </span>
+              </div>
+
+              {/* Input 2: GST Percentage */}
+              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
+                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
+                  GST Percentage (%)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={globalGstPercentage}
+                    onChange={(e) => handleGlobalGstChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500 text-center"
+                  />
+                  <span className="text-sm font-bold text-[--color-muted]">%</span>
+                </div>
+                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
+                  Tax rate percentage
+                </span>
+              </div>
+
+              {/* Auto-calc Box 1: Calculated GST */}
+              <div className="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/20 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                  Auto-Calculated GST
+                </div>
+                <div className="text-2xl font-black font-mono text-[--color-foreground] my-1">
+                  ₹{globalGstAmount.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-[--color-muted]">
+                  {globalGstPercentage}% on ₹{globalPlatformFee.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Auto-calc Box 2: Total Customer Fee */}
+              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/30 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Total Customer Surcharge
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-400 my-1">
+                  ₹{globalTotalCharge.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-emerald-500/80">
+                  ₹{globalPlatformFee.toFixed(2)} fee + ₹{globalGstAmount.toFixed(2)} GST
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-4 pt-4 border-t border-[--color-border]/50">
+              <div className="text-xs text-[--color-muted]">
+                Customer display: <strong className="text-[--color-foreground]">₹{globalTotalCharge.toFixed(2)}</strong> (₹{globalPlatformFee.toFixed(2)} + ₹{globalGstAmount.toFixed(2)} GST)
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSaveGlobalPricing(false)}
+                  disabled={isSavingGlobalPricing}
+                  className="btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-lg"
+                >
+                  {isSavingGlobalPricing ? "Saving..." : "Save Global Settings"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveGlobalPricing(true)}
+                  disabled={isSavingGlobalPricing}
+                  className="glass px-4 py-2.5 rounded-xl text-xs font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-500/30"
+                  title="Update platform_settings and update all active shops to these values"
+                >
+                  Save & Apply to All Shops
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CREATE SHOP MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -691,6 +942,49 @@ export default function PlatformAdminPage() {
                   className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
                   required
                 />
+              </div>
+
+              {/* Shop Platform Fee & GST Configuration */}
+              <div className="p-3.5 rounded-2xl bg-[--color-surface-light] border border-[--color-border]/60 space-y-3">
+                <div className="text-xs font-bold text-[--color-foreground] flex items-center justify-between">
+                  <span>Platform Fee & GST Surcharge</span>
+                  <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+                    Total: ₹{editTotalCharge.toFixed(2)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      Base Platform Fee (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editPlatformFee}
+                      onChange={(e) => handleEditFeeChange(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[--color-surface] border border-[--color-border] text-xs font-mono font-bold text-[--color-foreground]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      GST (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                      value={editGstPercentage}
+                      onChange={(e) => handleEditGstChange(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[--color-surface] border border-[--color-border] text-xs font-mono font-bold text-[--color-foreground] text-center"
+                    />
+                  </div>
+                </div>
+                <div className="text-[10px] text-[--color-muted] flex justify-between pt-1 border-t border-[--color-border]/40">
+                  <span>Auto-Tax: ₹{editGstAmount.toFixed(2)}</span>
+                  <span>Customer Pays: ₹{editTotalCharge.toFixed(2)}</span>
+                </div>
               </div>
 
               {editError && (

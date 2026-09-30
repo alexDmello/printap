@@ -102,17 +102,30 @@ export default function PagePreview({
   }, [isImageBatch, imageDocs, currentSheet, gridLayout]);
 
   // Object URL for PDF native viewer (cleaned up on unmount/change)
+  // Object URL & text content for universal document preview
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isImageBatch && activeTab.doc?.file) {
-      const url = URL.createObjectURL(activeTab.doc.file);
+      const file = activeTab.doc.file;
+      const isText = file.type.startsWith("text/") || /\.(txt|csv|md|log|json)$/i.test(file.name);
+      if (isText) {
+        file
+          .text()
+          .then((txt) => setTextContent(txt.slice(0, 5000)))
+          .catch(() => setTextContent(null));
+      } else {
+        setTextContent(null);
+      }
+      const url = URL.createObjectURL(file);
       setPdfBlobUrl(url);
       return () => {
         URL.revokeObjectURL(url);
       };
     } else {
       setPdfBlobUrl(null);
+      setTextContent(null);
     }
   }, [isImageBatch, activeTab.doc?.file]);
 
@@ -302,16 +315,37 @@ export default function PagePreview({
               )}
 
               {/* ──────────────────────────────────────────────────
-                  B. PDF DOCUMENT: Render actual document content
+                  B. UNIVERSAL DOCUMENT PREVIEW: Support All Document Types
               ────────────────────────────────────────────────── */}
               {!isImageBatch && activeTab.doc && (
-                <div className="w-full h-full flex items-center justify-center overflow-hidden bg-white">
-                  {pdfBlobUrl ? (
-                    <iframe
-                      src={`${pdfBlobUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                      className="w-full h-full border-0 pointer-events-none"
-                      title="PDF Document Page"
+                <div className="w-full h-full flex items-center justify-center overflow-hidden bg-white relative">
+                  {/* Case 1: Image document (single image or photo) */}
+                  {(activeTab.doc.type === "image" ||
+                    activeTab.doc.file.type.startsWith("image/") ||
+                    /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(activeTab.doc.file.name)) ? (
+                    <img
+                      src={activeTab.doc.thumbnailUrl || pdfBlobUrl || undefined}
+                      alt={activeTab.doc.file.name}
+                      className="max-w-full max-h-full object-contain"
                     />
+                  ) : textContent !== null ? (
+                    /* Case 2: Text / CSV / Log document */
+                    <div className="w-full h-full p-3.5 text-left overflow-auto font-mono text-[10px] sm:text-xs text-zinc-800 leading-relaxed whitespace-pre-wrap select-text">
+                      {textContent}
+                    </div>
+                  ) : pdfBlobUrl ? (
+                    /* Case 3: PDF / Rich document */
+                    <object
+                      data={`${pdfBlobUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                      type="application/pdf"
+                      className="w-full h-full border-0"
+                    >
+                      <iframe
+                        src={`${pdfBlobUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                        className="w-full h-full border-0"
+                        title="PDF Document Page"
+                      />
+                    </object>
                   ) : activeTab.doc.thumbnailUrl ? (
                     <img
                       src={activeTab.doc.thumbnailUrl}
@@ -319,8 +353,10 @@ export default function PagePreview({
                       className="max-w-full max-h-full object-contain"
                     />
                   ) : (
-                    <div className="w-full h-full border border-zinc-200 flex items-center justify-center text-zinc-400 text-xs">
-                      Loading page preview...
+                    <div className="w-full h-full border border-zinc-200 flex flex-col items-center justify-center text-zinc-400 text-xs p-4 text-center">
+                      <span>📄</span>
+                      <span className="mt-1 font-medium">{activeTab.doc.file.name}</span>
+                      <span className="text-[10px] text-zinc-400 mt-0.5">Page {currentPage} of {activeTab.doc.pageCount}</span>
                     </div>
                   )}
                 </div>

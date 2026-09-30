@@ -115,17 +115,16 @@ export default function ShopOffline({
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Printap Brand Header */}
+        {/* Brand Header */}
         <div className="inline-flex items-center gap-2 mb-6">
           <img
             src="/logo.png"
-            alt="Printap"
-            className="w-7 h-7 rounded-lg object-cover shadow-sm border border-black/10"
+            alt={shopName}
+            className="w-7 h-7 rounded-lg object-cover shadow-xs border border-black/10"
           />
-          <span className="text-sm font-bold tracking-tight text-gray-900">Printap</span>
         </div>
 
-        {/* Animated Terminal Offline Beacon Icon */}
+        {/* Animated Terminal Offline Printer Icon */}
         <div className="relative w-20 h-20 mx-auto mb-6 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full bg-amber-500/15 animate-ping opacity-75" />
           <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-b from-amber-500/15 to-amber-500/5 border border-amber-500/30 flex items-center justify-center shadow-inner">
@@ -135,12 +134,29 @@ export default function ShopOffline({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
+              {/* Paper feed tray */}
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.8}
-                d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M6 18L18 6M3 3l18 18"
+                d="M7 8V4a1 1 0 011-1h8a1 1 0 011 1v4"
               />
+              {/* Printer body */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M5 8h14a2 2 0 012 2v6a2 2 0 01-2 2h-1v-4H6v4H5a2 2 0 01-2-2v-6a2 2 0 012-2z"
+              />
+              {/* Paper exit tray */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M7 14h10v6H7v-6z"
+              />
+              {/* Indicator dot */}
+              <circle cx="17.5" cy="11.5" r="0.75" fill="currentColor" />
             </svg>
           </div>
         </div>
@@ -207,8 +223,8 @@ export default function ShopOffline({
         </button>
 
         {/* Footer brand */}
-        <div className="mt-8 pt-4 border-t border-black/5 text-[11px] text-gray-400">
-          Powered by <span className="font-semibold text-gray-600">Printap</span> • Privacy-First Xerox
+        <div className="mt-8 pt-4 border-t border-black/5 text-[11px] text-zinc-400 tracking-wider font-medium select-none">
+          powered by PRINTAP
         </div>
       </div>
     </div>

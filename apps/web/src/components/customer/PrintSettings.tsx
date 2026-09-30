@@ -209,8 +209,17 @@ export default function PrintSettingsPanel({
       : logicalPages;
   }, [imageDocs.length, imageBatchGrid, imageBatchSettings?.duplex]);
 
+  // Live Sheet Preview for Images according to User's Settings
+  const [imagePreviewSheet, setImagePreviewSheet] = useState(0);
+  const totalImagePreviewSheets = Math.max(1, Math.ceil(imageDocs.length / imageBatchGrid));
+  const currentPreviewSheetClamped = Math.min(imagePreviewSheet, totalImagePreviewSheets - 1);
+  const currentSheetPhotos = useMemo(() => {
+    const start = currentPreviewSheetClamped * imageBatchGrid;
+    return imageDocs.slice(start, start + imageBatchGrid);
+  }, [currentPreviewSheetClamped, imageBatchGrid, imageDocs]);
+
   return (
-    <div className="space-y-4 pb-28 animate-fade-in-up">
+    <div className="space-y-4 pb-8 animate-fade-in-up">
       {/* ── Heading / Intro ── */}
       <div className="flex items-center justify-between px-1">
         <div>
@@ -533,6 +542,157 @@ export default function PrintSettingsPanel({
                     <strong>{imageDocs.length} photos</strong> in <strong>{imageBatchGrid}-in-1 layout</strong> will fit on{" "}
                     <strong>{imageBatchSheetsPerCopy} {imageBatchSheetsPerCopy === 1 ? "sheet" : "sheets"}</strong> of paper per set.
                   </span>
+                </div>
+
+                {/* ── Live Sheet Preview for Images according to User's Settings ── */}
+                <div className="mt-3 pt-3 border-t border-indigo-100/80 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-zinc-800 uppercase tracking-wider">
+                        Sheet Preview
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                        {imageBatchGrid}-in-1 • {imageBatchSettings.colorMode === "color" ? "Full Color" : "B&W"}
+                      </span>
+                    </div>
+                    {totalImagePreviewSheets > 1 && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setImagePreviewSheet((s) => Math.max(0, s - 1))}
+                          disabled={currentPreviewSheetClamped === 0}
+                          className="w-5 h-5 rounded-md bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs font-bold shadow-xs hover:bg-zinc-50 cursor-pointer"
+                        >
+                          ‹
+                        </button>
+                        <span className="text-[10px] font-mono font-bold text-zinc-600">
+                          Sheet {currentPreviewSheetClamped + 1} of {totalImagePreviewSheets}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setImagePreviewSheet((s) => Math.min(totalImagePreviewSheets - 1, s + 1))}
+                          disabled={currentPreviewSheetClamped >= totalImagePreviewSheets - 1}
+                          className="w-5 h-5 rounded-md bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs font-bold shadow-xs hover:bg-zinc-50 cursor-pointer"
+                        >
+                          ›
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Paper Simulation Viewport */}
+                  <div className="w-full flex items-center justify-center py-3 bg-zinc-100/80 rounded-xl border border-zinc-200 overflow-hidden shadow-inner">
+                    <div
+                      className={`relative bg-white transition-all duration-300 overflow-hidden rounded-xs flex flex-col ${
+                        imageBatchSettings.orientation === "landscape"
+                          ? "w-[220px] sm:w-[250px] h-[155px] sm:h-[176px]"
+                          : "w-[155px] sm:w-[176px] h-[220px] sm:h-[250px]"
+                      }`}
+                      style={{
+                        boxShadow: "0 6px 16px -3px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.25)",
+                        filter: imageBatchSettings.colorMode === "bw"
+                          ? "grayscale(100%) contrast(1.1) brightness(0.98)"
+                          : "none",
+                      }}
+                    >
+                      <div className="w-full h-full p-2 flex items-center justify-center overflow-hidden">
+                        {/* 1-in-1 */}
+                        {imageBatchGrid === 1 && currentSheetPhotos[0] && (
+                          <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                            <img
+                              src={currentSheetPhotos[0].thumbnailUrl}
+                              alt="Preview"
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        )}
+
+                        {/* 2-in-1 */}
+                        {imageBatchGrid === 2 && (
+                          <div
+                            className={`w-full h-full grid gap-1 ${
+                              imageBatchSettings.orientation === "landscape"
+                                ? "grid-cols-2 grid-rows-1"
+                                : "grid-cols-1 grid-rows-2"
+                            }`}
+                          >
+                            {currentSheetPhotos.map((photo) => (
+                              <div
+                                key={photo.id}
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                              >
+                                <img
+                                  src={photo.thumbnailUrl}
+                                  alt="Preview"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 4-in-1 */}
+                        {imageBatchGrid === 4 && (
+                          <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1">
+                            {currentSheetPhotos.map((photo) => (
+                              <div
+                                key={photo.id}
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                              >
+                                <img
+                                  src={photo.thumbnailUrl}
+                                  alt="Preview"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 6-in-1 */}
+                        {imageBatchGrid === 6 && (
+                          <div
+                            className={`w-full h-full grid gap-1 ${
+                              imageBatchSettings.orientation === "landscape"
+                                ? "grid-cols-3 grid-rows-2"
+                                : "grid-cols-2 grid-rows-3"
+                            }`}
+                          >
+                            {currentSheetPhotos.map((photo) => (
+                              <div
+                                key={photo.id}
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                              >
+                                <img
+                                  src={photo.thumbnailUrl}
+                                  alt="Preview"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 9-in-1 */}
+                        {imageBatchGrid === 9 && (
+                          <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-0.5">
+                            {currentSheetPhotos.map((photo) => (
+                              <div
+                                key={photo.id}
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                              >
+                                <img
+                                  src={photo.thumbnailUrl}
+                                  alt="Preview"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

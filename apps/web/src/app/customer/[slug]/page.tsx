@@ -147,6 +147,10 @@ export default async function CustomerShopPage({ params }: Props) {
       priceColor={shop.price_color ?? undefined}
       services={shop.services ?? undefined}
       initialIsOnline={Boolean(shop.is_online)}
+      platformFee={shop.platform_fee ?? undefined}
+      gstPercentage={shop.gst_percentage ?? undefined}
+      gstAmount={shop.gst_amount ?? undefined}
+      totalCharge={shop.total_charge ?? undefined}
     />
   );
 }

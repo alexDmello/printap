@@ -62,6 +62,28 @@ export default function ShopAdminPage() {
   const [isSavingServices, setIsSavingServices] = useState(false);
   const [saveServicesMsg, setSaveServicesMsg] = useState("");
 
+  // Platform Fee & GST Surcharge State (Database Stored)
+  const [platformFee, setPlatformFee] = useState<number>(0.82);
+  const [gstPercentage, setGstPercentage] = useState<number>(18);
+  const [gstAmount, setGstAmount] = useState<number>(0.18);
+  const [totalCharge, setTotalCharge] = useState<number>(1.00);
+
+  const handlePlatformFeeChange = (val: number) => {
+    const fee = Math.max(0, Number(val) || 0);
+    setPlatformFee(fee);
+    const calculatedGst = Math.round(fee * (gstPercentage / 100) * 100) / 100;
+    setGstAmount(calculatedGst);
+    setTotalCharge(Math.round((fee + calculatedGst) * 100) / 100);
+  };
+
+  const handleGstPercentageChange = (val: number) => {
+    const pct = Math.max(0, Math.min(100, Number(val) || 0));
+    setGstPercentage(pct);
+    const calculatedGst = Math.round(platformFee * (pct / 100) * 100) / 100;
+    setGstAmount(calculatedGst);
+    setTotalCharge(Math.round((platformFee + calculatedGst) * 100) / 100);
+  };
+
   // Unsaved changes tracking
   const initialServicesSnapshotRef = useRef<string>("");
   const [unsavedModal, setUnsavedModal] = useState<{
@@ -84,6 +106,10 @@ export default function ShopAdminPage() {
       let c = 10;
       let ce = true;
       let list = DEFAULT_SHOP_SERVICES;
+      let pf = 0.82;
+      let gp = 18;
+      let ga = 0.18;
+      let tc = 1.00;
 
       if (shop.price_bw !== undefined && shop.price_bw !== null) {
         b = Number(shop.price_bw);
@@ -110,11 +136,37 @@ export default function ShopAdminPage() {
         setServicesList(list);
       }
 
+      if (shop.platform_fee !== undefined && shop.platform_fee !== null) {
+        pf = Number(shop.platform_fee);
+      }
+      if (shop.gst_percentage !== undefined && shop.gst_percentage !== null) {
+        gp = Number(shop.gst_percentage);
+      }
+      if (shop.gst_amount !== undefined && shop.gst_amount !== null) {
+        ga = Number(shop.gst_amount);
+      } else {
+        ga = Math.round(pf * (gp / 100) * 100) / 100;
+      }
+      if (shop.total_charge !== undefined && shop.total_charge !== null) {
+        tc = Number(shop.total_charge);
+      } else {
+        tc = Math.round((pf + ga) * 100) / 100;
+      }
+
+      setPlatformFee(pf);
+      setGstPercentage(gp);
+      setGstAmount(ga);
+      setTotalCharge(tc);
+
       initialServicesSnapshotRef.current = JSON.stringify({
         priceBw: b,
         priceColor: c,
         colorEnabled: ce,
         servicesList: list,
+        platformFee: pf,
+        gstPercentage: gp,
+        gstAmount: ga,
+        totalCharge: tc,
       });
     }
   }, [shop]);
@@ -166,6 +218,10 @@ export default function ShopAdminPage() {
         priceColor,
         colorEnabled,
         servicesList,
+        platformFee,
+        gstPercentage,
+        gstAmount,
+        totalCharge,
       }) !== initialServicesSnapshotRef.current
     );
   };
@@ -179,6 +235,10 @@ export default function ShopAdminPage() {
       setPriceColor(parsed.priceColor);
       setColorEnabled(parsed.colorEnabled);
       setServicesList(parsed.servicesList);
+      if (parsed.platformFee !== undefined) setPlatformFee(parsed.platformFee);
+      if (parsed.gstPercentage !== undefined) setGstPercentage(parsed.gstPercentage);
+      if (parsed.gstAmount !== undefined) setGstAmount(parsed.gstAmount);
+      if (parsed.totalCharge !== undefined) setTotalCharge(parsed.totalCharge);
     } catch (e) {
       console.error("Failed to discard services", e);
     }
@@ -203,6 +263,10 @@ export default function ShopAdminPage() {
           priceBw,
           priceColor,
           services: updatedServices,
+          platform_fee: platformFee,
+          gst_percentage: gstPercentage,
+          gst_amount: gstAmount,
+          total_charge: totalCharge,
         }),
       });
 
@@ -217,6 +281,10 @@ export default function ShopAdminPage() {
               price_bw: priceBw,
               price_color: priceColor,
               services: updatedServices,
+              platform_fee: platformFee,
+              gst_percentage: gstPercentage,
+              gst_amount: gstAmount,
+              total_charge: totalCharge,
             }
           : prev
       );
@@ -225,6 +293,10 @@ export default function ShopAdminPage() {
         priceColor,
         colorEnabled,
         servicesList: updatedServices,
+        platformFee,
+        gstPercentage,
+        gstAmount,
+        totalCharge,
       });
       setSaveServicesMsg("Pricing and services updated successfully!");
       setTimeout(() => setSaveServicesMsg(""), 3500);
@@ -954,7 +1026,109 @@ export default function ShopAdminPage() {
             </div>
           </div>
 
-          {/* Section 2: Additional & Finishing Services */}
+          {/* Section 2: Platform Fee & GST Surcharge Configuration */}
+          <div className="glass rounded-2xl p-6 glow-sm border border-[--color-border]/60">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-[--color-foreground]">
+                  Platform Fee & GST Surcharge
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  Auto-Calculates
+                </span>
+              </div>
+              <span className="text-xs text-[--color-muted]">
+                Stored in Database • Live Customer Breakdown
+              </span>
+            </div>
+            <p className="text-xs text-[--color-muted] mb-5 max-w-xl">
+              Enter your base platform convenience fee and GST percentage. The tax breakdown and total surcharge are automatically calculated in real time and saved to the database.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {/* Input 1: Platform Fee */}
+              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
+                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
+                  Base Platform Fee (₹)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-[--color-muted]">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={platformFee}
+                    onChange={(e) => handlePlatformFeeChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
+                  Net platform fee before tax
+                </span>
+              </div>
+
+              {/* Input 2: GST Percentage */}
+              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
+                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
+                  GST Percentage (%)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={gstPercentage}
+                    onChange={(e) => handleGstPercentageChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500 text-center"
+                  />
+                  <span className="text-sm font-bold text-[--color-muted]">%</span>
+                </div>
+                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
+                  Tax percentage rate
+                </span>
+              </div>
+
+              {/* Auto-calc Box 1: Calculated GST */}
+              <div className="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/20 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                  Auto-Calculated GST
+                </div>
+                <div className="text-2xl font-black font-mono text-[--color-foreground] my-1">
+                  ₹{gstAmount.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-[--color-muted]">
+                  {gstPercentage}% on ₹{platformFee.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Auto-calc Box 2: Total Customer Fee */}
+              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/30 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Total Customer Surcharge
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-400 my-1">
+                  ₹{totalCharge.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-emerald-500/80">
+                  ₹{platformFee.toFixed(2)} fee + ₹{gstAmount.toFixed(2)} GST
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Price Drawer Preview Callout */}
+            <div className="p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/50 text-xs text-[--color-muted] flex items-center gap-2.5">
+              <span>👁️</span>
+              <span>
+                Customer price drawer displays:{" "}
+                <strong className="text-[--color-foreground]">GST and other charges: ₹{totalCharge.toFixed(2)}</strong>{" "}
+                (expands into <code className="text-indigo-300 font-mono">Platform fee: ₹{platformFee.toFixed(2)}</code> +{" "}
+                <code className="text-indigo-300 font-mono">GST ({gstPercentage}%): ₹{gstAmount.toFixed(2)}</code>)
+              </span>
+            </div>
+          </div>
+
+          {/* Section 3: Additional & Finishing Services */}
           <div>
             <div className="flex items-center justify-between mb-3 px-1">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[--color-muted]">

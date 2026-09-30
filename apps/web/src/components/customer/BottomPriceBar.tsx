@@ -5,6 +5,10 @@ import React, { useState } from "react";
 interface BottomPriceBarProps {
   totalPrice: number;
   printingCost?: number;
+  platformFee?: number;
+  gstPercentage?: number;
+  gstAmount?: number;
+  totalCharge?: number;
   documentCount: number;
   totalSheets: number;
   colorMode: "bw" | "color";
@@ -19,6 +23,10 @@ interface BottomPriceBarProps {
 export default function BottomPriceBar({
   totalPrice,
   printingCost,
+  platformFee = 0.82,
+  gstPercentage = 18,
+  gstAmount = 0.18,
+  totalCharge = 1.0,
   documentCount,
   totalSheets,
   colorMode,
@@ -35,7 +43,7 @@ export default function BottomPriceBar({
   const basePrintCost =
     printingCost !== undefined
       ? printingCost
-      : Math.max(0, totalPrice - 1.0);
+      : Math.max(0, totalPrice - totalCharge);
 
   return (
     <>
@@ -129,20 +137,20 @@ export default function BottomPriceBar({
                       </span>
                     </span>
                     <span className="font-semibold font-mono text-zinc-900">
-                      ₹1.00
+                      ₹{totalCharge.toFixed(2)}
                     </span>
                   </button>
 
-                  {/* Expandable sub-breakdown for ₹1.00 */}
+                  {/* Expandable sub-breakdown */}
                   {showGstBreakdown && (
                     <div className="mt-2 ml-2 pl-3 border-l-2 border-zinc-200 space-y-1.5 text-[11px] text-zinc-500 animate-fade-in">
                       <div className="flex justify-between items-center">
                         <span>Platform fee</span>
-                        <span className="font-mono text-zinc-700">₹0.82</span>
+                        <span className="font-mono text-zinc-700">₹{platformFee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span>GST (18%)</span>
-                        <span className="font-mono text-zinc-700">₹0.18</span>
+                        <span>GST ({gstPercentage}%)</span>
+                        <span className="font-mono text-zinc-700">₹{gstAmount.toFixed(2)}</span>
                       </div>
                     </div>
                   )}
@@ -177,7 +185,7 @@ export default function BottomPriceBar({
           >
             <div className="border-b border-dotted border-zinc-400 group-hover:border-zinc-700 pb-0.5 transition inline-flex flex-col">
               <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase leading-none">
-                Total
+                TO PAY
               </span>
               <span className="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight leading-tight mt-0.5">
                 ₹{totalPrice.toFixed(2)}

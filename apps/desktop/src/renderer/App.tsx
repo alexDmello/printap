@@ -161,11 +161,11 @@ function ShopAdminShell(): React.ReactElement {
   const loadTodayPrintsCount = useCallback(async (id: string) => {
     try {
       const supabase = getSupabase();
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
       const { count, error } = await supabase
-        .from("print_events")
+        .from("print_orders")
         .select("*", { count: "exact", head: true })
         .eq("shop_id", id)
         .gte("created_at", startOfToday.toISOString());
@@ -217,6 +217,23 @@ function ShopAdminShell(): React.ReactElement {
       console.warn("[App] Could not load today's count:", e);
     }
   }, []);
+
+  // Midnight day rollover watcher: automatically resets token counter every day
+  useEffect(() => {
+    let lastDate = new Date().toDateString();
+    const interval = setInterval(() => {
+      const currentDate = new Date().toDateString();
+      if (currentDate !== lastDate) {
+        lastDate = currentDate;
+        console.log("[App] Calendar day rolled over, resetting today's token counter");
+        setTodayPrintsCount(0);
+        if (shopId) {
+          loadTodayPrintsCount(shopId);
+        }
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [shopId, loadTodayPrintsCount]);
 
   // 3. Load printer assignments into ref for automatic routing
   const refreshAssignments = useCallback((id: string) => {

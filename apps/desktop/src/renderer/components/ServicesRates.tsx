@@ -27,6 +27,28 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
   const [priceColor, setPriceColor] = useState<number>(10);
   const [colorEnabled, setColorEnabled] = useState<boolean>(true);
 
+  // Platform Fee & GST Surcharge
+  const [platformFee, setPlatformFee] = useState<number>(0.82);
+  const [gstPercentage, setGstPercentage] = useState<number>(18.0);
+  const [gstAmount, setGstAmount] = useState<number>(0.18);
+  const [totalCharge, setTotalCharge] = useState<number>(1.00);
+
+  const handlePlatformFeeChange = (val: number) => {
+    const fee = Math.max(0, val);
+    setPlatformFee(fee);
+    const calculatedGst = Number((fee * (gstPercentage / 100)).toFixed(2));
+    setGstAmount(calculatedGst);
+    setTotalCharge(Number((fee + calculatedGst).toFixed(2)));
+  };
+
+  const handleGstPercentageChange = (val: number) => {
+    const pct = Math.max(0, Math.min(100, val));
+    setGstPercentage(pct);
+    const calculatedGst = Number((platformFee * (pct / 100)).toFixed(2));
+    setGstAmount(calculatedGst);
+    setTotalCharge(Number((platformFee + calculatedGst).toFixed(2)));
+  };
+
   // Services list
   const [servicesList, setServicesList] = useState<ShopServiceItem[]>(DEFAULT_SHOP_SERVICES);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,6 +70,10 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
       let c = 10;
       let ce = true;
       let list = DEFAULT_SHOP_SERVICES;
+      let pf = 0.82;
+      let gp = 18.0;
+      let ga = 0.18;
+      let tc = 1.00;
 
       if (shop.price_bw !== undefined && shop.price_bw !== null) {
         b = Number(shop.price_bw);
@@ -56,6 +82,22 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
       if (shop.price_color !== undefined && shop.price_color !== null) {
         c = Number(shop.price_color);
         setPriceColor(c);
+      }
+      if (shop.platform_fee !== undefined && shop.platform_fee !== null) {
+        pf = Number(shop.platform_fee);
+        setPlatformFee(pf);
+      }
+      if (shop.gst_percentage !== undefined && shop.gst_percentage !== null) {
+        gp = Number(shop.gst_percentage);
+        setGstPercentage(gp);
+      }
+      if (shop.gst_amount !== undefined && shop.gst_amount !== null) {
+        ga = Number(shop.gst_amount);
+        setGstAmount(ga);
+      }
+      if (shop.total_charge !== undefined && shop.total_charge !== null) {
+        tc = Number(shop.total_charge);
+        setTotalCharge(tc);
       }
 
       if (shop.services && Array.isArray(shop.services) && shop.services.length > 0) {
@@ -84,7 +126,43 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
         priceColor: c,
         colorEnabled: ce,
         servicesList: list,
+        platformFee: pf,
+        gstPercentage: gp,
+        gstAmount: ga,
+        totalCharge: tc,
       });
+
+      // Also query global platform_settings if shop does not have platform_fee defined
+      if (shop.platform_fee === undefined || shop.platform_fee === null) {
+        const supabase = getSupabase();
+        supabase
+          .from("platform_settings")
+          .select("*")
+          .eq("id", "global")
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              const loadedPf = Number(data.platform_fee) || 0.82;
+              const loadedGp = Number(data.gst_percentage) || 18.0;
+              const loadedGa = Number(data.gst_amount) || 0.18;
+              const loadedTc = Number(data.total_charge) || 1.00;
+              setPlatformFee(loadedPf);
+              setGstPercentage(loadedGp);
+              setGstAmount(loadedGa);
+              setTotalCharge(loadedTc);
+              initialSnapshotRef.current = JSON.stringify({
+                priceBw: b,
+                priceColor: c,
+                colorEnabled: ce,
+                servicesList: list,
+                platformFee: loadedPf,
+                gstPercentage: loadedGp,
+                gstAmount: loadedGa,
+                totalCharge: loadedTc,
+              });
+            }
+          });
+      }
     }
   }, [shop]);
 
@@ -141,6 +219,10 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
       setPriceColor(parsed.priceColor);
       setColorEnabled(parsed.colorEnabled);
       setServicesList(parsed.servicesList);
+      if (parsed.platformFee !== undefined) setPlatformFee(parsed.platformFee);
+      if (parsed.gstPercentage !== undefined) setGstPercentage(parsed.gstPercentage);
+      if (parsed.gstAmount !== undefined) setGstAmount(parsed.gstAmount);
+      if (parsed.totalCharge !== undefined) setTotalCharge(parsed.totalCharge);
     } catch (e) {
       console.error("Failed to discard changes", e);
     }
@@ -154,6 +236,10 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
       priceColor,
       colorEnabled,
       servicesList,
+      platformFee,
+      gstPercentage,
+      gstAmount,
+      totalCharge,
     });
     return currentSnapshot !== initialSnapshotRef.current;
   };
@@ -178,10 +264,28 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
           price_bw: priceBw,
           price_color: priceColor,
           services: updatedServices,
+          platform_fee: platformFee,
+          gst_percentage: gstPercentage,
+          gst_amount: gstAmount,
+          total_charge: totalCharge,
         })
         .eq("id", shopId);
 
       if (error) throw error;
+
+      // Also upsert global platform_settings table
+      try {
+        await supabase.from("platform_settings").upsert({
+          id: "global",
+          platform_fee: platformFee,
+          gst_percentage: gstPercentage,
+          gst_amount: gstAmount,
+          total_charge: totalCharge,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (psErr) {
+        console.warn("Could not upsert platform_settings:", psErr);
+      }
 
       await refreshShop();
       initialSnapshotRef.current = JSON.stringify({
@@ -189,6 +293,10 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
         priceColor,
         colorEnabled,
         servicesList,
+        platformFee,
+        gstPercentage,
+        gstAmount,
+        totalCharge,
       });
       setSaveMessage("Rates and services updated successfully! Web app is now in sync.");
       setTimeout(() => setSaveMessage(""), 4000);
@@ -213,7 +321,7 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
     return () => {
       onRegisterDirtyHandler(null);
     };
-  }, [priceBw, priceColor, colorEnabled, servicesList, shopId]);
+  }, [priceBw, priceColor, colorEnabled, servicesList, platformFee, gstPercentage, gstAmount, totalCharge, shopId]);
 
   // Unit label helper
   const getUnitLabel = (unit: ServiceUnit) => {
@@ -321,6 +429,15 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
           </div>
           <div className="stat-value green">{activeFinishingCount}</div>
           <div className="stat-footnote">Finishing & custom services enabled</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">
+            <span>PLATFORM SURCHARGE</span>
+            <span className="tech-tag">Auto GST</span>
+          </div>
+          <div className="stat-value" style={{ color: "var(--accent-cyan)" }}>₹{totalCharge.toFixed(2)}</div>
+          <div className="stat-footnote">₹{platformFee.toFixed(2)} fee + {gstPercentage}% GST (₹{gstAmount.toFixed(2)})</div>
         </div>
       </div>
 
@@ -511,7 +628,165 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
         </div>
       </div>
 
-      {/* SECTION 2: Finishing & Additional Services */}
+      {/* SECTION 2: Platform Fee & GST Surcharge Configuration */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-header">
+          <div className="card-title">
+            <span>Platform Fee & GST Surcharge</span>
+            <span className="tech-tag active">Auto-Calculates</span>
+          </div>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            Stored in Database • Live Customer Breakdown
+          </span>
+        </div>
+
+        <div className="card-body">
+          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16, maxWidth: 640 }}>
+            Enter your platform convenience fee and GST percentage. The system automatically calculates the tax breakdown and customer surcharge in real time, which is stored in the database.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gap: 16,
+              background: "rgba(255, 255, 255, 0.6)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-lg)",
+              padding: "20px",
+              marginBottom: 16,
+            }}
+          >
+            {/* Input 1: Platform Fee */}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: 6 }}>
+                Base Platform Fee (₹)
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>₹</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={platformFee}
+                  onChange={(e) => handlePlatformFeeChange(parseFloat(e.target.value) || 0)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "#ffffff",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-mono, monospace)",
+                    outline: "none",
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, display: "block" }}>
+                Net platform fee before tax
+              </span>
+            </div>
+
+            {/* Input 2: GST Percentage */}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: 6 }}>
+                GST Percentage (%)
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  value={gstPercentage}
+                  onChange={(e) => handleGstPercentageChange(parseFloat(e.target.value) || 0)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "#ffffff",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-mono, monospace)",
+                    outline: "none",
+                  }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>%</span>
+              </div>
+              <span style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, display: "block" }}>
+                Tax rate (e.g. 18%)
+              </span>
+            </div>
+
+            {/* Auto-calc Box 1: GST Amount */}
+            <div
+              style={{
+                background: "rgba(0, 0, 0, 0.03)",
+                borderRadius: "var(--radius-md)",
+                padding: "12px 14px",
+                border: "1px dashed var(--border-subtle)",
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                Auto-Calculated GST
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "var(--font-mono, monospace)", color: "var(--text-primary)", marginTop: 4 }}>
+                ₹{gstAmount.toFixed(2)}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                {gstPercentage}% on ₹{platformFee.toFixed(2)}
+              </div>
+            </div>
+
+            {/* Auto-calc Box 2: Total Customer Fee */}
+            <div
+              style={{
+                background: "rgba(16, 185, 129, 0.08)",
+                borderRadius: "var(--radius-md)",
+                padding: "12px 14px",
+                border: "1px solid rgba(16, 185, 129, 0.25)",
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#065f46", textTransform: "uppercase" }}>
+                Total Customer Surcharge
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "var(--font-mono, monospace)", color: "#059669", marginTop: 4 }}>
+                ₹{totalCharge.toFixed(2)}
+              </div>
+              <div style={{ fontSize: 11, color: "#047857", marginTop: 2 }}>
+                ₹{platformFee.toFixed(2)} fee + ₹{gstAmount.toFixed(2)} GST
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Display Simulation */}
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: "var(--radius-md)",
+              background: "rgba(99, 102, 241, 0.04)",
+              border: "1px solid rgba(99, 102, 241, 0.15)",
+              fontSize: 12,
+              color: "var(--text-secondary)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span>👁️</span>
+            <span>
+              Customer price drawer displays:{" "}
+              <strong style={{ color: "var(--text-primary)" }}>GST and other charges: ₹{totalCharge.toFixed(2)}</strong>{" "}
+              (expandable into <span style={{ fontFamily: "monospace" }}>Platform fee: ₹{platformFee.toFixed(2)}</span> +{" "}
+              <span style={{ fontFamily: "monospace" }}>GST ({gstPercentage}%): ₹{gstAmount.toFixed(2)}</span>)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3: Finishing & Additional Services */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-header">
           <div className="card-title">

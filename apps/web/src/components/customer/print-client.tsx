@@ -69,6 +69,10 @@ interface Props {
   /** Optional shop custom services */
   services?: ShopServiceItem[];
   initialIsOnline?: boolean;
+  platformFee?: number;
+  gstPercentage?: number;
+  gstAmount?: number;
+  totalCharge?: number;
 }
 
 async function calculateShopToken(shopId: string, hasColor: boolean): Promise<string> {
@@ -98,9 +102,9 @@ async function calculateShopToken(shopId: string, hasColor: boolean): Promise<st
       }
     }
 
-    // 2. Fetch today's print orders count
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // 2. Fetch today's print orders count (resets daily from 00:00:00 local time)
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const { count } = await supabase
       .from("print_orders")
       .select("*", { count: "exact", head: true })
@@ -122,6 +126,10 @@ export default function PrintClient({
   priceColor,
   services,
   initialIsOnline = false,
+  platformFee,
+  gstPercentage,
+  gstAmount,
+  totalCharge,
 }: Props) {
   // ─── State ───
   const [step, setStep] = useState<Step>("upload");
@@ -242,8 +250,11 @@ export default function PrintClient({
 
   const activeFinishing = finishingServices.filter((s) => s.enabled);
   const printingCost = calculateOrderTotal(documents, rateCard, activeFinishing);
-  const PLATFORM_CHARGES = 1.0;
-  const totalAmount = documents.length > 0 ? printingCost + PLATFORM_CHARGES : 0;
+  const resolvedPlatformFee = platformFee !== undefined ? platformFee : 0.82;
+  const resolvedGstPercentage = gstPercentage !== undefined ? gstPercentage : 18;
+  const resolvedGstAmount = gstAmount !== undefined ? gstAmount : Math.round(resolvedPlatformFee * (resolvedGstPercentage / 100) * 100) / 100;
+  const resolvedTotalCharge = totalCharge !== undefined ? totalCharge : Math.round((resolvedPlatformFee + resolvedGstAmount) * 100) / 100;
+  const totalAmount = documents.length > 0 ? printingCost + resolvedTotalCharge : 0;
 
   // Total sheets calculated
   const totalSheets = useMemo(() => {
@@ -274,16 +285,24 @@ export default function PrintClient({
   }, [step]);
   const isError = step === "error";
 
-  // ─── Session Recovery ───
+  // ─── Session Recovery (Tokens reset daily) ───
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SESSION_STORAGE_KEY(shopId));
       if (saved) {
         const session = JSON.parse(saved);
-        if (session.token && session.status !== "picked_up") {
+        // Verify session was created TODAY (tokens reset every day)
+        const isFromToday =
+          session.createdAt &&
+          new Date(session.createdAt).toDateString() === new Date().toDateString();
+
+        if (isFromToday && session.token && session.status !== "picked_up") {
           setToken(session.token);
           setJobStatus(session.status);
           setStep(session.status === "ready_for_pickup" ? "pickup" : "queue");
+        } else if (!isFromToday) {
+          // Token from a previous day - purge it so customer gets a fresh token for today
+          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
         }
       }
     } catch {
@@ -583,33 +602,28 @@ export default function PrintClient({
     );
   }
 
+  const hasBottomBar =
+    (step === "upload" && documents.length > 0) ||
+    step === "settings" ||
+    step === "preview";
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-zinc-900 flex flex-col relative selection:bg-zinc-900 selection:text-white">
+    <div className="min-h-screen bg-[#f8fafc] text-zinc-900 flex flex-col relative selection:bg-zinc-900 selection:text-white overflow-x-hidden">
       {/* ─── Sticky Modern Top Bar ─── */}
       <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-zinc-200/80 shadow-xs">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
-          {/* Brand & Shop Location */}
+          {/* Brand & Shop Location: Only Logo and Shop Name, NO Printap text */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <img
               src="/logo.png"
-              alt="Printap"
-              className="w-8 h-8 rounded-xl object-cover shadow-xs border border-black/10 flex-shrink-0"
+              alt={shopName}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover shadow-xs border border-black/10 flex-shrink-0"
             />
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-base sm:text-lg font-black tracking-tight text-zinc-900 leading-none">
-                  Printap
-                </span>
-                <span className="hidden sm:inline text-zinc-300 text-xs">/</span>
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-xs font-semibold text-zinc-800 truncate max-w-[200px]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                  <span className="truncate">{shopName}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 sm:hidden text-[11px] text-zinc-500 font-medium truncate mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                <span className="truncate">{shopName}</span>
-              </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+              <span className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 truncate">
+                {shopName}
+              </span>
             </div>
           </div>
 
@@ -678,7 +692,11 @@ export default function PrintClient({
       </header>
 
       {/* ─── Main Content Area ─── */}
-      <main className="w-full max-w-2xl mx-auto flex-1 flex flex-col px-4 sm:px-6 py-6 pb-36">
+      <main
+        className={`w-full max-w-2xl mx-auto flex-1 flex flex-col px-4 sm:px-6 py-6 ${
+          hasBottomBar ? "pb-24" : "pb-4"
+        }`}
+      >
         {/* STEP 1 — Upload */}
         {step === "upload" && (
           <FileUpload
@@ -802,6 +820,10 @@ export default function PrintClient({
         <BottomPriceBar
           totalPrice={totalAmount}
           printingCost={printingCost}
+          platformFee={resolvedPlatformFee}
+          gstPercentage={resolvedGstPercentage}
+          gstAmount={resolvedGstAmount}
+          totalCharge={resolvedTotalCharge}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
@@ -816,6 +838,10 @@ export default function PrintClient({
         <BottomPriceBar
           totalPrice={totalAmount}
           printingCost={printingCost}
+          platformFee={resolvedPlatformFee}
+          gstPercentage={resolvedGstPercentage}
+          gstAmount={resolvedGstAmount}
+          totalCharge={resolvedTotalCharge}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
@@ -831,6 +857,10 @@ export default function PrintClient({
         <BottomPriceBar
           totalPrice={totalAmount}
           printingCost={printingCost}
+          platformFee={resolvedPlatformFee}
+          gstPercentage={resolvedGstPercentage}
+          gstAmount={resolvedGstAmount}
+          totalCharge={resolvedTotalCharge}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
@@ -843,11 +873,12 @@ export default function PrintClient({
       )}
 
       {/* ─── Footer ─── */}
-      <footer className="py-6 text-center text-zinc-400 text-[11px] pb-12">
-        <p>
-          Powered by <span className="font-bold text-zinc-700">Printap</span> ·
-          Direct Device-to-Printer · Zero Cloud Storage
-        </p>
+      <footer
+        className={`py-4 text-center text-zinc-400 text-[11px] tracking-wider font-medium select-none ${
+          hasBottomBar ? "mb-20 sm:mb-24" : "mb-2"
+        }`}
+      >
+        powered by PRINTAP
       </footer>
     </div>
   );

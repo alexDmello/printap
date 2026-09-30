@@ -53,28 +53,6 @@ export default function TokenConfirmation({
             </p>
           )}
         </div>
-
-        {/* Pickup PIN */}
-        <div
-          className={`mt-6 p-4 rounded-xl bg-[--color-surface-light] transition-all duration-700 delay-300 ${
-            showContent ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          <p className="text-xs text-[--color-muted] mb-2">Pickup PIN</p>
-          <div className="flex items-center justify-center gap-2">
-            {token.pickupPin.split("").map((digit, i) => (
-              <div
-                key={i}
-                className="w-10 h-12 rounded-lg bg-[--color-surface] border border-[--color-border] flex items-center justify-center text-xl font-mono font-bold text-[--color-accent-light]"
-              >
-                {digit}
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] text-[--color-muted] mt-2">
-            Show this PIN to the counter to collect your prints
-          </p>
-        </div>
       </div>
 
       {/* Track button */}

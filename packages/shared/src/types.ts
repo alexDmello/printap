@@ -143,10 +143,10 @@ export type JobStatus =
   | "cancelled";
 
 export interface QueueToken {
-  /** Display code like "A-14" */
+  /** Display code like "#214" */
   tokenCode: string;
-  /** 4-digit PIN for secure pickup */
-  pickupPin: string;
+  /** Optional legacy pickup PIN (deprecated: only single token number is used) */
+  pickupPin?: string;
   /** Current position in queue (1-indexed) */
   queuePosition: number;
   /** Estimated wait in minutes */
@@ -224,6 +224,35 @@ export function calculateFinishingCost(
 }
 
 /**
+ * Calculates total physical sheets for an entire order, accounting for
+ * the unified image batch grid layout (where all images share sheets).
+ */
+export function calculateOrderSheets(documents: UploadedDocument[]): number {
+  const nonImages = documents.filter((d) => d.type !== "image");
+  const images = documents.filter((d) => d.type === "image");
+
+  let totalSheets = 0;
+
+  // Non-images (PDFs etc.) calculate sheets individually
+  for (const doc of nonImages) {
+    totalSheets += calculateSheets(doc.pageCount, doc.settings) * doc.settings.copies;
+  }
+
+  // All images combined calculate sheets based on their batch grid layout
+  if (images.length > 0) {
+    const firstImg = images[0];
+    const grid = firstImg.settings.pagesPerSheet || 1;
+    const logicalPages = Math.ceil(images.length / grid);
+    const sheetsPerCopy = firstImg.settings.duplex === "double"
+      ? Math.ceil(logicalPages / 2)
+      : logicalPages;
+    totalSheets += sheetsPerCopy * firstImg.settings.copies;
+  }
+
+  return totalSheets;
+}
+
+/**
  * Calculates the grand total for an entire order.
  */
 export function calculateOrderTotal(
@@ -231,11 +260,42 @@ export function calculateOrderTotal(
   rateCard: ShopRateCard,
   activeFinishing: FinishingService[]
 ): number {
+  const nonImages = documents.filter((d) => d.type !== "image");
+  const images = documents.filter((d) => d.type === "image");
+
   let total = 0;
-  for (const doc of documents) {
+
+  // 1. Non-image documents (calculated individually)
+  for (const doc of nonImages) {
     total += calculateDocumentPrice(doc, rateCard);
     total += calculateFinishingCost(doc, activeFinishing);
   }
+
+  // 2. Unified Image batch (all images share sheets based on grid layout)
+  if (images.length > 0) {
+    const firstImg = images[0];
+    const grid = firstImg.settings.pagesPerSheet || 1;
+    const logicalPages = Math.ceil(images.length / grid);
+    const sheetsPerCopy = firstImg.settings.duplex === "double"
+      ? Math.ceil(logicalPages / 2)
+      : logicalPages;
+    const totalSheets = sheetsPerCopy * firstImg.settings.copies;
+
+    const pricePerPage = firstImg.settings.colorMode === "color"
+      ? rateCard.priceColorPerPage
+      : rateCard.priceBwPerPage;
+
+    total += totalSheets * pricePerPage;
+
+    for (const service of activeFinishing) {
+      if (service.chargeUnit === "per_sheet") {
+        total += service.price * totalSheets;
+      } else {
+        total += service.price * firstImg.settings.copies;
+      }
+    }
+  }
+
   return total;
 }
 
@@ -254,7 +314,7 @@ export interface PersistedSession {
 
 export interface TransferManifestOrder {
   tokenCode: string;
-  pickupPin: string;
+  pickupPin?: string;
   queuePosition: number;
   totalAmount: number;
   paymentMethod: PaymentMethod;

@@ -27,6 +27,7 @@ export {
   DEFAULT_RATE_CARD,
   SESSION_STORAGE_KEY,
   calculateSheets,
+  calculateOrderSheets,
   calculateDocumentPrice,
   calculateFinishingCost,
   calculateOrderTotal,

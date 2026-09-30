@@ -18,6 +18,7 @@ export interface PrinterAssignment {
   id?: string;
   shop_id: string;
   printer_name: string;
+  printer_number: number;
   role: PrinterRole;
   is_default: boolean;
   is_active: boolean;
@@ -73,9 +74,12 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
 
       if (!error && data && data.length > 0) {
         const map: Record<string, PrinterAssignment> = {};
-        for (const item of data) {
-          map[item.printer_name] = item;
-        }
+        data.forEach((item, idx) => {
+          map[item.printer_name] = {
+            ...item,
+            printer_number: item.printer_number || (idx + 1),
+          };
+        });
         setAssignments(map);
         initialAssignmentsRef.current = JSON.stringify(map);
         localStorage.setItem(getStorageKey(), JSON.stringify(map));
@@ -89,6 +93,11 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
     if (cached) {
       try {
         const map = JSON.parse(cached);
+        Object.keys(map).forEach((k, idx) => {
+          if (!map[k].printer_number) {
+            map[k].printer_number = idx + 1;
+          }
+        });
         setAssignments(map);
         initialAssignmentsRef.current = JSON.stringify(map);
       } catch {
@@ -144,10 +153,14 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           next[p.name] = {
             shop_id: shopId || "",
             printer_name: p.name,
+            printer_number: idx + 1,
             role: p.isPhysical ? (idx === 0 ? "both" : "bw") : "disabled",
             is_default: p.isPhysical && (idx === 0 || p.isDefault),
             is_active: p.isPhysical,
           };
+        } else if (!next[p.name].printer_number) {
+          hasChanges = true;
+          next[p.name].printer_number = idx + 1;
         }
       });
       if (hasChanges) {
@@ -175,6 +188,23 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
     [activeTab, printers, physicalPrinters]
   );
 
+  const handlePrinterNumberChange = (printerName: string, num: number) => {
+    setAssignments((prev) => ({
+      ...prev,
+      [printerName]: {
+        ...(prev[printerName] || {
+          shop_id: shopId || "",
+          printer_name: printerName,
+          is_default: false,
+          is_active: true,
+          role: "both",
+          printer_number: 1,
+        }),
+        printer_number: Math.max(1, Math.min(99, num)),
+      },
+    }));
+  };
+
   const handleRoleChange = (printerName: string, role: PrinterRole) => {
     setAssignments((prev) => ({
       ...prev,
@@ -184,6 +214,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           printer_name: printerName,
           is_default: false,
           is_active: true,
+          printer_number: 1,
         }),
         role,
         is_active: role !== "disabled",
@@ -234,9 +265,10 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
 
     try {
       const supabase = getSupabase();
-      const records = Object.values(assignments).map((a) => ({
+      const records = Object.values(assignments).map((a, idx) => ({
         shop_id: shopId,
         printer_name: a.printer_name,
+        printer_number: a.printer_number || (idx + 1),
         role: a.role === "disabled" ? "bw" : a.role,
         is_default: a.is_default,
         is_active: a.role !== "disabled",
@@ -421,10 +453,11 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
       {/* Printer List */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {displayedPrinters.length > 0 ? (
-          displayedPrinters.map((p) => {
+          displayedPrinters.map((p, idx) => {
             const assignment = assignments[p.name] || {
               shop_id: shopId || "",
               printer_name: p.name,
+              printer_number: idx + 1,
               role: p.isPhysical ? ("both" as PrinterRole) : ("disabled" as PrinterRole),
               is_default: false,
               is_active: p.isPhysical,
@@ -458,6 +491,20 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                 <div className="printer-info">
                   <div className="printer-title-row">
                     <span className="printer-name">{p.name}</span>
+
+                    <span
+                      className="status-badge"
+                      style={{
+                        background: "rgba(99, 102, 241, 0.12)",
+                        color: "#4f46e5",
+                        borderColor: "rgba(99, 102, 241, 0.25)",
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Printer #{assignment.printer_number ?? (idx + 1)}
+                    </span>
 
                     <span className="chip-hardware">
                       {conn.icon}
@@ -514,7 +561,47 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                 </div>
 
                 {/* Controls Deck */}
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  {/* Printer Number Selector */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      Printer No.
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)" }}>#</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={assignment.printer_number ?? (idx + 1)}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          handlePrinterNumberChange(p.name, isNaN(val) ? 1 : val);
+                        }}
+                        style={{
+                          width: 44,
+                          padding: "4px 6px",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          borderRadius: "var(--radius-md)",
+                          border: "1px solid var(--border-subtle)",
+                          background: "#ffffff",
+                          textAlign: "center",
+                          color: "#09090b",
+                        }}
+                        title="Printer number for tokens (e.g. Printer #2 produces tokens like #214)"
+                      />
+                    </div>
+                  </div>
+
                   {/* Segmented Role Switcher Pills */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span

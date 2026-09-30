@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import type {
   UploadedDocument,
   ShopRateCard,
@@ -22,16 +22,99 @@ export default function PagePreview({
   onBack,
   onContinue,
 }: PagePreviewProps) {
-  const [selectedDocIndex, setSelectedDocIndex] = useState(0);
+  // Separate non-image documents (e.g. PDFs) and image documents
+  const pdfDocs = useMemo(
+    () => documents.filter((d) => d.type !== "image"),
+    [documents]
+  );
+  const imageDocs = useMemo(
+    () => documents.filter((d) => d.type === "image"),
+    [documents]
+  );
+
+  // Define tabs: each PDF document + (if any images exist) one unified Images Batch tab
+  interface PreviewTab {
+    id: string;
+    type: "pdf" | "image_batch";
+    title: string;
+    doc?: UploadedDocument;
+  }
+
+  const tabs = useMemo<PreviewTab[]>(() => {
+    const list: PreviewTab[] = [];
+    pdfDocs.forEach((d, idx) => {
+      list.push({
+        id: d.id,
+        type: "pdf",
+        title: d.file.name,
+        doc: d,
+      });
+    });
+    if (imageDocs.length > 0) {
+      list.push({
+        id: "images-batch",
+        type: "image_batch",
+        title: `Photos & Images (${imageDocs.length})`,
+      });
+    }
+    return list;
+  }, [pdfDocs, imageDocs]);
+
+  const [activeTabId, setActiveTabId] = useState<string>(
+    tabs[0]?.id || ""
+  );
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentSheet, setCurrentSheet] = useState(1);
 
-  const doc = documents[selectedDocIndex] || documents[0];
-  if (!doc) return null;
+  // Sync tab if tabs change
+  useEffect(() => {
+    if (!tabs.some((t) => t.id === activeTabId) && tabs.length > 0) {
+      setActiveTabId(tabs[0].id);
+      setCurrentPage(1);
+      setCurrentSheet(1);
+    }
+  }, [tabs, activeTabId]);
 
-  const { settings, pageCount, file, thumbnailUrl } = doc;
-  const isLandscape = settings.orientation === "landscape";
-  const isBw = settings.colorMode === "bw";
-  const activeAddons = finishingServices.filter((s) => s.enabled);
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  if (!activeTab) return null;
+
+  const isImageBatch = activeTab.type === "image_batch";
+
+  // Common settings for the active view
+  const activeSettings = isImageBatch
+    ? imageDocs[0]?.settings
+    : activeTab.doc?.settings;
+
+  const isLandscape = activeSettings?.orientation === "landscape";
+  const isBw = activeSettings?.colorMode === "bw";
+  const gridLayout = activeSettings?.pagesPerSheet || 1;
+
+  // Image batch pagination calculation
+  const totalImageSheets = useMemo(() => {
+    if (!isImageBatch || imageDocs.length === 0) return 1;
+    return Math.ceil(imageDocs.length / gridLayout);
+  }, [isImageBatch, imageDocs.length, gridLayout]);
+
+  const currentSheetPhotos = useMemo(() => {
+    if (!isImageBatch) return [];
+    const startIndex = (currentSheet - 1) * gridLayout;
+    return imageDocs.slice(startIndex, startIndex + gridLayout);
+  }, [isImageBatch, imageDocs, currentSheet, gridLayout]);
+
+  // Object URL for PDF native viewer (cleaned up on unmount/change)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isImageBatch && activeTab.doc?.file) {
+      const url = URL.createObjectURL(activeTab.doc.file);
+      setPdfBlobUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setPdfBlobUrl(null);
+    }
+  }, [isImageBatch, activeTab.doc?.file]);
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -39,48 +122,51 @@ export default function PagePreview({
       <div className="glass rounded-2xl p-5 glow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-zinc-900">Document Print Preview</h2>
+            <h2 className="text-sm font-bold text-zinc-900">Printed Sheet Preview</h2>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              Live visual simulation of your printed sheet based on selected settings
+              Exact visual simulation of how your document will physically emerge from the printer
             </p>
           </div>
           <button
             type="button"
             onClick={onBack}
-            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition cursor-pointer flex items-center gap-1.5"
           >
-            ⚙ Edit Settings
+            <span>⚙</span>
+            <span>Edit Settings</span>
           </button>
         </div>
 
-        {/* Multi-document switcher */}
-        {documents.length > 1 && (
-          <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-100 overflow-x-auto pb-1">
-            {documents.map((d, idx) => (
+        {/* Multi-Document / Images Switcher Tabs */}
+        {tabs.length > 1 && (
+          <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-100 overflow-x-auto pb-1 scrollbar-thin">
+            {tabs.map((tab) => (
               <button
-                key={d.id}
+                key={tab.id}
                 type="button"
                 onClick={() => {
-                  setSelectedDocIndex(idx);
+                  setActiveTabId(tab.id);
                   setCurrentPage(1);
+                  setCurrentSheet(1);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  selectedDocIndex === idx
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTabId === tab.id
                     ? "bg-zinc-900 text-white shadow-sm"
-                    : "bg-zinc-100 text-zinc-600 hover:text-zinc-900"
+                    : "bg-zinc-100 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200"
                 }`}
               >
-                File {idx + 1}: {d.file.name.slice(0, 16)}...
+                <span>{tab.type === "image_batch" ? "🖼️" : "📄"}</span>
+                <span className="truncate max-w-[160px]">{tab.title}</span>
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* ── Realistic Sheet Preview Canvas ── */}
-      <div className="glass rounded-2xl p-5 glow-sm text-center">
+      {/* ── Authentic Paper Canvas Viewport ── */}
+      <div className="glass rounded-2xl p-5 sm:p-6 glow-sm text-center">
         {/* Active badges bar */}
-        <div className="flex items-center justify-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center justify-center gap-2 mb-5 flex-wrap">
           <span
             className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
               isBw
@@ -96,187 +182,264 @@ export default function PagePreview({
           </span>
 
           <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">
-            {settings.duplex === "double" ? "2-Sided (Duplex)" : "1-Sided (Simplex)"}
+            {activeSettings?.duplex === "double" ? "2-Sided (Duplex)" : "1-Sided"}
           </span>
 
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">
-            {settings.pagesPerSheet}-in-1 Layout
-          </span>
+          {isImageBatch && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {gridLayout}-in-1 Photo Grid
+            </span>
+          )}
         </div>
 
-        {/* Paper Sheet Viewport */}
-        <div className="w-full flex items-center justify-center py-4 bg-zinc-100/60 rounded-xl border border-zinc-200/60 overflow-hidden">
+        {/* Paper Sheet Viewport (Strict A4 Aspect Ratio: 1 : 1.414 or 1.414 : 1) */}
+        <div className="w-full flex items-center justify-center py-6 bg-zinc-200/50 rounded-2xl border border-zinc-300/60 overflow-hidden shadow-inner">
           <div
-            className={`relative bg-white rounded-lg border border-zinc-300 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-xl ${
+            className={`relative bg-white transition-all duration-300 overflow-hidden flex flex-col ${
               isLandscape
-                ? "w-[280px] h-[198px]"
-                : "w-[200px] h-[282px]"
+                ? "w-[336px] sm:w-[476px] h-[238px] sm:h-[336px]"
+                : "w-[238px] sm:w-[336px] h-[336px] sm:h-[476px]"
             }`}
             style={{
-              filter: isBw ? "grayscale(100%) contrast(1.15) brightness(0.96)" : "none",
+              boxShadow:
+                "0 20px 35px -10px rgba(0, 0, 0, 0.25), 0 5px 12px -2px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.3)",
+              filter: isBw
+                ? "grayscale(100%) contrast(1.15) brightness(0.97)"
+                : "none",
             }}
           >
-            {/* Paper Corner fold accent */}
-            <div className="absolute top-0 right-0 w-4 h-4 bg-zinc-100 border-b border-l border-zinc-300 rounded-bl-sm pointer-events-none" />
-
-            {/* Layout rendering */}
-            <div className="w-full h-full p-3 flex flex-col justify-between">
-              {/* 1-in-1 layout */}
-              {settings.pagesPerSheet === 1 && (
-                <div className="w-full h-full border border-dashed border-zinc-200 rounded p-2 flex flex-col justify-between bg-zinc-50/40">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200/80">
-                    <span className="text-[8px] font-bold text-zinc-600 truncate max-w-[120px]">
-                      {file.name}
-                    </span>
-                    <span className="text-[8px] font-mono text-zinc-400">
-                      Pg {currentPage}
-                    </span>
-                  </div>
-
-                  {thumbnailUrl ? (
-                    <div className="flex-1 my-1 overflow-hidden rounded flex items-center justify-center bg-white">
+            {/* Authentic Printable Margins (p-3 sm:p-4) with ZERO artificial mock text! */}
+            <div className="w-full h-full p-2.5 sm:p-4 flex items-center justify-center">
+              {/* ──────────────────────────────────────────────────
+                  A. IMAGE BATCH: Render actual photos in grid
+                  (1in1, 2in1, 4in1, 6in1, 9in1)
+              ────────────────────────────────────────────────── */}
+              {isImageBatch && (
+                <div className="w-full h-full flex items-center justify-center">
+                  {/* 1-in-1: Single photo centered on the sheet */}
+                  {gridLayout === 1 && currentSheetPhotos[0] && (
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
                       <img
-                        src={thumbnailUrl}
-                        alt="Document Preview"
-                        className="max-h-full max-w-full object-contain"
+                        src={currentSheetPhotos[0].thumbnailUrl}
+                        alt="Photo Preview"
+                        className="max-w-full max-h-full object-contain"
                       />
-                    </div>
-                  ) : (
-                    <div className="flex-1 my-1 flex flex-col justify-center space-y-1.5 px-1 opacity-70">
-                      <div className="h-1.5 w-3/4 bg-zinc-400 rounded-full" />
-                      <div className="h-1.5 w-full bg-zinc-300 rounded-full" />
-                      <div className="h-1.5 w-5/6 bg-zinc-300 rounded-full" />
-                      <div className="h-1.5 w-full bg-zinc-300 rounded-full" />
-                      <div className="h-1.5 w-4/5 bg-zinc-300 rounded-full" />
-                      <div className="h-1.5 w-2/3 bg-zinc-300 rounded-full" />
                     </div>
                   )}
 
-                  <div className="pt-1 border-t border-zinc-200/60 flex justify-between text-[7px] text-zinc-400">
-                    <span>A4 Standard Paper</span>
-                    <span>Printap Safe Spool</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 2-in-1 layout */}
-              {settings.pagesPerSheet === 2 && (
-                <div className="w-full h-full grid grid-cols-2 gap-2">
-                  {[currentPage, Math.min(pageCount, currentPage + 1)].map((pNum, i) => (
+                  {/* 2-in-1: 2 photos on paper */}
+                  {gridLayout === 2 && (
                     <div
-                      key={i}
-                      className="border border-dashed border-zinc-200 rounded p-1.5 flex flex-col justify-between bg-zinc-50/40"
+                      className={`w-full h-full grid gap-2 ${
+                        isLandscape ? "grid-cols-2" : "grid-rows-2"
+                      }`}
                     >
-                      <span className="text-[7px] font-mono text-zinc-400">Pg {pNum}</span>
-                      <div className="space-y-1 opacity-70 my-auto">
-                        <div className="h-1 w-full bg-zinc-300 rounded" />
-                        <div className="h-1 w-3/4 bg-zinc-300 rounded" />
-                        <div className="h-1 w-5/6 bg-zinc-300 rounded" />
-                      </div>
-                      <span className="text-[6px] text-zinc-300">2-in-1</span>
+                      {currentSheetPhotos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="w-full h-full flex items-center justify-center overflow-hidden"
+                        >
+                          <img
+                            src={photo.thumbnailUrl}
+                            alt="Photo Preview"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {/* 4-in-1: 2x2 grid */}
+                  {gridLayout === 4 && (
+                    <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-2">
+                      {currentSheetPhotos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="w-full h-full flex items-center justify-center overflow-hidden"
+                        >
+                          <img
+                            src={photo.thumbnailUrl}
+                            alt="Photo Preview"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 6-in-1: 2x3 or 3x2 grid */}
+                  {gridLayout === 6 && (
+                    <div
+                      className={`w-full h-full grid gap-1.5 ${
+                        isLandscape
+                          ? "grid-cols-3 grid-rows-2"
+                          : "grid-cols-2 grid-rows-3"
+                      }`}
+                    >
+                      {currentSheetPhotos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="w-full h-full flex items-center justify-center overflow-hidden"
+                        >
+                          <img
+                            src={photo.thumbnailUrl}
+                            alt="Photo Preview"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 9-in-1: 3x3 grid */}
+                  {gridLayout === 9 && (
+                    <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-1">
+                      {currentSheetPhotos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="w-full h-full flex items-center justify-center overflow-hidden"
+                        >
+                          <img
+                            src={photo.thumbnailUrl}
+                            alt="Photo Preview"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* 4-in-1 layout */}
-              {settings.pagesPerSheet === 4 && (
-                <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1.5">
-                  {[0, 1, 2, 3].map((offset) => {
-                    const pNum = Math.min(pageCount, currentPage + offset);
-                    return (
-                      <div
-                        key={offset}
-                        className="border border-dashed border-zinc-200 rounded p-1 flex flex-col justify-between bg-zinc-50/40"
-                      >
-                        <span className="text-[6px] font-mono text-zinc-400">Pg {pNum}</span>
-                        <div className="space-y-0.5 opacity-60 my-auto">
-                          <div className="h-0.5 w-full bg-zinc-300 rounded" />
-                          <div className="h-0.5 w-3/4 bg-zinc-300 rounded" />
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* ──────────────────────────────────────────────────
+                  B. PDF DOCUMENT: Render actual document content
+              ────────────────────────────────────────────────── */}
+              {!isImageBatch && activeTab.doc && (
+                <div className="w-full h-full flex items-center justify-center overflow-hidden bg-white">
+                  {pdfBlobUrl ? (
+                    <iframe
+                      src={`${pdfBlobUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                      className="w-full h-full border-0 pointer-events-none"
+                      title="PDF Document Page"
+                    />
+                  ) : activeTab.doc.thumbnailUrl ? (
+                    <img
+                      src={activeTab.doc.thumbnailUrl}
+                      alt="Document Page"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-full h-full border border-zinc-200 flex items-center justify-center text-zinc-400 text-xs">
+                      Loading page preview...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Page Switcher Navigation */}
-        {pageCount > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-3">
+        {/* ── Sheet / Page Switcher Navigation (Outside the Paper Area) ── */}
+        {isImageBatch && totalImageSheets > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-4">
             <button
               type="button"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
-              className="px-3 py-1 rounded-lg text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              onClick={() => setCurrentSheet((s) => Math.max(1, s - 1))}
+              disabled={currentSheet <= 1}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             >
-              ← Prev
+              ← Prev Sheet
             </button>
 
-            <span className="text-xs font-mono font-bold text-zinc-700">
-              Page {currentPage} of {pageCount}
+            <span className="text-xs font-mono font-bold text-zinc-800">
+              Sheet {currentSheet} of {totalImageSheets}
             </span>
 
             <button
               type="button"
-              onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
-              disabled={currentPage >= pageCount}
-              className="px-3 py-1 rounded-lg text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              onClick={() => setCurrentSheet((s) => Math.min(totalImageSheets, s + 1))}
+              disabled={currentSheet >= totalImageSheets}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             >
-              Next →
+              Next Sheet →
+            </button>
+          </div>
+        )}
+
+        {!isImageBatch && (activeTab.doc?.pageCount || 1) > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+            >
+              ← Prev Page
+            </button>
+
+            <span className="text-xs font-mono font-bold text-zinc-800">
+              Page {currentPage} of {activeTab.doc?.pageCount || 1}
+            </span>
+
+            <button
+              type="button"
+              onClick={() =>
+                setCurrentPage((p) =>
+                  Math.min(activeTab.doc?.pageCount || 1, p + 1)
+                )
+              }
+              disabled={currentPage >= (activeTab.doc?.pageCount || 1)}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+            >
+              Next Page →
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Order Specs Breakdown Card ── */}
+      {/* ── Order Specs Summary Card ── */}
       <div className="glass rounded-2xl p-5 glow-sm space-y-3">
         <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-          Job Summary
+          Job Specifications
         </h3>
 
         <div className="space-y-2 text-xs">
           <div className="flex justify-between py-1.5 border-b border-zinc-100">
-            <span className="text-zinc-500">Document</span>
-            <span className="font-semibold text-zinc-900 truncate max-w-[200px]">
-              {file.name}
+            <span className="text-zinc-500">Document Selection</span>
+            <span className="font-semibold text-zinc-900 truncate max-w-[220px]">
+              {isImageBatch ? `Photos & Images (${imageDocs.length} photos)` : activeTab.title}
             </span>
           </div>
 
           <div className="flex justify-between py-1.5 border-b border-zinc-100">
-            <span className="text-zinc-500">Copies to Print</span>
-            <span className="font-bold text-zinc-900 font-mono">
-              {settings.copies} {settings.copies === 1 ? "copy" : "copies"}
-            </span>
-          </div>
-
-          <div className="flex justify-between py-1.5 border-b border-zinc-100">
-            <span className="text-zinc-500">Print Style</span>
+            <span className="text-zinc-500">Grid / Layout</span>
             <span className="font-semibold text-zinc-900">
-              {isBw ? `B&W @ ₹${rateCard.priceBwPerPage}/page` : `Color @ ₹${rateCard.priceColorPerPage}/page`}
+              {isImageBatch
+                ? `${gridLayout}-in-1 Photo Grid`
+                : `${activeSettings?.pagesPerSheet || 1}-in-1 Page Layout`}
             </span>
           </div>
 
           <div className="flex justify-between py-1.5 border-b border-zinc-100">
-            <span className="text-zinc-500">Paper Duplex</span>
-            <span className="font-semibold text-zinc-900">
-              {settings.duplex === "double" ? "Double-sided (Duplex)" : "Single-sided"}
+            <span className="text-zinc-500">Sets / Copies</span>
+            <span className="font-mono font-bold text-zinc-900">
+              {activeSettings?.copies || 1}
             </span>
           </div>
 
-          {activeAddons.length > 0 && (
-            <div className="pt-2">
-              <span className="text-zinc-500 block mb-1.5 font-medium">Selected Add-ons:</span>
-              {activeAddons.map((addon) => (
-                <div key={addon.type} className="flex justify-between text-zinc-700 pl-2 py-0.5">
-                  <span>• {addon.label}</span>
-                  <span className="font-mono font-bold text-zinc-900">+₹{addon.price}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex justify-between py-1.5 border-b border-zinc-100">
+            <span className="text-zinc-500">Color Reproduction</span>
+            <span className="font-semibold text-zinc-900 capitalize">
+              {isBw ? "Black & White (Monochrome)" : "High-Res Full Color"}
+            </span>
+          </div>
+
+          <div className="flex justify-between py-1.5">
+            <span className="text-zinc-500">Duplex / Sides</span>
+            <span className="font-semibold text-zinc-900 capitalize">
+              {activeSettings?.duplex === "double" ? "2-Sided (Back to Back)" : "Single Sided"}
+            </span>
+          </div>
         </div>
       </div>
     </div>

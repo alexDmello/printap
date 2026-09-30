@@ -36,7 +36,7 @@ export default function PrintAndPay({
   )}&am=${totalAmount.toFixed(2)}&cu=INR&tn=Printap-${token.tokenCode}`;
 
   const handleCopyToken = () => {
-    navigator.clipboard.writeText(`${token.tokenCode} (PIN: ${token.pickupPin})`);
+    navigator.clipboard.writeText(token.tokenCode);
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2000);
   };
@@ -48,7 +48,7 @@ export default function PrintAndPay({
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      {/* ─── Token & PIN Identity Hero Card ─── */}
+      {/* ─── Token Identity Hero Card ─── */}
       <div className="glass rounded-2xl p-5 border border-zinc-200/80 shadow-sm text-center relative overflow-hidden bg-white/80">
         <div className="flex items-center justify-between gap-2 mb-3">
           <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
@@ -57,21 +57,15 @@ export default function PrintAndPay({
           <button
             type="button"
             onClick={handleCopyToken}
-            className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 rounded-md transition"
+            className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 rounded-md transition cursor-pointer"
           >
             {copiedToken ? "Copied ✓" : "Copy Token"}
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-3">
-          <div className="text-4xl sm:text-5xl font-black text-zinc-900 font-mono tracking-tight bg-zinc-100 px-4 py-1.5 rounded-xl border border-zinc-200">
+        <div className="flex items-center justify-center my-1">
+          <div className="text-4xl sm:text-5xl font-black text-zinc-900 font-mono tracking-tight bg-zinc-100 px-6 py-2 rounded-xl border border-zinc-200 shadow-inner">
             {token.tokenCode}
-          </div>
-          <div className="flex flex-col text-left justify-center">
-            <span className="text-[10px] uppercase font-bold text-zinc-400">Pickup PIN</span>
-            <span className="text-lg font-bold font-mono text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-              {token.pickupPin}
-            </span>
           </div>
         </div>
 
@@ -136,7 +130,7 @@ export default function PrintAndPay({
           </p>
 
           <div className="mt-4 p-3 bg-white/90 rounded-xl border border-emerald-200 inline-block text-xs font-semibold text-zinc-800">
-            👉 Please collect your printout with Token <span className="font-mono font-bold text-zinc-950">{token.tokenCode}</span> (PIN: {token.pickupPin})
+            👉 Please collect your printout with Token <span className="font-mono font-bold text-zinc-950">{token.tokenCode}</span>
           </div>
 
           <div className="mt-5">

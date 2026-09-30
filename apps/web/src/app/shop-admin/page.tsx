@@ -18,6 +18,7 @@ type Tab = "overview" | "services" | "qr" | "printers" | "analytics" | "profile"
 interface PrinterAssignment {
   id: string;
   printer_name: string;
+  printer_number?: number;
   role: "bw" | "color" | "both";
   is_default: boolean;
   is_active: boolean;
@@ -543,10 +544,15 @@ export default function ShopAdminPage() {
     e.preventDefault();
     if (!shopId || !newPrinterName.trim()) return;
 
+    const nextPrinterNumber = printers.length > 0
+      ? Math.max(...printers.map((p) => p.printer_number || 1)) + 1
+      : 1;
+
     const supabase = getSupabase();
     await supabase.from("printer_assignments").insert({
       shop_id: shopId,
       printer_name: newPrinterName.trim(),
+      printer_number: nextPrinterNumber,
       role: newPrinterRole,
       is_default: printers.length === 0,
       is_active: true,
@@ -1266,8 +1272,11 @@ export default function ShopAdminPage() {
                         <span className="text-sm font-semibold text-[--color-foreground]">
                           {p.printer_name}
                         </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/10 text-indigo-400 font-mono font-bold">
+                          Printer #{p.printer_number || 1}
+                        </span>
                         {p.is_default && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/10 text-indigo-400 font-medium">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-zinc-800 text-zinc-300 font-medium">
                             Default
                           </span>
                         )}

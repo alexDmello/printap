@@ -15,6 +15,7 @@ import {
   DEFAULT_RATE_CARD,
   DEFAULT_FINISHING_SERVICES,
   calculateOrderTotal,
+  calculateOrderSheets,
   SESSION_STORAGE_KEY,
   getSupabase,
   joinSignalingChannel,
@@ -70,14 +71,47 @@ interface Props {
   initialIsOnline?: boolean;
 }
 
-function generateTokenCode(): string {
-  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-  const num = Math.floor(Math.random() * 50) + 1;
-  return `${letter}-${num}`;
-}
+async function calculateShopToken(shopId: string, hasColor: boolean): Promise<string> {
+  try {
+    const supabase = getSupabase();
+    // 1. Fetch printer assignments to get assigned printer number
+    const { data: assignments } = await supabase
+      .from("printer_assignments")
+      .select("role, printer_number, is_default, is_active")
+      .eq("shop_id", shopId);
 
-function generatePickupPin(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+    let printerNum = 1;
+    if (assignments && assignments.length > 0) {
+      const active = assignments.filter((a) => a.is_active !== false);
+      if (hasColor) {
+        const colorPr = active.find((a) => a.role === "color" || a.role === "both");
+        if (colorPr?.printer_number) printerNum = colorPr.printer_number;
+        else if (active.find((a) => a.is_default)?.printer_number) {
+          printerNum = active.find((a) => a.is_default)!.printer_number;
+        }
+      } else {
+        const bwPr = active.find((a) => a.role === "bw" || a.role === "both");
+        if (bwPr?.printer_number) printerNum = bwPr.printer_number;
+        else if (active.find((a) => a.is_default)?.printer_number) {
+          printerNum = active.find((a) => a.is_default)!.printer_number;
+        }
+      }
+    }
+
+    // 2. Fetch today's print orders count
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from("print_orders")
+      .select("*", { count: "exact", head: true })
+      .eq("shop_id", shopId)
+      .gte("created_at", startOfToday.toISOString());
+
+    const nextSession = (count ?? 0) + 1;
+    return `#${printerNum}${nextSession}`;
+  } catch {
+    return `#11`;
+  }
 }
 
 export default function PrintClient({
@@ -211,10 +245,7 @@ export default function PrintClient({
 
   // Total sheets calculated
   const totalSheets = useMemo(() => {
-    return documents.reduce((sum, doc) => {
-      const sheetsPerSet = Math.ceil(doc.pageCount / doc.settings.pagesPerSheet);
-      return sum + sheetsPerSet * doc.settings.copies;
-    }, 0);
+    return calculateOrderSheets(documents);
   }, [documents]);
 
   const globalColorMode = documents[0]?.settings.colorMode || "bw";
@@ -274,20 +305,39 @@ export default function PrintClient({
     }
   }, [token, jobStatus, shopId]);
 
-  // ─── Realtime Payment Confirmation Listeners ───
+  // ─── Realtime Payment Confirmation & Order Status Listeners ───
   useEffect(() => {
-    if (!shopId || !token) return;
+    if (!shopId) return;
 
     const channel = joinSignalingChannel(shopId);
     channel.on("broadcast", { event: "payment-confirmed" }, ({ payload }) => {
       console.log("[PrintClient] Broadcast payment-confirmed received:", payload);
       const p = payload as { sessionId?: string; tokenCode?: string };
       if (
-        (p.tokenCode && p.tokenCode === token.tokenCode) ||
+        (p.tokenCode && token && p.tokenCode === token.tokenCode) ||
         (currentSessionId && p.sessionId === currentSessionId)
       ) {
         setIsPaymentConfirmedByShop(true);
         setJobStatus("ready_for_pickup");
+      }
+    });
+
+    channel.on("broadcast", { event: "order-status" }, ({ payload }) => {
+      console.log("[PrintClient] Broadcast order-status received:", payload);
+      const p = payload as { sessionId?: string; tokenCode?: string; status?: JobStatus };
+      if (
+        (currentSessionId && p.sessionId === currentSessionId) ||
+        (token && p.tokenCode && p.tokenCode === token.tokenCode)
+      ) {
+        if (p.tokenCode) {
+          setToken((prev) => (prev ? { ...prev, tokenCode: p.tokenCode! } : prev));
+        }
+        if (p.status) {
+          setJobStatus(p.status);
+          if (p.status === "ready_for_pickup") {
+            setIsPaymentConfirmedByShop(true);
+          }
+        }
       }
     });
 
@@ -315,10 +365,20 @@ export default function PrintClient({
           filter: `session_id=eq.${currentSessionId}`,
         },
         (payload) => {
-          const row = payload.new as { payment_status?: string; status?: string };
+          const row = payload.new as {
+            payment_status?: string;
+            status?: string;
+            token_code?: string;
+          };
+          if (row.token_code) {
+            setToken((prev) => (prev ? { ...prev, tokenCode: row.token_code! } : prev));
+          }
           if (row.payment_status === "confirmed") {
             setIsPaymentConfirmedByShop(true);
             setJobStatus("ready_for_pickup");
+          }
+          if (row.status) {
+            setJobStatus(row.status as JobStatus);
           }
         }
       )
@@ -341,9 +401,11 @@ export default function PrintClient({
     const sessionId = crypto.randomUUID();
     setCurrentSessionId(sessionId);
 
+    const hasColor = documents.some((d) => d.settings.colorMode === "color");
+    const tokenCode = await calculateShopToken(shopId, hasColor);
+
     const newToken: QueueToken = {
-      tokenCode: generateTokenCode(),
-      pickupPin: generatePickupPin(),
+      tokenCode,
       queuePosition: 1,
       estimatedWaitMinutes: 2,
     };
@@ -370,7 +432,6 @@ export default function PrintClient({
         shop_id: shopId,
         session_id: sessionId,
         token_code: newToken.tokenCode,
-        pickup_pin: newToken.pickupPin,
         queue_position: newToken.queuePosition,
         payment_method: "upi",
         payment_status: "pending",
@@ -415,11 +476,13 @@ export default function PrintClient({
       if (documents.length === 0) return;
 
       const sessionId = crypto.randomUUID();
+      const hasColor = documents.some((d) => d.settings.colorMode === "color");
+      const tokenCode = await calculateShopToken(shopId, hasColor);
+
       const newToken: QueueToken = {
-        tokenCode: generateTokenCode(),
-        pickupPin: generatePickupPin(),
-        queuePosition: Math.floor(Math.random() * 5) + 1,
-        estimatedWaitMinutes: Math.floor(Math.random() * 8) + 2,
+        tokenCode,
+        queuePosition: 1,
+        estimatedWaitMinutes: 2,
       };
 
       setToken(newToken);

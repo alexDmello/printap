@@ -136,31 +136,12 @@ export default function PickupReady({ token, onPrintAnother }: PickupReadyProps)
             Collect your prints from the counter
           </p>
 
-          {/* Token & PIN Card */}
-          <div className="p-5 rounded-xl bg-[--color-surface-light] space-y-4">
-            {/* Token */}
+          {/* Token Card */}
+          <div className="p-5 rounded-xl bg-[--color-surface-light]">
             <div>
               <p className="text-xs text-[--color-muted] mb-1">Your Token</p>
-              <p className="text-4xl font-bold gradient-text">
+              <p className="text-4xl sm:text-5xl font-extrabold gradient-text">
                 {token.tokenCode}
-              </p>
-            </div>
-
-            {/* PIN */}
-            <div className="border-t border-[--color-border] pt-4">
-              <p className="text-xs text-[--color-muted] mb-2">Pickup PIN</p>
-              <div className="flex items-center justify-center gap-2">
-                {token.pickupPin.split("").map((digit, i) => (
-                  <div
-                    key={i}
-                    className="w-12 h-14 rounded-lg bg-[--color-surface] border border-[--color-accent]/30 flex items-center justify-center text-2xl font-mono font-bold text-[--color-accent-light]"
-                  >
-                    {digit}
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-[--color-muted] mt-2">
-                Show this PIN to the counter operator
               </p>
             </div>
           </div>

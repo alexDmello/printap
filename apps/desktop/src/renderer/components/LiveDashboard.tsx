@@ -238,9 +238,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                   {currentJob.tokenCode && (
                     <span className="token-pill">{currentJob.tokenCode}</span>
                   )}
-                  {currentJob.pickupPin && (
-                    <span className="pin-pill">PIN: {currentJob.pickupPin}</span>
-                  )}
                   <span className={getStatusBadge(currentJob.status).className} />
                   <span className="status-badge active">
                     {getStatusBadge(currentJob.status).label}
@@ -363,104 +360,97 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             </div>
           )}
 
-          {/* Recent Queue Ledger */}
+          {/* Recent Spooler Job (Single Container) */}
           <div className="card" style={{ padding: 0 }}>
-            <div className="card-header">
-              <span className="card-title">
-                <span>Recent Spooled Jobs</span>
+            <div className="card-header" style={{ padding: "12px 16px" }}>
+              <span className="card-title" style={{ fontSize: 13, fontWeight: 700 }}>
+                <span>Recent Spooler Job</span>
               </span>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {recentJobs.length} completed
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                Latest completed print
               </span>
             </div>
-            <div style={{ padding: "8px 16px 16px" }}>
+            <div style={{ padding: "12px 16px 16px" }}>
               {recentJobs.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-                  {recentJobs.map((job) => {
-                    const isExpanded = Boolean(expandedJobs[job.sessionId]);
-                    return (
-                      <div
-                        key={job.sessionId + job.timestamp.getTime()}
-                        className="queue-job-card"
-                        style={{ padding: "12px 14px", background: "rgba(255, 255, 255, 0.55)" }}
-                      >
-                        <div className="queue-job-header">
-                          <div className="queue-badges">
-                            {job.tokenCode && (
-                              <span className="token-pill" style={{ fontSize: 12, padding: "2px 6px" }}>
-                                {job.tokenCode}
-                              </span>
-                            )}
-                            {job.pickupPin && (
-                              <span className="pin-pill" style={{ fontSize: 10, padding: "2px 5px" }}>
-                                PIN: {job.pickupPin}
-                              </span>
-                            )}
-                            <span className={getStatusBadge(job.status).className} />
-                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                              {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
+                (() => {
+                  const latestJob = recentJobs[0];
+                  const docCount = latestJob.files?.length || latestJob.fileCount || 1;
+                  const totalPages =
+                    latestJob.files && latestJob.files.length > 0
+                      ? latestJob.files.reduce(
+                          (sum, f) => sum + (f.pageCount || 1) * (f.settings?.copies || 1),
+                          0
+                        )
+                      : 1;
 
-                          {/* Dropdown toggle for filenames */}
-                          <button
-                            type="button"
-                            className={`queue-files-dropdown-btn ${isExpanded ? "open" : ""}`}
-                            style={{ padding: "4px 8px", fontSize: 11 }}
-                            onClick={() => toggleJobExpanded(job.sessionId)}
-                            title="Click to list all filenames in this job"
+                  return (
+                    <div
+                      className="queue-job-card"
+                      style={{
+                        padding: "14px 16px",
+                        background: "rgba(255, 255, 255, 0.75)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-lg)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span
+                            className="token-pill"
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 800,
+                              padding: "4px 10px",
+                              letterSpacing: "0.02em",
+                            }}
                           >
-                            <IconFileText size={12} />
-                            <span>{job.files?.length || job.fileCount || 1} file(s)</span>
-                            <span className="chevron">
-                              <IconChevronDown size={12} />
-                            </span>
-                          </button>
+                            {latestJob.tokenCode || "#--"}
+                          </span>
+                          <span className={getStatusBadge(latestJob.status).className} />
+                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--accent-emerald)" }}>
+                            Printed & Spooled
+                          </span>
                         </div>
-
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#09090b" }}>
-                          {job.fileName || `Document #${job.sessionId.slice(0, 8)}`}
-                        </div>
-
-                        {/* Collapsible File List upon clicking */}
-                        {isExpanded && (
-                          <div className="queue-files-list">
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
-                              Files printed:
-                            </div>
-                            {job.files && job.files.length > 0 ? (
-                              job.files.map((file, idx) => (
-                                <div key={idx} className="queue-file-row">
-                                  <div className="queue-file-name" title={file.fileName}>
-                                    <IconFileText size={13} color="var(--text-secondary)" />
-                                    <span>{file.fileName}</span>
-                                  </div>
-                                  <div className="queue-file-meta">
-                                    {file.pageCount ? `${file.pageCount} pg` : ""}
-                                    {file.settings?.colorMode ? ` • ${file.settings.colorMode.toUpperCase()}` : ""}
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="queue-file-row">
-                                <div className="queue-file-name">
-                                  <IconFileText size={13} color="var(--text-secondary)" />
-                                  <span>{job.fileName || "Customer Document"}</span>
-                                </div>
-                                <div className="queue-file-meta">1 file</div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <span style={{ fontSize: 11, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                          {latestJob.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
                       </div>
-                    );
-                  })}
+
+                      {/* Small Details: Number of Documents and Number of Pages (No Price) */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          fontSize: 12,
+                          color: "var(--text-secondary)",
+                          fontWeight: 500,
+                          paddingTop: 6,
+                          borderTop: "1px dashed var(--border-subtle)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <IconFileText size={13} color="var(--text-muted)" />
+                          <span>
+                            {docCount} {docCount === 1 ? "document" : "documents"}
+                          </span>
+                        </div>
+                        <span style={{ color: "var(--text-faint)" }}>•</span>
+                        <div>
+                          <strong style={{ color: "#09090b" }}>{totalPages}</strong> {totalPages === 1 ? "page" : "pages"}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
+                  No recent print jobs yet today.
                 </div>
-              ) : !currentJob ? (
-                <div style={{ padding: "28px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-                  Queue is clear. Waiting for customers to scan your counter QR code.
-                </div>
-              ) : null}
+              )}
             </div>
           </div>
         </section>
@@ -496,7 +486,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {job.tokenCode && <span className="token-pill">{job.tokenCode}</span>}
-                        {job.pickupPin && <span className="pin-pill">PIN: {job.pickupPin}</span>}
                       </div>
                       <span
                         style={{
@@ -556,7 +545,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       {job.tokenCode && <span className="token-pill">{job.tokenCode}</span>}
-                      {job.pickupPin && <span className="pin-pill">PIN: {job.pickupPin}</span>}
                     </div>
                     <span
                       style={{
@@ -643,7 +631,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontWeight: 700 }}>{job.tokenCode || "Job"}</span>
-                      <span style={{ color: "var(--text-muted)" }}>• PIN: {job.pickupPin}</span>
                     </div>
                     <span style={{ fontWeight: 600, color: "#059669" }}>
                       ₹{(job.totalAmount ?? 0).toFixed(2)} ✓

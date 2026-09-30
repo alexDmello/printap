@@ -320,8 +320,43 @@ function ShopAdminShell(): React.ReactElement {
         const { sessionId, order, files } = receivedOrder;
         handledOrderSessions.current.add(sessionId);
 
+        refreshAssignments(shopId);
+        const map = assignmentsRef.current;
+
+        // 1. Pick target printer based on job settings (color vs bw)
+        const hasColor = files.some((f) => f.settings?.colorMode === "color");
+        let targetAssignment: PrinterAssignment | undefined;
+
+        if (hasColor) {
+          targetAssignment = Object.values(map).find(
+            (a) => (a.role === "color" || a.role === "both") && a.role !== "disabled"
+          );
+        } else {
+          targetAssignment = Object.values(map).find(
+            (a) => (a.role === "bw" || a.role === "both") && a.role !== "disabled"
+          );
+        }
+
+        if (!targetAssignment) {
+          targetAssignment = Object.values(map).find(
+            (a) => a.is_default && a.role !== "disabled"
+          );
+        }
+        if (!targetAssignment) {
+          targetAssignment = Object.values(map).find((a) => a.role !== "disabled") || Object.values(map)[0];
+        }
+
+        const printerNumber = targetAssignment?.printer_number || 1;
+        const targetPrinter = targetAssignment?.printer_name;
+
+        // 2. Token format: #{printerNumber}{todaySessionCount} (e.g. Printer #2, 14th print -> #214)
+        const sessionNum = todayPrintsCount + 1;
+        const finalTokenCode = order.tokenCode && order.tokenCode.startsWith("#")
+          ? order.tokenCode
+          : `#${printerNumber}${sessionNum}`;
+
         console.log(
-          `[App] Order received: ${order.tokenCode}, PIN: ${order.pickupPin}, ${files.length} files`
+          `[App] Order received: Token ${finalTokenCode} on Printer #${printerNumber}, ${files.length} files`
         );
 
         const jobFiles = files.map((f) => ({
@@ -333,8 +368,7 @@ function ShopAdminShell(): React.ReactElement {
 
         setActiveJob({
           sessionId,
-          tokenCode: order.tokenCode,
-          pickupPin: order.pickupPin,
+          tokenCode: finalTokenCode,
           fileCount: files.length,
           files: jobFiles,
           totalAmount: order.totalAmount,
@@ -342,47 +376,36 @@ function ShopAdminShell(): React.ReactElement {
           paymentStatus: "pending",
           fileName:
             files.length > 1
-              ? `${files.length} documents (${order.tokenCode})`
+              ? `${files.length} documents (${finalTokenCode})`
               : files[0]?.fileName,
           status: "saving",
-          detail: `Order ${order.tokenCode} received (${files.length} files). Spooling...`,
+          detail: `Token ${finalTokenCode} received (${files.length} files). Spooling to Printer #${printerNumber}...`,
           timestamp: new Date(),
         });
 
-        refreshAssignments(shopId);
-        const map = assignmentsRef.current;
+        // Broadcast confirmed token to customer via signaling
+        if (signalingChannelRef.current) {
+          try {
+            await broadcast(signalingChannelRef.current, "order-status", {
+              sessionId,
+              tokenCode: finalTokenCode,
+              paymentStatus: "pending",
+            });
+          } catch {}
+        }
+
+        // Update token_code in Supabase print_orders
+        try {
+          const supabase = getSupabase();
+          await supabase
+            .from("print_orders")
+            .update({ token_code: finalTokenCode })
+            .eq("session_id", sessionId);
+        } catch {}
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           const settings = file.settings;
-
-          // Intelligently select printer based on color setting
-          let targetPrinter: string | undefined = undefined;
-          if (settings.colorMode === "color") {
-            const colorPrinter = Object.values(map).find(
-              (a) => a.role === "color"
-            );
-            if (colorPrinter) targetPrinter = colorPrinter.printer_name;
-          } else if (settings.colorMode === "bw") {
-            const bwPrinter = Object.values(map).find(
-              (a) => a.role === "bw"
-            );
-            if (bwPrinter) targetPrinter = bwPrinter.printer_name;
-          }
-
-          if (!targetPrinter) {
-            const defaultAssignment = Object.values(map).find(
-              (a) => a.is_default && a.role !== "disabled"
-            );
-            targetPrinter = defaultAssignment?.printer_name;
-          }
-
-          if (!targetPrinter) {
-            const firstActive = Object.values(map).find(
-              (a) => a.role !== "disabled"
-            );
-            targetPrinter = firstActive?.printer_name;
-          }
 
           setActiveJob((prev) => ({
             ...prev!,
@@ -415,8 +438,7 @@ function ShopAdminShell(): React.ReactElement {
 
         const completedJob: LiveJob = {
           sessionId,
-          tokenCode: order.tokenCode,
-          pickupPin: order.pickupPin,
+          tokenCode: finalTokenCode,
           fileCount: files.length,
           files: jobFiles,
           totalAmount: order.totalAmount,
@@ -427,7 +449,7 @@ function ShopAdminShell(): React.ReactElement {
               ? `${files.length} documents`
               : files[0]?.fileName,
           status: "done",
-          detail: `Token ${order.tokenCode} (PIN: ${order.pickupPin}) — ${files.length} file(s) printed & shredded`,
+          detail: `Token ${finalTokenCode} — ${files.length} file(s) printed & shredded`,
           timestamp: new Date(),
         };
 
@@ -439,7 +461,7 @@ function ShopAdminShell(): React.ReactElement {
             ? {
                 ...prev,
                 status: "done",
-                detail: `Order ${order.tokenCode} complete! Customer PIN: ${order.pickupPin}`,
+                detail: `Order ${finalTokenCode} complete! Paper ready on tray.`,
               }
             : null
         );

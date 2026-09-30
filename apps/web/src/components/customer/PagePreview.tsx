@@ -34,7 +34,7 @@ export default function PagePreview({
   const activeAddons = finishingServices.filter((s) => s.enabled);
 
   return (
-    <div className="space-y-4 pb-28 animate-fade-in-up">
+    <div className="space-y-4 animate-fade-in-up">
       {/* ── Header ── */}
       <div className="glass rounded-2xl p-5 glow-sm">
         <div className="flex items-center justify-between">

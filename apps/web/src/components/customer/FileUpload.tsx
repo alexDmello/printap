@@ -271,8 +271,9 @@ export default function FileUpload({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => removeDocument(doc.id)}
-                className="text-[--color-muted] hover:text-[--color-danger] transition p-1 opacity-0 group-hover:opacity-100"
+                className="text-zinc-400 hover:text-red-600 transition p-2 rounded-lg hover:bg-red-50 flex-shrink-0"
                 aria-label={`Remove ${doc.file.name}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

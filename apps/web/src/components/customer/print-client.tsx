@@ -48,16 +48,13 @@ type Step =
   | "pickup"
   | "error";
 
-const STEP_LABELS: { key: Step; label: string }[] = [
+const MILESTONE_STEPS = [
   { key: "upload", label: "Upload" },
   { key: "settings", label: "Settings" },
   { key: "preview", label: "Preview" },
-  { key: "checkout", label: "Pay" },
-  { key: "transferring", label: "Transfer" },
-  { key: "token", label: "Token" },
+  { key: "checkout", label: "Payment" },
   { key: "queue", label: "Queue" },
-  { key: "pickup", label: "Pickup" },
-];
+] as const;
 
 interface Props {
   shopId: string;
@@ -218,8 +215,26 @@ export default function PrintClient({
 
   const globalColorMode = documents[0]?.settings.colorMode || "bw";
 
-  // Step index for progress bar
-  const stepIndex = STEP_LABELS.findIndex((s) => s.key === step);
+  // Active milestone index (0 to 4) for the Top Bar step tracker
+  const currentMilestone = useMemo(() => {
+    switch (step) {
+      case "upload":
+        return 0;
+      case "settings":
+        return 1;
+      case "preview":
+        return 2;
+      case "checkout":
+        return 3;
+      case "transferring":
+      case "token":
+      case "queue":
+      case "pickup":
+        return 4;
+      default:
+        return 0;
+    }
+  }, [step]);
   const isError = step === "error";
 
   // ─── Session Recovery ───
@@ -360,71 +375,101 @@ export default function PrintClient({
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-zinc-900 flex flex-col items-center justify-between px-4 py-6 sm:px-6 safe-area-inset relative">
-      {/* ─── Header ─── */}
-      <header className="text-center mb-5 animate-fade-in-up w-full max-w-md">
-        <div className="inline-flex items-center gap-2 mb-1.5">
-          <img
-            src="/logo.png"
-            alt="Printap"
-            className="w-8 h-8 rounded-xl object-cover shadow-sm border border-black/10"
-          />
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">
-            Printap
-          </h1>
+    <div className="min-h-screen bg-[#f8fafc] text-zinc-900 flex flex-col relative selection:bg-zinc-900 selection:text-white">
+      {/* ─── Sticky Modern Top Bar ─── */}
+      <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-zinc-200/80 shadow-xs">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
+          {/* Brand & Shop Location */}
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <img
+              src="/logo.png"
+              alt="Printap"
+              className="w-8 h-8 rounded-xl object-cover shadow-xs border border-black/10 flex-shrink-0"
+            />
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-base sm:text-lg font-black tracking-tight text-zinc-900 leading-none">
+                  Printap
+                </span>
+                <span className="hidden sm:inline text-zinc-300 text-xs">/</span>
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-xs font-semibold text-zinc-800 truncate max-w-[200px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                  <span className="truncate">{shopName}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 sm:hidden text-[11px] text-zinc-500 font-medium truncate mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                <span className="truncate">{shopName}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Status / Step Pill */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-zinc-100 border border-zinc-200 text-zinc-700">
+              Step {currentMilestone + 1} of 5
+            </span>
+
+            <div className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-700">
+              <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
+              </svg>
+              <span>Zero-Cloud P2P</span>
+            </div>
+          </div>
         </div>
-        <p className="text-xs font-semibold text-zinc-500">
-          Counter Terminal • <span className="text-zinc-900 font-bold">{shopName}</span>
-        </p>
+
+        {/* ─── Integrated Sub-header Step Tracker ─── */}
+        <div className="border-t border-zinc-100 bg-zinc-50/80 px-4 sm:px-6 py-2.5">
+          <nav
+            aria-label="Progress"
+            className="max-w-2xl mx-auto flex items-center justify-between gap-1 sm:gap-2"
+          >
+            {MILESTONE_STEPS.map((s, i) => {
+              const isCurrent = i === currentMilestone;
+              const isComplete = i < currentMilestone;
+              return (
+                <React.Fragment key={s.key}>
+                  {i > 0 && (
+                    <div
+                      className={`h-0.5 flex-1 min-w-3 sm:min-w-6 transition-all duration-300 ${
+                        isComplete ? "bg-emerald-500" : "bg-zinc-200"
+                      }`}
+                    />
+                  )}
+                  <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300 ${
+                        isComplete
+                          ? "bg-emerald-500 text-white shadow-xs"
+                          : isCurrent
+                          ? "bg-zinc-900 text-white ring-4 ring-zinc-900/10 shadow-xs"
+                          : "bg-zinc-200 text-zinc-500"
+                      }`}
+                    >
+                      {isComplete ? "✓" : i + 1}
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold transition-colors duration-200 ${
+                        isCurrent
+                          ? "text-zinc-900 font-bold"
+                          : isComplete
+                          ? "text-emerald-700"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </nav>
+        </div>
       </header>
 
-      {/* ─── Step Indicator ─── */}
-      <nav
-        className="flex items-center gap-1.5 mb-6 animate-fade-in-up overflow-x-auto max-w-full px-2"
-        style={{ animationDelay: "0.05s" }}
-      >
-        {STEP_LABELS.map((s, i) => {
-          const isCurrent =
-            s.key === step || (isError && s.key === "transferring");
-          const isComplete = i < stepIndex && !isError;
-          return (
-            <React.Fragment key={s.key}>
-              {i > 0 && (
-                <div
-                  className={`h-0.5 w-3 sm:w-4 transition-all duration-300 flex-shrink-0 ${
-                    isComplete ? "bg-emerald-500" : "bg-zinc-200"
-                  }`}
-                />
-              )}
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                <div
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    isComplete
-                      ? "bg-emerald-500 ring-2 ring-emerald-500/20"
-                      : isCurrent
-                      ? "bg-zinc-900 ring-4 ring-zinc-900/15"
-                      : "bg-zinc-300"
-                  }`}
-                />
-                <span
-                  className={`text-[9px] font-bold tracking-wider uppercase ${
-                    isCurrent
-                      ? "text-zinc-900"
-                      : isComplete
-                      ? "text-emerald-600"
-                      : "text-zinc-400"
-                  }`}
-                >
-                  {s.label}
-                </span>
-              </div>
-            </React.Fragment>
-          );
-        })}
-      </nav>
-
-      {/* ─── Main Content ─── */}
-      <main className="w-full max-w-md flex-1 flex flex-col justify-center">
+      {/* ─── Main Content Area ─── */}
+      <main className="w-full max-w-2xl mx-auto flex-1 flex flex-col px-4 sm:px-6 py-6 pb-36">
         {/* STEP 1 — Upload */}
         {step === "upload" && (
           <FileUpload
@@ -461,16 +506,14 @@ export default function PrintClient({
 
         {/* STEP 4 — Checkout & Payment */}
         {step === "checkout" && (
-          <div className="pb-28">
-            <Checkout
-              shopName={shopName}
-              shopId={shopId}
-              upiVpa={upiVpa}
-              totalAmount={totalAmount}
-              onPaymentConfirmed={handlePaymentConfirmed}
-              onBack={() => setStep("preview")}
-            />
-          </div>
+          <Checkout
+            shopName={shopName}
+            shopId={shopId}
+            upiVpa={upiVpa}
+            totalAmount={totalAmount}
+            onPaymentConfirmed={handlePaymentConfirmed}
+            onBack={() => setStep("preview")}
+          />
         )}
 
         {/* STEP 5 — Transferring */}
@@ -521,7 +564,7 @@ export default function PrintClient({
               <button
                 type="button"
                 onClick={handleReset}
-                className="mt-6 px-6 py-2.5 rounded-xl btn-primary text-xs font-bold text-white shadow"
+                className="mt-6 px-6 py-2.5 rounded-xl btn-primary text-xs font-bold text-white shadow cursor-pointer"
               >
                 Start Over
               </button>
@@ -530,7 +573,20 @@ export default function PrintClient({
         )}
       </main>
 
-      {/* ─── Persistent Bottom Price Bar from Settings Onwards ─── */}
+      {/* ─── Persistent Docked Bottom Bar (Edge-to-Edge, Flush, NOT floating!) ─── */}
+      {step === "upload" && documents.length > 0 && (
+        <BottomPriceBar
+          totalPrice={totalAmount}
+          documentCount={documents.length}
+          totalSheets={totalSheets}
+          colorMode={globalColorMode}
+          activeFinishingCount={activeFinishing.length}
+          activeFinishingLabels={activeFinishing.map((s) => s.label)}
+          buttonLabel="Configure Print Settings →"
+          onContinue={() => setStep("settings")}
+        />
+      )}
+
       {step === "settings" && (
         <BottomPriceBar
           totalPrice={totalAmount}
@@ -560,11 +616,8 @@ export default function PrintClient({
       )}
 
       {/* ─── Footer ─── */}
-      <footer
-        className="mt-6 text-center animate-fade-in-up"
-        style={{ animationDelay: "0.2s" }}
-      >
-        <p className="text-[11px] text-zinc-400">
+      <footer className="py-6 text-center text-zinc-400 text-[11px] pb-12">
+        <p>
           Powered by <span className="font-bold text-zinc-700">Printap</span> ·
           Direct Device-to-Printer · Zero Cloud Storage
         </p>

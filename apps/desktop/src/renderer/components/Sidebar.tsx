@@ -9,7 +9,6 @@ import {
   IconQr,
   IconTag,
 } from "./Icons";
-import logoImg from "../assets/logo.png";
 
 export type AdminPage = "live" | "printers" | "services" | "analytics" | "qr" | "profile";
 
@@ -73,61 +72,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  const shopInitials = shop?.name
-    ? shop.name
-        .split(" ")
-        .map((w: string) => w[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
-    : "PS";
-
   return (
     <>
       <aside className="sidebar">
-        {/* Brand Header */}
+        {/* Top Shop Header & Online/Offline Control */}
         <div className="sidebar-header">
-          <div className="brand-badge">
-            <img src={logoImg} alt="Printap" className="brand-logo-img" />
-          </div>
-          <div>
-            <div className="brand-title">
-              <span>Printap</span>
-              <span className="brand-sub">Agent</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Clean Nav List */}
-        <nav className="sidebar-nav">
-          {navItems.map((item) => {
-            const isActive = currentPage === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`sidebar-item ${isActive ? "active" : ""}`}
-                onClick={() => onSelectPage(item.id)}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Footer Profile & Terminal Gateway */}
-        <div className="sidebar-footer">
-          <div className="sidebar-shop-info">
-            <div className="sidebar-avatar">{shopInitials}</div>
-            <div className="sidebar-shop-meta">
-              <div className="sidebar-shop-name" title={shop?.name || "Shop Agent"}>
-                {shop?.name || "Print Shop"}
-              </div>
-              <div className="sidebar-status-beacon">
-                <span className={`beacon-dot ${isOnline ? "online" : "offline"}`} />
-                <span>{isOnline ? "Portal Online" : "Portal Offline"}</span>
-              </div>
+          <div className="sidebar-top-shop">
+            <h1 className="sidebar-top-shop-name" title={shop?.name || "Print Shop"}>
+              {shop?.name || "Print Shop"}
+            </h1>
+            <div className="sidebar-status-beacon">
+              <span className={`beacon-dot ${isOnline ? "online" : "offline"}`} />
+              <span>{isOnline ? "Terminal Online" : "Terminal Offline"}</span>
             </div>
           </div>
 
@@ -161,7 +117,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           </div>
+        </div>
 
+        {/* Clean Nav List */}
+        <nav className="sidebar-nav">
+          {navItems.map((item) => {
+            const isActive = currentPage === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`sidebar-item ${isActive ? "active" : ""}`}
+                onClick={() => onSelectPage(item.id)}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Footer Gateway */}
+        <div className="sidebar-footer">
           <button
             type="button"
             className="sidebar-logout-btn"

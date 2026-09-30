@@ -11,6 +11,7 @@ import { CounterQr } from "./components/CounterQr";
 import {
   startShopSignaling,
   stopShopSignaling,
+  broadcastPaymentConfirmed,
 } from "./lib/shop-signaling";
 import { getSupabase, setShopOnline } from "@printap/shared";
 import { startPresence, stopPresence } from "./lib/shop-presence";
@@ -43,6 +44,8 @@ function ShopAdminShell(): React.ReactElement {
   const assignmentsRef = useRef<Record<string, PrinterAssignment>>({});
   // Track handled order sessions to avoid duplicate processing with legacy onFileReceived
   const handledOrderSessions = useRef<Set<string>>(new Set());
+  // Ref to hold active signaling channel for broadcasting payment confirmation
+  const signalingChannelRef = useRef<any>(null);
 
   // Manual or initial printer detection
   const rescanPrinters = useCallback(async () => {
@@ -234,13 +237,22 @@ function ShopAdminShell(): React.ReactElement {
           `[App] Order received: ${order.tokenCode}, PIN: ${order.pickupPin}, ${files.length} files`
         );
 
+        const jobFiles = files.map((f) => ({
+          fileName: f.fileName,
+          fileSize: f.fileSize,
+          pageCount: f.pageCount,
+          settings: f.settings,
+        }));
+
         setActiveJob({
           sessionId,
           tokenCode: order.tokenCode,
           pickupPin: order.pickupPin,
           fileCount: files.length,
+          files: jobFiles,
           totalAmount: order.totalAmount,
           paymentMethod: order.paymentMethod,
+          paymentStatus: "pending",
           fileName:
             files.length > 1
               ? `${files.length} documents (${order.tokenCode})`
@@ -319,8 +331,10 @@ function ShopAdminShell(): React.ReactElement {
           tokenCode: order.tokenCode,
           pickupPin: order.pickupPin,
           fileCount: files.length,
+          files: jobFiles,
           totalAmount: order.totalAmount,
           paymentMethod: order.paymentMethod,
+          paymentStatus: "pending",
           fileName:
             files.length > 1
               ? `${files.length} documents`
@@ -360,9 +374,22 @@ function ShopAdminShell(): React.ReactElement {
           `[App] Legacy file received: ${fileName || sessionId}, bytes: ${buffer.byteLength}`
         );
 
+        const singleFile = [
+          {
+            fileName: fileName || "Document.pdf",
+            fileSize: buffer.byteLength,
+            pageCount: 1,
+          },
+        ];
+
         setActiveJob((prev) => ({
           sessionId,
           fileName: fileName || prev?.fileName,
+          fileCount: 1,
+          files: singleFile,
+          totalAmount: 5,
+          paymentMethod: "cash",
+          paymentStatus: "pending",
           status: "saving",
           detail: "PDF received, forwarding to printer driver...",
           timestamp: prev?.timestamp || new Date(),
@@ -467,12 +494,109 @@ function ShopAdminShell(): React.ReactElement {
       },
     });
 
+    signalingChannelRef.current = channel;
+
     return () => {
       console.log(`[App] Tearing down signaling channel...`);
+      signalingChannelRef.current = null;
       stopShopSignaling(channel);
       setIsListening(false);
     };
   }, [isAuthenticated, shopId, isShopOnline, loadTodayPrintsCount, refreshAssignments]);
+
+  // Payment Confirmation Handler called from LiveDashboard
+  const handleConfirmPayment = useCallback(
+    async (sessionId: string) => {
+      console.log(`[App] Confirming payment for session ${sessionId}...`);
+
+      setActiveJob((prev) => {
+        if (!prev || prev.sessionId !== sessionId) return prev;
+        return {
+          ...prev,
+          paymentStatus: "confirmed",
+          paymentConfirmedAt: new Date(),
+        };
+      });
+
+      setRecentJobs((prev) =>
+        prev.map((job) =>
+          job.sessionId === sessionId
+            ? {
+                ...job,
+                paymentStatus: "confirmed",
+                paymentConfirmedAt: new Date(),
+              }
+            : job
+        )
+      );
+
+      const targetJob =
+        (activeJob?.sessionId === sessionId ? activeJob : null) ||
+        recentJobs.find((j) => j.sessionId === sessionId);
+
+      // 1. Broadcast payment-confirmed event to customer over signaling channel
+      if (signalingChannelRef.current) {
+        try {
+          await broadcastPaymentConfirmed(
+            signalingChannelRef.current,
+            sessionId,
+            targetJob?.tokenCode
+          );
+          console.log(`[App] Broadcasted payment-confirmed to customer!`);
+        } catch (err) {
+          console.warn("[App] Error broadcasting payment confirmation:", err);
+        }
+      }
+
+      // 2. Update Supabase print_orders table
+      try {
+        const supabase = getSupabase();
+        await supabase
+          .from("print_orders")
+          .update({
+            payment_status: "confirmed",
+            status: "ready_for_pickup",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("session_id", sessionId);
+      } catch (err) {
+        console.warn("[App] Error updating print_orders in Supabase:", err);
+      }
+    },
+    [activeJob, recentJobs]
+  );
+
+  // Handover Complete Handler called from LiveDashboard
+  const handleHandoverComplete = useCallback(
+    async (sessionId: string) => {
+      setActiveJob((prev) => {
+        if (!prev || prev.sessionId !== sessionId) return prev;
+        return { ...prev, paymentStatus: "handed_over" };
+      });
+
+      setRecentJobs((prev) =>
+        prev.map((job) =>
+          job.sessionId === sessionId
+            ? { ...job, paymentStatus: "handed_over" }
+            : job
+        )
+      );
+
+      try {
+        const supabase = getSupabase();
+        await supabase
+          .from("print_orders")
+          .update({
+            status: "picked_up",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("session_id", sessionId);
+      } catch (err) {
+        console.warn("[App] Error updating print_orders picked_up in Supabase:", err);
+      }
+    },
+    []
+  );
 
   // Loading state
   if (isLoading) {
@@ -593,6 +717,8 @@ function ShopAdminShell(): React.ReactElement {
               connectedPrintersCount={
                 printers.filter((p) => p.isPhysical && p.isOnline).length
               }
+              onConfirmPayment={handleConfirmPayment}
+              onHandoverComplete={handleHandoverComplete}
             />
           </div>
 

@@ -17,6 +17,7 @@ import {
   calculateOrderTotal,
   SESSION_STORAGE_KEY,
   getSupabase,
+  joinSignalingChannel,
 } from "@printap/shared";
 import {
   sendOrderToShop,
@@ -29,6 +30,7 @@ import FileUpload from "./FileUpload";
 import PrintSettingsPanel from "./PrintSettings";
 import PagePreview from "./PagePreview";
 import BottomPriceBar from "./BottomPriceBar";
+import PrintAndPay from "./PrintAndPay";
 import Checkout from "./Checkout";
 import TransferView from "./TransferView";
 import TokenConfirmation from "./TokenConfirmation";
@@ -41,6 +43,7 @@ type Step =
   | "upload"
   | "settings"
   | "preview"
+  | "print_pay"
   | "checkout"
   | "transferring"
   | "token"
@@ -52,8 +55,7 @@ const MILESTONE_STEPS = [
   { key: "upload", label: "Upload" },
   { key: "settings", label: "Settings" },
   { key: "preview", label: "Preview" },
-  { key: "checkout", label: "Payment" },
-  { key: "queue", label: "Queue" },
+  { key: "print_pay", label: "Print & Pay" },
 ] as const;
 
 interface Props {
@@ -118,6 +120,8 @@ export default function PrintClient({
   const [progress, setProgress] = useState<TransferProgress | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [token, setToken] = useState<QueueToken | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
+  const [isPaymentConfirmedByShop, setIsPaymentConfirmedByShop] = useState(false);
   const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
   const [isShopOnline, setIsShopOnline] = useState<boolean>(initialIsOnline);
 
@@ -215,7 +219,7 @@ export default function PrintClient({
 
   const globalColorMode = documents[0]?.settings.colorMode || "bw";
 
-  // Active milestone index (0 to 4) for the Top Bar step tracker
+  // Active milestone index (0 to 3) for the Top Bar step tracker
   const currentMilestone = useMemo(() => {
     switch (step) {
       case "upload":
@@ -224,13 +228,13 @@ export default function PrintClient({
         return 1;
       case "preview":
         return 2;
+      case "print_pay":
       case "checkout":
-        return 3;
       case "transferring":
       case "token":
       case "queue":
       case "pickup":
-        return 4;
+        return 3;
       default:
         return 0;
     }
@@ -270,7 +274,141 @@ export default function PrintClient({
     }
   }, [token, jobStatus, shopId]);
 
+  // ─── Realtime Payment Confirmation Listeners ───
+  useEffect(() => {
+    if (!shopId || !token) return;
+
+    const channel = joinSignalingChannel(shopId);
+    channel.on("broadcast", { event: "payment-confirmed" }, ({ payload }) => {
+      console.log("[PrintClient] Broadcast payment-confirmed received:", payload);
+      const p = payload as { sessionId?: string; tokenCode?: string };
+      if (
+        (p.tokenCode && p.tokenCode === token.tokenCode) ||
+        (currentSessionId && p.sessionId === currentSessionId)
+      ) {
+        setIsPaymentConfirmedByShop(true);
+        setJobStatus("ready_for_pickup");
+      }
+    });
+
+    return () => {
+      try {
+        getSupabase().removeChannel(channel);
+      } catch (err) {
+        console.warn("[PrintClient] Cleanup error:", err);
+      }
+    };
+  }, [shopId, token, currentSessionId]);
+
+  useEffect(() => {
+    if (!currentSessionId) return;
+
+    const supabase = getSupabase();
+    const orderChannel = supabase
+      .channel(`order-status-${currentSessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "print_orders",
+          filter: `session_id=eq.${currentSessionId}`,
+        },
+        (payload) => {
+          const row = payload.new as { payment_status?: string; status?: string };
+          if (row.payment_status === "confirmed") {
+            setIsPaymentConfirmedByShop(true);
+            setJobStatus("ready_for_pickup");
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(orderChannel);
+      } catch (err) {
+        console.warn("[PrintClient] Cleanup error:", err);
+      }
+    };
+  }, [currentSessionId]);
+
   // ─── Handlers ───
+
+  const handleStartPrintAndPayment = useCallback(async () => {
+    if (documents.length === 0) return;
+
+    const sessionId = crypto.randomUUID();
+    setCurrentSessionId(sessionId);
+
+    const newToken: QueueToken = {
+      tokenCode: generateTokenCode(),
+      pickupPin: generatePickupPin(),
+      queuePosition: 1,
+      estimatedWaitMinutes: 2,
+    };
+
+    setToken(newToken);
+    setIsPaymentConfirmedByShop(false);
+    setStep("print_pay");
+
+    const totalBytes = documents.reduce((acc, d) => acc + d.file.size, 0);
+    setProgress({
+      status: "connecting",
+      percent: 0,
+      bytesSent: 0,
+      totalBytes,
+      totalFiles: documents.length,
+      currentFileIndex: 1,
+      currentFileName: documents[0]?.file.name,
+    });
+
+    // 1. Insert order into Supabase print_orders
+    try {
+      const supabase = getSupabase();
+      await supabase.from("print_orders").insert({
+        shop_id: shopId,
+        session_id: sessionId,
+        token_code: newToken.tokenCode,
+        pickup_pin: newToken.pickupPin,
+        queue_position: newToken.queuePosition,
+        payment_method: "upi",
+        payment_status: "pending",
+        total_amount: totalAmount,
+        status: "printing",
+      });
+    } catch (err) {
+      console.warn("[PrintClient] print_orders insert:", err);
+    }
+
+    // 2. Automatically beam document to shop printer over WebRTC!
+    try {
+      await sendOrderToShop(
+        {
+          shopId,
+          sessionId,
+          documents,
+          token: newToken,
+          paymentMethod: "upi",
+          paymentStatus: "pending",
+          totalAmount,
+          finishingServices: activeFinishing,
+        },
+        (p) => {
+          setProgress(p);
+          if (p.status === "complete") {
+            setJobStatus("printing");
+          } else if (p.status === "error") {
+            setStep("error");
+            setErrorMsg(p.error || "Transfer failed");
+          }
+        }
+      );
+    } catch (err) {
+      setStep("error");
+      setErrorMsg(String(err));
+    }
+  }, [documents, shopId, totalAmount, activeFinishing]);
 
   const handlePaymentConfirmed = useCallback(
     async (method: PaymentMethod) => {
@@ -337,6 +475,8 @@ export default function PrintClient({
     setProgress(null);
     setErrorMsg("");
     setToken(null);
+    setCurrentSessionId("");
+    setIsPaymentConfirmedByShop(false);
     setJobStatus("queued");
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
   }, [shopId, initialFinishing]);
@@ -361,9 +501,13 @@ export default function PrintClient({
   );
 
   // If the shop goes offline and there is no active transfer/order in flight, show offline screen
-  const isOrderActive = ["transferring", "token", "queue", "pickup"].includes(
-    step
-  );
+  const isOrderActive = [
+    "print_pay",
+    "transferring",
+    "token",
+    "queue",
+    "pickup",
+  ].includes(step);
   if (!isShopOnline && !isOrderActive) {
     return (
       <ShopOffline
@@ -407,7 +551,7 @@ export default function PrintClient({
           {/* Right Status / Step Pill */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-zinc-100 border border-zinc-200 text-zinc-700">
-              Step {currentMilestone + 1} of 5
+              Step {currentMilestone + 1} of 4
             </span>
 
             <div className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-700">
@@ -500,11 +644,26 @@ export default function PrintClient({
             rateCard={rateCard}
             finishingServices={finishingServices}
             onBack={() => setStep("settings")}
-            onContinue={() => setStep("checkout")}
+            onContinue={handleStartPrintAndPayment}
           />
         )}
 
-        {/* STEP 4 — Checkout & Payment */}
+        {/* STEP 4 — Unified Automatic Print & Concurrent Payment */}
+        {step === "print_pay" && token && (
+          <PrintAndPay
+            shopName={shopName}
+            shopId={shopId}
+            upiVpa={upiVpa}
+            totalAmount={totalAmount}
+            documents={documents}
+            token={token}
+            progress={progress}
+            isPaymentConfirmed={isPaymentConfirmedByShop}
+            onPrintAnother={handleReset}
+          />
+        )}
+
+        {/* Legacy Checkout (Fallback) */}
         {step === "checkout" && (
           <Checkout
             shopName={shopName}
@@ -609,8 +768,8 @@ export default function PrintClient({
           colorMode={globalColorMode}
           activeFinishingCount={activeFinishing.length}
           activeFinishingLabels={activeFinishing.map((s) => s.label)}
-          buttonLabel="Proceed to Payment →"
-          onContinue={() => setStep("checkout")}
+          buttonLabel={`Send to Print & Pay ₹${totalAmount.toFixed(2)} →`}
+          onContinue={handleStartPrintAndPayment}
           onBack={() => setStep("settings")}
         />
       )}

@@ -1,7 +1,23 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getShopCustomerUrl } from "@printap/shared";
-import { IconLive, IconPrinter, IconQr, IconCopy, IconCheck } from "./Icons";
+import {
+  IconLive,
+  IconPrinter,
+  IconQr,
+  IconCopy,
+  IconCheck,
+  IconChevronDown,
+  IconFileText,
+  IconCash,
+} from "./Icons";
+
+export interface LiveJobFile {
+  fileName: string;
+  fileSize?: number;
+  pageCount?: number;
+  settings?: any;
+}
 
 export interface LiveJob {
   sessionId: string;
@@ -14,8 +30,11 @@ export interface LiveJob {
   tokenCode?: string;
   pickupPin?: string;
   fileCount?: number;
+  files?: LiveJobFile[];
   totalAmount?: number;
   paymentMethod?: string;
+  paymentStatus?: "pending" | "confirmed" | "handed_over";
+  paymentConfirmedAt?: Date;
 }
 
 interface LiveDashboardProps {
@@ -24,6 +43,8 @@ interface LiveDashboardProps {
   todayPrintsCount: number;
   isListening: boolean;
   connectedPrintersCount: number;
+  onConfirmPayment: (sessionId: string) => void;
+  onHandoverComplete: (sessionId: string) => void;
 }
 
 export const LiveDashboard: React.FC<LiveDashboardProps> = ({
@@ -32,9 +53,20 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   todayPrintsCount,
   isListening,
   connectedPrintersCount,
+  onConfirmPayment,
+  onHandoverComplete,
 }) => {
   const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
+  // Track open/close state for filenames dropdown per sessionId
+  const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+
+  const toggleJobExpanded = (sessionId: string) => {
+    setExpandedJobs((prev) => ({
+      ...prev,
+      [sessionId]: !prev[sessionId],
+    }));
+  };
 
   const customerUrl = getShopCustomerUrl(shop, shop?.name || "shop");
 
@@ -85,32 +117,46 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   const activeStageIdx = currentJob ? getStageIndex(currentJob.status) : 0;
   const currentPct = currentJob?.progressPct ?? 0;
 
+  // Filter combined jobs list for payment side (active + recent)
+  const allJobsMap = new Map<string, LiveJob>();
+  if (currentJob) allJobsMap.set(currentJob.sessionId, currentJob);
+  recentJobs.forEach((j) => {
+    if (!allJobsMap.has(j.sessionId)) allJobsMap.set(j.sessionId, j);
+  });
+  const allJobs = Array.from(allJobsMap.values());
+
+  const pendingPayments = allJobs.filter(
+    (j) => !j.paymentStatus || j.paymentStatus === "pending"
+  );
+  const confirmedPayments = allJobs.filter(
+    (j) => j.paymentStatus === "confirmed"
+  );
+  const handedOverPayments = allJobs.filter(
+    (j) => j.paymentStatus === "handed_over"
+  );
+
   return (
     <div className="content fade-in">
       {/* Page Header */}
       <div className="page-header">
         <h1 className="page-title">
-          <span>Live Print Monitor</span>
+          <span>Live Monitor</span>
           <span className="status-badge active">Live & Connected</span>
         </h1>
         <p className="page-subtitle">
-          Real-time peer-to-peer queue and hardware spool status for {shop?.name || "your counter"}.
+          Real-time print queue and counter payment verification for {shop?.name || "your counter"}.
         </p>
       </div>
 
-      {/* Top Stat Cards — strictly operational metrics, no money metrics */}
+      {/* Top Stat Cards */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">
             <span>Today's Total Prints</span>
             <IconPrinter size={16} color="var(--text-muted)" />
           </div>
-          <div className="stat-value">
-            {todayPrintsCount}
-          </div>
-          <div className="stat-footnote">
-            Direct peer-to-peer document queue
-          </div>
+          <div className="stat-value">{todayPrintsCount}</div>
+          <div className="stat-footnote">Direct peer-to-peer queue</div>
         </div>
 
         <div className="stat-card">
@@ -118,14 +164,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             <span>Terminal Gateway</span>
             <IconLive size={16} color="var(--text-muted)" />
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 4,
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
             <span className="beacon-dot" />
             <span
               style={{
@@ -138,9 +177,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               {isListening ? "Direct P2P Online" : "Connecting..."}
             </span>
           </div>
-          <div className="stat-footnote">
-            Zero cloud storage • Direct WebRTC link
-          </div>
+          <div className="stat-footnote">Zero cloud storage • Direct WebRTC</div>
         </div>
 
         <div className="stat-card">
@@ -148,328 +185,475 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             <span>Connected Printers</span>
             <IconPrinter size={16} color="var(--text-muted)" />
           </div>
-          <div className="stat-value green">
-            {connectedPrintersCount} Ready
+          <div className="stat-value green">{connectedPrintersCount} Ready</div>
+          <div className="stat-footnote">
+            {connectedPrintersCount > 0 ? "Hardware detected & ready" : "No physical hardware detected"}
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">
+            <span>Pending Payments</span>
+            <IconCash size={16} color="var(--text-muted)" />
+          </div>
+          <div
+            className="stat-value"
+            style={{
+              color: pendingPayments.length > 0 ? "var(--accent-amber)" : "var(--accent-emerald)",
+            }}
+          >
+            {pendingPayments.length}
           </div>
           <div className="stat-footnote">
-            {connectedPrintersCount > 0
-              ? "Physical machines online & idle"
-              : "No physical hardware detected"}
+            {pendingPayments.length > 0
+              ? `${pendingPayments.length} awaiting cash/UPI confirmation`
+              : "All counter payments verified"}
           </div>
         </div>
       </div>
 
-      {/* Active Session Section */}
-      <div style={{ marginBottom: 24 }}>
-        <h2
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--text-secondary)",
-            marginBottom: 12,
-          }}
-        >
-          Active Print Session
-        </h2>
+      {/* ══════════════════════════════════════════════════════════
+          TWO-SECTION SPLIT LAYOUT:
+          LEFT: Print Queue with Dropdown Filenames
+          RIGHT: Payment Counter Confirmation
+      ══════════════════════════════════════════════════════════ */}
+      <div className="live-monitor-grid">
+        {/* ─── SECTION 1: Current Queue Details (Left Side) ─── */}
+        <section className="monitor-section">
+          <div className="monitor-section-header">
+            <h2 className="monitor-section-title">
+              <IconPrinter size={18} color="var(--text-primary)" />
+              <span>Current Print Queue</span>
+            </h2>
+            <span className="status-badge">
+              {currentJob ? "1 Active Processing" : `${recentJobs.length} Logged Today`}
+            </span>
+          </div>
 
-        {currentJob ? (
-          <div className="active-session-card fade-in">
-            <div className="active-session-meta">
-              <span className={getStatusBadge(currentJob.status).className} />
-              <span className="status-badge active">
-                {getStatusBadge(currentJob.status).label}
-              </span>
-              {currentJob.tokenCode && (
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: "6px",
-                    background: "rgba(99, 102, 241, 0.15)",
-                    color: "#6366f1",
-                    letterSpacing: "0.05em",
-                  }}
+          {/* Active Job in Progress (if any) */}
+          {currentJob && (
+            <div className="queue-job-card active-job fade-in">
+              <div className="queue-job-header">
+                <div className="queue-badges">
+                  {currentJob.tokenCode && (
+                    <span className="token-pill">{currentJob.tokenCode}</span>
+                  )}
+                  {currentJob.pickupPin && (
+                    <span className="pin-pill">PIN: {currentJob.pickupPin}</span>
+                  )}
+                  <span className={getStatusBadge(currentJob.status).className} />
+                  <span className="status-badge active">
+                    {getStatusBadge(currentJob.status).label}
+                  </span>
+                </div>
+
+                {/* Dropdown toggle button for filenames */}
+                <button
+                  type="button"
+                  className={`queue-files-dropdown-btn ${expandedJobs[currentJob.sessionId] ? "open" : ""}`}
+                  onClick={() => toggleJobExpanded(currentJob.sessionId)}
+                  title="Click to view file details"
                 >
-                  Token: {currentJob.tokenCode}
-                </span>
+                  <IconFileText size={14} />
+                  <span>
+                    {currentJob.files?.length || currentJob.fileCount || 1} file(s)
+                  </span>
+                  <span className="chevron">
+                    <IconChevronDown size={14} />
+                  </span>
+                </button>
+              </div>
+
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#09090b" }}>
+                {currentJob.fileName || "Customer Document.pdf"}
+              </div>
+
+              {/* Progress bar if receiving */}
+              {typeof currentJob.progressPct === "number" && currentJob.status === "receiving" && (
+                <div>
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${currentPct}%` }} />
+                  </div>
+                  <div className="progress-labels">
+                    <span>Direct WebRTC Transfer Stream</span>
+                    <span>{currentPct}%</span>
+                  </div>
+                </div>
               )}
-              {currentJob.pickupPin && (
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontFamily: "Geist Mono, monospace",
-                    padding: "2px 6px",
-                    borderRadius: "6px",
-                    background: "rgba(16, 185, 129, 0.12)",
-                    color: "#10b981",
-                    fontWeight: 600,
-                  }}
-                >
-                  PIN: {currentJob.pickupPin}
-                </span>
-              )}
-              <span
+
+              {/* 4-Stage Hardware Spool Pipeline */}
+              <div
                 style={{
-                  fontSize: 12,
-                  fontFamily: "Geist Mono, monospace",
-                  color: "var(--text-muted)",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 8,
+                  padding: "10px 12px",
+                  background: "rgba(0, 0, 0, 0.03)",
+                  borderRadius: "var(--radius-md)",
                 }}
               >
-                #{currentJob.sessionId.slice(0, 8)}
+                {stages.map((st, idx) => {
+                  const isPassed = activeStageIdx > idx;
+                  const isCurrent = activeStageIdx === idx;
+                  return (
+                    <div
+                      key={st.id}
+                      style={{
+                        fontSize: 11,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        opacity: isCurrent ? 1 : isPassed ? 0.8 : 0.4,
+                        color: isCurrent ? "var(--accent-emerald)" : "var(--text-primary)",
+                      }}
+                    >
+                      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)" }}>
+                        Step {st.num}
+                      </span>
+                      <span style={{ fontWeight: isCurrent ? 700 : 500 }}>{st.label}</span>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          color: isCurrent ? "var(--accent-emerald)" : "var(--text-muted)",
+                        }}
+                      >
+                        {isCurrent ? "● Active" : isPassed ? "✓ Done" : "Wait"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Expandable Filenames List Accordion upon clicking */}
+              {expandedJobs[currentJob.sessionId] && (
+                <div className="queue-files-list">
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Files in this print order:
+                  </div>
+                  {currentJob.files && currentJob.files.length > 0 ? (
+                    currentJob.files.map((file, idx) => (
+                      <div key={idx} className="queue-file-row">
+                        <div className="queue-file-name" title={file.fileName}>
+                          <IconFileText size={14} color="var(--text-secondary)" />
+                          <span>{file.fileName}</span>
+                        </div>
+                        <div className="queue-file-meta">
+                          {file.pageCount ? `${file.pageCount} pg` : "1 pg"}
+                          {file.settings?.colorMode ? ` • ${file.settings.colorMode.toUpperCase()}` : ""}
+                          {file.settings?.copies ? ` • ${file.settings.copies} copy` : ""}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="queue-file-row">
+                      <div className="queue-file-name">
+                        <IconFileText size={14} color="var(--text-secondary)" />
+                        <span>{currentJob.fileName || "Customer Document"}</span>
+                      </div>
+                      <div className="queue-file-meta">1 document</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                {currentJob.detail || "Processing document directly in hardware memory..."}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Queue Ledger */}
+          <div className="card" style={{ padding: 0 }}>
+            <div className="card-header">
+              <span className="card-title">
+                <span>Recent Spooled Jobs</span>
+              </span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                {recentJobs.length} completed
               </span>
             </div>
+            <div style={{ padding: "8px 16px 16px" }}>
+              {recentJobs.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                  {recentJobs.map((job) => {
+                    const isExpanded = Boolean(expandedJobs[job.sessionId]);
+                    return (
+                      <div
+                        key={job.sessionId + job.timestamp.getTime()}
+                        className="queue-job-card"
+                        style={{ padding: "12px 14px", background: "rgba(255, 255, 255, 0.55)" }}
+                      >
+                        <div className="queue-job-header">
+                          <div className="queue-badges">
+                            {job.tokenCode && (
+                              <span className="token-pill" style={{ fontSize: 12, padding: "2px 6px" }}>
+                                {job.tokenCode}
+                              </span>
+                            )}
+                            {job.pickupPin && (
+                              <span className="pin-pill" style={{ fontSize: 10, padding: "2px 5px" }}>
+                                PIN: {job.pickupPin}
+                              </span>
+                            )}
+                            <span className={getStatusBadge(job.status).className} />
+                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                              {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
 
-            <div className="active-session-title">
-              {currentJob.fileName || "Customer Document.pdf"}
+                          {/* Dropdown toggle for filenames */}
+                          <button
+                            type="button"
+                            className={`queue-files-dropdown-btn ${isExpanded ? "open" : ""}`}
+                            style={{ padding: "4px 8px", fontSize: 11 }}
+                            onClick={() => toggleJobExpanded(job.sessionId)}
+                            title="Click to list all filenames in this job"
+                          >
+                            <IconFileText size={12} />
+                            <span>{job.files?.length || job.fileCount || 1} file(s)</span>
+                            <span className="chevron">
+                              <IconChevronDown size={12} />
+                            </span>
+                          </button>
+                        </div>
+
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#09090b" }}>
+                          {job.fileName || `Document #${job.sessionId.slice(0, 8)}`}
+                        </div>
+
+                        {/* Collapsible File List upon clicking */}
+                        {isExpanded && (
+                          <div className="queue-files-list">
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                              Files printed:
+                            </div>
+                            {job.files && job.files.length > 0 ? (
+                              job.files.map((file, idx) => (
+                                <div key={idx} className="queue-file-row">
+                                  <div className="queue-file-name" title={file.fileName}>
+                                    <IconFileText size={13} color="var(--text-secondary)" />
+                                    <span>{file.fileName}</span>
+                                  </div>
+                                  <div className="queue-file-meta">
+                                    {file.pageCount ? `${file.pageCount} pg` : ""}
+                                    {file.settings?.colorMode ? ` • ${file.settings.colorMode.toUpperCase()}` : ""}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="queue-file-row">
+                                <div className="queue-file-name">
+                                  <IconFileText size={13} color="var(--text-secondary)" />
+                                  <span>{job.fileName || "Customer Document"}</span>
+                                </div>
+                                <div className="queue-file-meta">1 file</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : !currentJob ? (
+                <div style={{ padding: "28px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+                  Queue is clear. Waiting for customers to scan your counter QR code.
+                </div>
+              ) : null}
             </div>
+          </div>
+        </section>
 
-            {/* Smooth Fluid Progress Track */}
-            {typeof currentJob.progressPct === "number" && currentJob.status === "receiving" && (
-              <div style={{ margin: "14px 0 8px" }}>
-                <div className="progress-track">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${currentPct}%` }}
-                  />
-                </div>
-                <div className="progress-labels">
-                  <span>Direct WebRTC Transfer Stream</span>
-                  <span>{currentPct}%</span>
-                </div>
-              </div>
-            )}
-
-            {/* 4-Stage Hardware Spool Pipeline */}
-            <div
+        {/* ─── SECTION 2: Payment Counter & Confirmation (Right Side) ─── */}
+        <section className="monitor-section">
+          <div className="monitor-section-header">
+            <h2 className="monitor-section-title">
+              <IconCash size={18} color="var(--text-primary)" />
+              <span>Payment Counter</span>
+            </h2>
+            <span
+              className="status-badge"
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 10,
-                marginTop: 18,
-                padding: "12px 14px",
-                background: "rgba(0, 0, 0, 0.03)",
-                borderRadius: "var(--radius-md)",
+                background: pendingPayments.length > 0 ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.12)",
+                color: pendingPayments.length > 0 ? "#b45309" : "#059669",
+                borderColor: pendingPayments.length > 0 ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)",
               }}
             >
-              {stages.map((st, idx) => {
-                const isPassed = activeStageIdx > idx;
-                const isCurrent = activeStageIdx === idx;
+              {pendingPayments.length > 0
+                ? `${pendingPayments.length} Awaiting Verification`
+                : "All Settled ✓"}
+            </span>
+          </div>
+
+          {/* Pending Payment Orders (Need Shop Confirmation) */}
+          {pendingPayments.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {pendingPayments.map((job) => {
+                const amount = job.totalAmount ?? 0;
                 return (
-                  <div
-                    key={st.id}
-                    style={{
-                      fontSize: 12,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 3,
-                      opacity: isCurrent ? 1 : isPassed ? 0.8 : 0.4,
-                      color: isCurrent ? "var(--accent-emerald)" : "var(--text-primary)",
-                    }}
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)" }}>
-                      Step {st.num}
-                    </span>
-                    <span style={{ fontWeight: isCurrent ? 700 : 500 }}>
-                      {st.label}
-                    </span>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: isCurrent ? "var(--accent-emerald)" : "var(--text-muted)" }}>
-                      {isCurrent ? "● Processing" : isPassed ? "✓ Completed" : "Pending"}
-                    </span>
+                  <div key={job.sessionId} className="payment-order-card pending fade-in">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {job.tokenCode && <span className="token-pill">{job.tokenCode}</span>}
+                        {job.pickupPin && <span className="pin-pill">PIN: {job.pickupPin}</span>}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          borderRadius: "var(--radius-full)",
+                          background: "rgba(245, 158, 11, 0.2)",
+                          color: "#b45309",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {job.paymentMethod ? `${job.paymentMethod.toUpperCase()} Pending` : "Payment Due"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>
+                          COLLECT FROM CUSTOMER
+                        </div>
+                        <div className="payment-amount-hero">₹{amount.toFixed(2)}</div>
+                      </div>
+
+                      <div style={{ textAlign: "right", fontSize: 12, color: "var(--text-secondary)" }}>
+                        <div>{job.files?.length || job.fileCount || 1} document(s)</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                          {job.status === "printing" ? "🖨️ Printing right now..." : "✓ Paper ready on tray"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Shop Confirmation Action Button */}
+                    <button
+                      type="button"
+                      className="confirm-payment-action-btn"
+                      onClick={() => onConfirmPayment(job.sessionId)}
+                      title="Click to confirm payment and notify customer for handover"
+                    >
+                      <IconCheck size={16} />
+                      <span>Confirm Payment Received (₹{amount.toFixed(2)})</span>
+                    </button>
                   </div>
                 );
               })}
             </div>
+          )}
 
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--text-secondary)",
-                marginTop: 12,
-              }}
-            >
-              {currentJob.detail ||
-                (currentJob.status === "shredding"
-                  ? "Securely erasing temporary memory buffers..."
-                  : currentJob.status === "printing"
-                  ? "Spooling document to Windows hardware printer driver..."
-                  : "Streaming encrypted file chunks directly to local memory...")}
-            </div>
-          </div>
-        ) : (
-          /* Frosted Glass Idle Terminal Banner */
-          <div className="idle-banner fade-in">
-            <div className="idle-radar">
-              <IconLive size={24} />
-            </div>
-
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              Counter Terminal Ready & Listening
-            </div>
-
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text-secondary)",
-                marginTop: 6,
-                maxWidth: 440,
-                margin: "6px auto 18px",
-                lineHeight: 1.5,
-              }}
-            >
-              Waiting for customers to scan your counter QR code. Documents stream directly from mobile browsers to this PC over local Wi-Fi.
-            </p>
-
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                background: "rgba(255, 255, 255, 0.8)",
-                padding: "8px 14px",
-                borderRadius: "var(--radius-full)",
-                border: "1px solid var(--border-subtle)",
-                boxShadow: "var(--shadow-sm)",
-              }}
-            >
-              <IconQr size={15} color="var(--text-secondary)" />
-              <span
-                style={{
-                  fontSize: 12,
-                  fontFamily: "Geist Mono, monospace",
-                  color: "var(--text-primary)",
-                  fontWeight: 500,
-                }}
-              >
-                {customerUrl || "Terminal offline"}
-              </span>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{
-                  padding: "4px 10px",
-                  fontSize: 11,
-                  borderRadius: "var(--radius-full)",
-                  marginLeft: 4,
-                }}
-                onClick={handleCopyLink}
-              >
-                {copiedLink ? (
-                  <>
-                    <IconCheck size={12} color="var(--accent-emerald)" />
-                    <span style={{ color: "var(--accent-emerald)" }}>Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <IconCopy size={12} />
-                    <span>Copy Link</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Jobs Ledger */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">
-            <span>Recent Print Activity</span>
-          </div>
-          <span
-            style={{
-              fontSize: 12,
-              color: "var(--text-muted)",
-              fontWeight: 500,
-            }}
-          >
-            {recentJobs.length} logged today
-          </span>
-        </div>
-        <div className="card-body" style={{ padding: "0 22px" }}>
-          {recentJobs.length > 0 ? (
-            <ul className="job-list">
-              {recentJobs.map((job) => (
-                <li
-                  key={job.sessionId + job.timestamp.getTime()}
-                  className="job-item"
-                >
-                  <span className={getStatusBadge(job.status).className} />
-                  <div className="job-name">
-                    {job.tokenCode && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          padding: "1px 6px",
-                          borderRadius: "4px",
-                          background: "rgba(99, 102, 241, 0.15)",
-                          color: "#6366f1",
-                          marginRight: 6,
-                        }}
-                      >
-                        {job.tokenCode}
-                      </span>
-                    )}
-                    <span>
-                      {job.fileName || `Document #${job.sessionId.slice(0, 8)}`}
+          {/* Confirmed Payments Ready for Handover */}
+          {confirmedPayments.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                Ready to Handover ({confirmedPayments.length}):
+              </div>
+              {confirmedPayments.map((job) => (
+                <div key={job.sessionId} className="payment-order-card confirmed fade-in">
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {job.tokenCode && <span className="token-pill">{job.tokenCode}</span>}
+                      {job.pickupPin && <span className="pin-pill">PIN: {job.pickupPin}</span>}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#059669",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <IconCheck size={13} />
+                      <span>Payment Verified</span>
                     </span>
-                    {job.pickupPin && (
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontFamily: "Geist Mono, monospace",
-                          color: "var(--accent-emerald)",
-                          marginLeft: 6,
-                          fontWeight: 600,
-                        }}
-                      >
-                        (PIN: {job.pickupPin})
-                      </span>
-                    )}
-                    {job.detail && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: "var(--text-muted)",
-                          marginLeft: 8,
-                          fontWeight: 400,
-                        }}
-                      >
-                        — {job.detail}
-                      </span>
-                    )}
                   </div>
-                  <span className="job-time">
-                    {job.timestamp.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </li>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ fontWeight: 600, color: "#09090b" }}>
+                      ₹{(job.totalAmount ?? 0).toFixed(2)} received
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Customer notified on mobile
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="handover-action-btn"
+                    onClick={() => onHandoverComplete(job.sessionId)}
+                  >
+                    <span>Handover Printout to Customer →</span>
+                  </button>
+                </div>
               ))}
-            </ul>
-          ) : (
-            <div
-              style={{
-                padding: "36px 0",
-                textAlign: "center",
-                color: "var(--text-muted)",
-                fontSize: 13,
-              }}
-            >
-              No print jobs logged yet today. When a customer scans your counter QR code, print sessions will appear here instantly.
             </div>
           )}
-        </div>
+
+          {/* Handed Over Archive / Empty State */}
+          {pendingPayments.length === 0 && confirmedPayments.length === 0 && (
+            <div className="card" style={{ padding: "32px 20px", textAlign: "center" }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: "rgba(16, 185, 129, 0.1)",
+                  color: "var(--accent-emerald)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 12px",
+                }}
+              >
+                <IconCheck size={22} />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#09090b" }}>
+                All Payments Confirmed
+              </div>
+              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, maxWidth: 280, margin: "4px auto 0" }}>
+                When a customer sends a document to print, their payment confirmation card will appear here for 1-click verification.
+              </p>
+            </div>
+          )}
+
+          {/* Settled Archive List */}
+          {handedOverPayments.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>
+                Handed Over Today ({handedOverPayments.length}):
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {handedOverPayments.slice(0, 5).map((job) => (
+                  <div
+                    key={job.sessionId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px",
+                      background: "rgba(0, 0, 0, 0.02)",
+                      borderRadius: "var(--radius-md)",
+                      fontSize: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontWeight: 700 }}>{job.tokenCode || "Job"}</span>
+                      <span style={{ color: "var(--text-muted)" }}>• PIN: {job.pickupPin}</span>
+                    </div>
+                    <span style={{ fontWeight: 600, color: "#059669" }}>
+                      ₹{(job.totalAmount ?? 0).toFixed(2)} ✓
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

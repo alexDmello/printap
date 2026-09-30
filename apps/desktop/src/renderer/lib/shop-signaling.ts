@@ -441,3 +441,17 @@ function cleanup(sessionId: string): void {
   sessions.delete(sessionId);
   console.log(`[shop] Session ${sessionId} cleaned up`);
 }
+
+/** Broadcast payment confirmation event to the customer. */
+export async function broadcastPaymentConfirmed(
+  channel: RealtimeChannel,
+  sessionId: string,
+  tokenCode?: string
+): Promise<void> {
+  await broadcast(channel, "payment-confirmed", {
+    sessionId,
+    tokenCode,
+    confirmedAt: new Date().toISOString(),
+  });
+}
+

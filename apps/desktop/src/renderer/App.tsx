@@ -8,6 +8,7 @@ import { PrintersControl, type PrinterAssignment } from "./components/PrintersCo
 import { ServicesRates, type DirtyHandler } from "./components/ServicesRates";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
+import { PrintHistory } from "./components/PrintHistory";
 import {
   startShopSignaling,
   stopShopSignaling,
@@ -187,12 +188,13 @@ function ShopAdminShell(): React.ReactElement {
         setRecentJobs((prev) => {
           const map = new Map<string, LiveJob>();
           orders.forEach((o) => {
+            const isConfirmed = o.payment_status === "confirmed" || o.status === "picked_up";
             map.set(o.session_id, {
               sessionId: o.session_id,
               tokenCode: o.token_code || undefined,
               totalAmount: Number(o.total_amount) || 0,
               paymentMethod: (o.payment_method as any) || "upi",
-              paymentStatus: (o.payment_status as any) || "pending",
+              paymentStatus: isConfirmed ? "confirmed" : (o.payment_status as any) || "pending",
               status: o.status === "printing" ? "printing" : "done",
               detail: `Token ${o.token_code || ""}`,
               timestamp: new Date(o.created_at),
@@ -788,14 +790,14 @@ function ShopAdminShell(): React.ReactElement {
         }
       }
 
-      // 2. Update Supabase print_orders table
+      // 2. Update Supabase print_orders table: marked confirmed and completed
       try {
         const supabase = getSupabase();
         await supabase
           .from("print_orders")
           .update({
             payment_status: "confirmed",
-            status: "ready_for_pickup",
+            status: "picked_up",
             updated_at: new Date().toISOString(),
           })
           .eq("session_id", sessionId);
@@ -804,38 +806,6 @@ function ShopAdminShell(): React.ReactElement {
       }
     },
     [activeJob, recentJobs]
-  );
-
-  // Handover Complete Handler called from LiveDashboard
-  const handleHandoverComplete = useCallback(
-    async (sessionId: string) => {
-      setActiveJob((prev) => {
-        if (!prev || prev.sessionId !== sessionId) return prev;
-        return { ...prev, paymentStatus: "handed_over" };
-      });
-
-      setRecentJobs((prev) =>
-        prev.map((job) =>
-          job.sessionId === sessionId
-            ? { ...job, paymentStatus: "handed_over" }
-            : job
-        )
-      );
-
-      try {
-        const supabase = getSupabase();
-        await supabase
-          .from("print_orders")
-          .update({
-            status: "picked_up",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("session_id", sessionId);
-      } catch (err) {
-        console.warn("[App] Error updating print_orders picked_up in Supabase:", err);
-      }
-    },
-    []
   );
 
   // Loading state
@@ -959,8 +929,21 @@ function ShopAdminShell(): React.ReactElement {
                 printers.filter((p) => p.isPhysical && p.isOnline).length
               }
               onConfirmPayment={handleConfirmPayment}
-              onHandoverComplete={handleHandoverComplete}
+              onNavigateToHistory={() => handleSelectPage("history")}
             />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "history" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <PrintHistory recentJobs={recentJobs} />
           </div>
 
           <div

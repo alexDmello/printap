@@ -44,7 +44,7 @@ interface LiveDashboardProps {
   isListening: boolean;
   connectedPrintersCount: number;
   onConfirmPayment: (sessionId: string) => void;
-  onHandoverComplete: (sessionId: string) => void;
+  onNavigateToHistory?: () => void;
 }
 
 export const LiveDashboard: React.FC<LiveDashboardProps> = ({
@@ -54,7 +54,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   isListening,
   connectedPrintersCount,
   onConfirmPayment,
-  onHandoverComplete,
+  onNavigateToHistory,
 }) => {
   const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
@@ -152,12 +152,12 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
       (j.tokenCode || (j.totalAmount !== undefined && j.totalAmount > 0)) &&
       (!j.paymentStatus || j.paymentStatus === "pending")
   );
-  const confirmedPayments = allJobs.filter(
-    (j) => j.paymentStatus === "confirmed"
+  // Settled / completed payments: confirmed or handed over
+  const settledPayments = allJobs.filter(
+    (j) => j.paymentStatus === "confirmed" || j.paymentStatus === "handed_over"
   );
-  const handedOverPayments = allJobs.filter(
-    (j) => j.paymentStatus === "handed_over"
-  );
+  // Only the last 7 are displayed on the live monitor; the rest are in History
+  const displayedSettled = settledPayments.slice(0, 7);
 
   return (
     <div className="content fade-in">
@@ -558,18 +558,58 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             </div>
           )}
 
-          {/* Confirmed Payments Ready for Handover */}
-          {confirmedPayments.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
-                Ready to Handover ({confirmedPayments.length}):
+          {/* Settled Orders: Only show the last 7, and link to History */}
+          {displayedSettled.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                  Recent Settled Orders ({displayedSettled.length}{settledPayments.length > 7 ? ` of ${settledPayments.length}` : ""}):
+                </div>
+                {onNavigateToHistory && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToHistory}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-secondary)",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    View All History →
+                  </button>
+                )}
               </div>
-              {confirmedPayments.map((job) => (
-                <div key={job.sessionId} className="payment-order-card confirmed fade-in">
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {displayedSettled.map((job) => (
+                  <div
+                    key={job.sessionId}
+                    className="payment-order-card confirmed fade-in"
+                    style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  >
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span className="token-pill">{job.tokenCode || "#--"}</span>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#09090b" }}>
+                          ₹{(job.totalAmount ?? 0).toFixed(2)} received
+                        </span>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                          {job.paymentMethod ? job.paymentMethod.toUpperCase() : "UPI"} • {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
                     </div>
+
                     <span
                       style={{
                         fontSize: 11,
@@ -581,33 +621,40 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                       }}
                     >
                       <IconCheck size={13} />
-                      <span>Payment Verified</span>
+                      <span>Verified ✓</span>
                     </span>
                   </div>
+                ))}
+              </div>
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
-                    <span style={{ fontWeight: 600, color: "#09090b" }}>
-                      ₹{(job.totalAmount ?? 0).toFixed(2)} received
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      Customer notified on mobile
-                    </span>
-                  </div>
-
+              {settledPayments.length > 7 && onNavigateToHistory && (
+                <div style={{ marginTop: 10, textAlign: "center" }}>
                   <button
                     type="button"
-                    className="handover-action-btn"
-                    onClick={() => onHandoverComplete(job.sessionId)}
+                    onClick={onNavigateToHistory}
+                    style={{
+                      background: "rgba(0, 0, 0, 0.04)",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "var(--radius-md)",
+                      padding: "8px 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
-                    <span>Handover Printout to Customer →</span>
+                    <span>Showing last 7. View all {settledPayments.length} in History →</span>
                   </button>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
           {/* Handed Over Archive / Empty State */}
-          {pendingPayments.length === 0 && confirmedPayments.length === 0 && (
+          {pendingPayments.length === 0 && displayedSettled.length === 0 && (
             <div className="card" style={{ padding: "32px 20px", textAlign: "center" }}>
               <div
                 style={{
@@ -630,38 +677,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, maxWidth: 280, margin: "4px auto 0" }}>
                 When a customer sends a document to print, their payment confirmation card will appear here for 1-click verification.
               </p>
-            </div>
-          )}
-
-          {/* Settled Archive List */}
-          {handedOverPayments.length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>
-                Handed Over Today ({handedOverPayments.length}):
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {handedOverPayments.slice(0, 5).map((job) => (
-                  <div
-                    key={job.sessionId}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 12px",
-                      background: "rgba(0, 0, 0, 0.02)",
-                      borderRadius: "var(--radius-md)",
-                      fontSize: 12,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontWeight: 700 }}>{job.tokenCode || "Job"}</span>
-                    </div>
-                    <span style={{ fontWeight: 600, color: "#059669" }}>
-                      ₹{(job.totalAmount ?? 0).toFixed(2)} ✓
-                    </span>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </section>

@@ -69,6 +69,7 @@ interface Props {
   priceColor?: number;
   /** Optional shop custom services */
   services?: ShopServiceItem[];
+  initialIsOnline?: boolean;
 }
 
 function generateTokenCode(): string {
@@ -88,6 +89,7 @@ export default function PrintClient({
   priceBw,
   priceColor,
   services,
+  initialIsOnline = false,
 }: Props) {
   // ─── State ───
   const [step, setStep] = useState<Step>("upload");
@@ -121,15 +123,28 @@ export default function PrintClient({
   const [errorMsg, setErrorMsg] = useState("");
   const [token, setToken] = useState<QueueToken | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
-  const [isShopOnline, setIsShopOnline] = useState(true);
+  const [isShopOnline, setIsShopOnline] = useState<boolean>(initialIsOnline);
 
-  // Monitor shop online status in realtime
+  // Monitor shop online status in realtime and verify on mount
   useEffect(() => {
     if (!shopId) return;
 
+    let isMounted = true;
     const supabase = getSupabase();
 
-    // 1. Subscribe to updates on shops table
+    // 1. Immediately verify latest status from DB
+    supabase
+      .from("shops")
+      .select("is_online")
+      .eq("id", shopId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data && isMounted) {
+          setIsShopOnline(Boolean(data.is_online));
+        }
+      });
+
+    // 2. Subscribe to updates on shops table
     const dbChannel = supabase
       .channel(`customer-shop-status:${shopId}`)
       .on(
@@ -144,7 +159,8 @@ export default function PrintClient({
           if (
             payload.new &&
             typeof (payload.new as { is_online?: boolean }).is_online ===
-              "boolean"
+              "boolean" &&
+            isMounted
           ) {
             const online = (payload.new as { is_online: boolean }).is_online;
             setIsShopOnline(online);
@@ -153,22 +169,29 @@ export default function PrintClient({
       )
       .subscribe();
 
-    // 2. Also listen for Presence leave events
+    // 3. Listen for Presence events and verify on sync
     const presenceChannel = supabase.channel(presenceChannelName(shopId), {
       config: { presence: { key: shopId } },
     });
 
     presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const hasShopPresence = Object.keys(state).length > 0;
+        if (!hasShopPresence && isMounted) {
+          setIsShopOnline(false);
+        }
+      })
       .on("presence", { event: "leave" }, () => {
-        console.log("[PrintClient] Shop presence left");
-        setIsShopOnline(false);
+        if (isMounted) setIsShopOnline(false);
       })
       .on("presence", { event: "join" }, () => {
-        setIsShopOnline(true);
+        if (isMounted) setIsShopOnline(true);
       })
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(dbChannel);
       supabase.removeChannel(presenceChannel);
     };

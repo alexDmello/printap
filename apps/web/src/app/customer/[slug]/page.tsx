@@ -93,6 +93,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Customer Print Page rendered for {shopname}.mellod.in
  */
@@ -149,6 +152,7 @@ export default async function CustomerShopPage({ params }: Props) {
       priceBw={shop.price_bw ?? undefined}
       priceColor={shop.price_color ?? undefined}
       services={shop.services ?? undefined}
+      initialIsOnline={Boolean(shop.is_online)}
     />
   );
 }

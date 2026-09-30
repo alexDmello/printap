@@ -10,6 +10,7 @@ import os from "os";
 import * as ptp from "pdf-to-printer";
 import srm from "secure-rm";
 import { discoverPrinters } from "./printer-discovery";
+import { setShopOnline } from "@printap/shared";
 
 // ─── Constants ───
 const TEMP_DIR = "C:\\Temp";
@@ -35,6 +36,16 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
+
+  // Intercept window close (X button) to guarantee graceful offline cleanup
+  mainWindow.on("close", async (e) => {
+    if (activeShopId && !isCleaningUp) {
+      e.preventDefault();
+      await performShutdownCleanup();
+      mainWindow?.destroy();
+      app.quit();
+    }
+  });
 }
 
 let activeShopId: string | null = null;
@@ -50,7 +61,6 @@ async function performShutdownCleanup(): Promise<void> {
   }
   if (activeShopId) {
     try {
-      const { setShopOnline } = await import("@printap/shared");
       console.log(`[main] Setting shop ${activeShopId} offline before quit...`);
       await setShopOnline(activeShopId, false);
     } catch (err) {
@@ -95,7 +105,6 @@ ipcMain.handle("set-shop-offline", async (_event, shopId: string) => {
   const targetId = shopId || activeShopId;
   if (!targetId) return { success: true };
   try {
-    const { setShopOnline } = await import("@printap/shared");
     const result = await setShopOnline(targetId, false);
     if (targetId === activeShopId) {
       activeShopId = null;

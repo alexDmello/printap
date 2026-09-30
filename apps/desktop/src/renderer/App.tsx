@@ -25,14 +25,8 @@ function ShopAdminShell(): React.ReactElement {
   const [recentJobs, setRecentJobs] = useState<LiveJob[]>([]);
   const [todayPrintsCount, setTodayPrintsCount] = useState<number>(0);
 
-  // Shop Online/Offline Presence state
-  const [isShopOnline, setIsShopOnline] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("printap_shop_online_pref") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Shop Online/Offline Presence state (always starts offline on launch until toggled)
+  const [isShopOnline, setIsShopOnline] = useState<boolean>(false);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   const [printers, setPrinters] = useState<PrinterInfo[]>(() => {
     try {
@@ -169,25 +163,11 @@ function ShopAdminShell(): React.ReactElement {
 
     let isMounted = true;
     const initPresence = async () => {
-      const savedPref =
-        localStorage.getItem("printap_shop_online_pref") === "true";
-      if (savedPref) {
-        setIsTogglingOnline(true);
-        const res = await startPresence(shopId);
-        if (isMounted) {
-          if (res.success) {
-            setIsShopOnline(true);
-          } else {
-            setIsShopOnline(false);
-          }
-          setIsTogglingOnline(false);
-        }
-      } else {
-        // Reset stale DB flag on startup when pref is offline
-        await setShopOnline(shopId, false);
-        if (isMounted) {
-          setIsShopOnline(false);
-        }
+      // On fresh launch, reset DB state to false (cleans up any previous crashes)
+      // The shop owner explicitly toggles "Go Online" when ready for orders
+      await setShopOnline(shopId, false);
+      if (isMounted) {
+        setIsShopOnline(false);
       }
     };
 

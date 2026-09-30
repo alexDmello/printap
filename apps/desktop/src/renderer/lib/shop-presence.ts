@@ -193,10 +193,9 @@ export async function stopPresence(): Promise<void> {
       if (window.electronAPI?.setActiveShopId) {
         window.electronAPI.setActiveShopId(null);
       }
+      await setShopOnline(shopId, false);
       if (window.electronAPI?.setShopOffline) {
         await window.electronAPI.setShopOffline(shopId);
-      } else {
-        await setShopOnline(shopId, false);
       }
     } catch (e) {
       console.warn("[presence] Error setting shop offline in DB:", e);

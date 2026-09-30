@@ -13,7 +13,7 @@ import {
   stopShopSignaling,
   broadcastPaymentConfirmed,
 } from "./lib/shop-signaling";
-import { getSupabase, setShopOnline } from "@printap/shared";
+import { getSupabase, setShopOnline, broadcast } from "@printap/shared";
 import { startPresence, stopPresence } from "./lib/shop-presence";
 import logoImg from "./assets/logo.png";
 
@@ -425,11 +425,11 @@ function ShopAdminShell(): React.ReactElement {
 
         if (hasColor) {
           targetAssignment = Object.values(map).find(
-            (a) => (a.role === "color" || a.role === "both") && a.role !== "disabled"
+            (a) => a.role === "color" || a.role === "both"
           );
         } else {
           targetAssignment = Object.values(map).find(
-            (a) => (a.role === "bw" || a.role === "both") && a.role !== "disabled"
+            (a) => a.role === "bw" || a.role === "both"
           );
         }
 

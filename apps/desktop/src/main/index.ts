@@ -183,6 +183,7 @@ ipcMain.handle(
       printer?: string;
       copies?: number;
       orientation?: "portrait" | "landscape";
+      scale?: "fit" | "noscale";
     }
   ) => {
     const shortId = sessionId.slice(0, 8);
@@ -213,7 +214,7 @@ ipcMain.handle(
       sendStatus(sessionId, "printing", "Sending to print spooler...");
 
       const printOptions: Record<string, string> = {
-        scale: "noscale",
+        scale: options?.scale || "noscale",
       };
 
       // If a specific printer was requested

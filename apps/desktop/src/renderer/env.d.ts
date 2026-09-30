@@ -80,6 +80,7 @@ interface ElectronAPI {
       printer?: string;
       copies?: number;
       orientation?: "portrait" | "landscape";
+      scale?: "fit" | "noscale";
     }
   ) => Promise<PrintResult>;
 

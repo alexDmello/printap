@@ -184,7 +184,8 @@ export interface PrintOrder {
  */
 export function calculateSheets(pageCount: number, settings: PrintSettings): number {
   const logicalPages = Math.ceil(pageCount / settings.pagesPerSheet);
-  const sheets = settings.duplex === "double"
+  const isDouble = settings.colorMode !== "color" && settings.duplex === "double";
+  const sheets = isDouble
     ? Math.ceil(logicalPages / 2)
     : logicalPages;
   return sheets;
@@ -243,7 +244,8 @@ export function calculateOrderSheets(documents: UploadedDocument[]): number {
     const firstImg = images[0];
     const grid = firstImg.settings.pagesPerSheet || 1;
     const logicalPages = Math.ceil(images.length / grid);
-    const sheetsPerCopy = firstImg.settings.duplex === "double"
+    const isDouble = firstImg.settings.colorMode !== "color" && firstImg.settings.duplex === "double";
+    const sheetsPerCopy = isDouble
       ? Math.ceil(logicalPages / 2)
       : logicalPages;
     totalSheets += sheetsPerCopy * firstImg.settings.copies;
@@ -276,7 +278,8 @@ export function calculateOrderTotal(
     const firstImg = images[0];
     const grid = firstImg.settings.pagesPerSheet || 1;
     const logicalPages = Math.ceil(images.length / grid);
-    const sheetsPerCopy = firstImg.settings.duplex === "double"
+    const isDouble = firstImg.settings.colorMode !== "color" && firstImg.settings.duplex === "double";
+    const sheetsPerCopy = isDouble
       ? Math.ceil(logicalPages / 2)
       : logicalPages;
     const totalSheets = sheetsPerCopy * firstImg.settings.copies;

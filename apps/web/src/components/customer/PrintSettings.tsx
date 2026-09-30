@@ -7,6 +7,7 @@ import type {
   ColorMode,
   DuplexMode,
   PagesPerSheet,
+  PageFit,
   FinishingService,
   ShopRateCard,
 } from "@printap/shared";
@@ -193,10 +194,11 @@ export default function PrintSettingsPanel({
   const imageBatchSheetsPerCopy = useMemo(() => {
     if (imageDocs.length === 0) return 0;
     const logicalPages = Math.ceil(imageDocs.length / imageBatchGrid);
-    return imageBatchSettings?.duplex === "double"
+    const isDouble = imageBatchSettings?.colorMode !== "color" && imageBatchSettings?.duplex === "double";
+    return isDouble
       ? Math.ceil(logicalPages / 2)
       : logicalPages;
-  }, [imageDocs.length, imageBatchGrid, imageBatchSettings?.duplex]);
+  }, [imageDocs.length, imageBatchGrid, imageBatchSettings?.duplex, imageBatchSettings?.colorMode]);
 
   // Live Sheet Preview for Images
   const [imagePreviewSheet, setImagePreviewSheet] = useState(0);
@@ -254,7 +256,7 @@ export default function PrintSettingsPanel({
                       PDF
                     </span>
                   </div>
-                  <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                  <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span>{doc.pageCount} {doc.pageCount === 1 ? "pg" : "pgs"}</span>
                     <span>•</span>
                     <span className="font-medium text-zinc-700">
@@ -262,8 +264,18 @@ export default function PrintSettingsPanel({
                     </span>
                     <span>•</span>
                     <span>{doc.settings.copies} {doc.settings.copies === 1 ? "copy" : "copies"}</span>
-                    <span>•</span>
-                    <span>{doc.settings.duplex === "double" ? "2-Sided" : "1-Sided"}</span>
+                    {doc.settings.colorMode !== "color" && (
+                      <>
+                        <span>•</span>
+                        <span>{doc.settings.duplex === "double" ? "2-Sided" : "1-Sided"}</span>
+                      </>
+                    )}
+                    {doc.settings.pagesPerSheet === 1 && (
+                      <>
+                        <span>•</span>
+                        <span>{doc.settings.pageFit === "fill" ? "Fill Page" : "Fit to Page"}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -307,20 +319,35 @@ export default function PrintSettingsPanel({
                         : [{ value: "bw", label: "B&W Only", sublabel: `₹${rateCard.priceBwPerPage}` }]
                     }
                     value={doc.settings.colorMode}
-                    onChange={(v) => updateDocSetting(doc.id, "colorMode", v as ColorMode)}
+                    onChange={(v) => {
+                      const newColor = v as ColorMode;
+                      if (newColor === "color") {
+                        onDocumentsChange(
+                          documents.map((d) =>
+                            d.id === doc.id
+                              ? { ...d, settings: { ...d.settings, colorMode: "color", duplex: "single" } }
+                              : d
+                          )
+                        );
+                      } else {
+                        updateDocSetting(doc.id, "colorMode", newColor);
+                      }
+                    }}
                   />
                 </CompactRow>
 
-                <CompactRow label="Sides">
-                  <CompactToggle
-                    options={[
-                      { value: "single", label: "1-Sided" },
-                      { value: "double", label: "2-Sided" },
-                    ]}
-                    value={doc.settings.duplex}
-                    onChange={(v) => updateDocSetting(doc.id, "duplex", v as DuplexMode)}
-                  />
-                </CompactRow>
+                {doc.settings.colorMode !== "color" && (
+                  <CompactRow label="Sides">
+                    <CompactToggle
+                      options={[
+                        { value: "single", label: "1-Sided" },
+                        { value: "double", label: "2-Sided" },
+                      ]}
+                      value={doc.settings.duplex}
+                      onChange={(v) => updateDocSetting(doc.id, "duplex", v as DuplexMode)}
+                    />
+                  </CompactRow>
+                )}
 
                 <CompactRow label="Pages/Sheet">
                   <CompactToggle
@@ -330,11 +357,42 @@ export default function PrintSettingsPanel({
                       { value: "4", label: "4-in-1" },
                     ]}
                     value={String(doc.settings.pagesPerSheet)}
-                    onChange={(v) =>
-                      updateDocSetting(doc.id, "pagesPerSheet", Number(v) as PagesPerSheet)
-                    }
+                    onChange={(v) => {
+                      const pps = Number(v) as PagesPerSheet;
+                      if (pps === 1) {
+                        onDocumentsChange(
+                          documents.map((d) =>
+                            d.id === doc.id
+                              ? {
+                                  ...d,
+                                  settings: {
+                                    ...d.settings,
+                                    pagesPerSheet: 1,
+                                    pageFit: d.settings.pageFit || "fit",
+                                  },
+                                }
+                              : d
+                          )
+                        );
+                      } else {
+                        updateDocSetting(doc.id, "pagesPerSheet", pps);
+                      }
+                    }}
                   />
                 </CompactRow>
+
+                {doc.settings.pagesPerSheet === 1 && (
+                  <CompactRow label="Page Fit">
+                    <CompactToggle
+                      options={[
+                        { value: "fit", label: "Fit to Page" },
+                        { value: "fill", label: "Fill Page" },
+                      ]}
+                      value={doc.settings.pageFit || "fit"}
+                      onChange={(v) => updateDocSetting(doc.id, "pageFit", v as PageFit)}
+                    />
+                  </CompactRow>
+                )}
 
                 <CompactRow label="Orientation">
                   <CompactToggle
@@ -381,12 +439,24 @@ export default function PrintSettingsPanel({
                     {imageDocs.length} {imageDocs.length === 1 ? "photo" : "photos"}
                   </span>
                 </div>
-                <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <span className="font-semibold text-indigo-600">{imageBatchGrid}-in-1 Grid</span>
                   <span>•</span>
                   <span>{imageBatchSheetsPerCopy} {imageBatchSheetsPerCopy === 1 ? "sheet" : "sheets"}/copy</span>
                   <span>•</span>
                   <span>{imageBatchSettings.copies} {imageBatchSettings.copies === 1 ? "copy" : "copies"}</span>
+                  {imageBatchSettings.colorMode !== "color" && (
+                    <>
+                      <span>•</span>
+                      <span>{imageBatchSettings.duplex === "double" ? "2-Sided" : "1-Sided"}</span>
+                    </>
+                  )}
+                  {(imageBatchGrid === 1 || imageDocs.length === 1) && (
+                    <>
+                      <span>•</span>
+                      <span>{imageBatchSettings.pageFit === "fill" ? "Fill Page" : "Fit to Page"}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -474,7 +544,23 @@ export default function PrintSettingsPanel({
                       <button
                         key={g.value}
                         type="button"
-                        onClick={() => updateAllImagesSettings("pagesPerSheet", g.value as PagesPerSheet)}
+                        onClick={() => {
+                          const gridVal = g.value as PagesPerSheet;
+                          onDocumentsChange(
+                            documents.map((d) =>
+                              d.type === "image"
+                                ? {
+                                    ...d,
+                                    settings: {
+                                      ...d.settings,
+                                      pagesPerSheet: gridVal,
+                                      pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
+                                    },
+                                  }
+                                : d
+                            )
+                          );
+                        }}
                         className={`py-1.5 rounded-lg border text-center transition-all cursor-pointer ${
                           isSelected
                             ? "bg-zinc-900 text-white border-zinc-900 shadow-xs"
@@ -540,14 +626,22 @@ export default function PrintSettingsPanel({
                           : "none",
                       }}
                     >
-                      <div className="w-full h-full p-1.5 flex items-center justify-center overflow-hidden">
+                      <div
+                        className={`w-full h-full flex items-center justify-center overflow-hidden ${
+                          imageBatchGrid === 1 && imageBatchSettings.pageFit === "fill" ? "p-0" : "p-1.5"
+                        }`}
+                      >
                         {/* 1-in-1 */}
                         {imageBatchGrid === 1 && currentSheetPhotos[0] && (
                           <div className="w-full h-full flex items-center justify-center overflow-hidden">
                             <img
                               src={currentSheetPhotos[0].thumbnailUrl}
                               alt="Preview"
-                              className="max-w-full max-h-full object-contain"
+                              className={
+                                imageBatchSettings.pageFit === "fill"
+                                  ? "w-full h-full object-cover"
+                                  : "max-w-full max-h-full object-contain"
+                              }
                             />
                           </div>
                         )}
@@ -661,20 +755,48 @@ export default function PrintSettingsPanel({
                         : [{ value: "bw", label: "B&W Only", sublabel: `₹${rateCard.priceBwPerPage}` }]
                     }
                     value={imageBatchSettings.colorMode}
-                    onChange={(v) => updateAllImagesSettings("colorMode", v as ColorMode)}
+                    onChange={(v) => {
+                      const newColor = v as ColorMode;
+                      if (newColor === "color") {
+                        onDocumentsChange(
+                          documents.map((d) =>
+                            d.type === "image"
+                              ? { ...d, settings: { ...d.settings, colorMode: "color", duplex: "single" } }
+                              : d
+                          )
+                        );
+                      } else {
+                        updateAllImagesSettings("colorMode", newColor);
+                      }
+                    }}
                   />
                 </CompactRow>
 
-                <CompactRow label="Sides">
-                  <CompactToggle
-                    options={[
-                      { value: "single", label: "1-Sided" },
-                      { value: "double", label: "2-Sided" },
-                    ]}
-                    value={imageBatchSettings.duplex}
-                    onChange={(v) => updateAllImagesSettings("duplex", v as DuplexMode)}
-                  />
-                </CompactRow>
+                {imageBatchSettings.colorMode !== "color" && (
+                  <CompactRow label="Sides">
+                    <CompactToggle
+                      options={[
+                        { value: "single", label: "1-Sided" },
+                        { value: "double", label: "2-Sided" },
+                      ]}
+                      value={imageBatchSettings.duplex}
+                      onChange={(v) => updateAllImagesSettings("duplex", v as DuplexMode)}
+                    />
+                  </CompactRow>
+                )}
+
+                {(imageBatchGrid === 1 || imageDocs.length === 1) && (
+                  <CompactRow label="Page Fit">
+                    <CompactToggle
+                      options={[
+                        { value: "fit", label: "Fit to Page" },
+                        { value: "fill", label: "Fill Page" },
+                      ]}
+                      value={imageBatchSettings.pageFit || "fit"}
+                      onChange={(v) => updateAllImagesSettings("pageFit", v as PageFit)}
+                    />
+                  </CompactRow>
+                )}
 
                 <CompactRow label="Orientation">
                   <CompactToggle

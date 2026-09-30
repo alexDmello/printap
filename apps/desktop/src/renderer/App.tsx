@@ -524,6 +524,7 @@ function ShopAdminShell(): React.ReactElement {
               printer: targetPrinter,
               copies: settings.copies,
               orientation: settings.orientation,
+              scale: settings.pageFit === "fill" ? "noscale" : "fit",
             });
           } catch (err) {
             console.error(`[App] Error printing file ${file.fileName}:`, err);

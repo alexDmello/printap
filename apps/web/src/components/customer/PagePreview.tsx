@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import type {
   UploadedDocument,
   ShopRateCard,
@@ -13,6 +13,48 @@ interface PagePreviewProps {
   finishingServices: FinishingService[];
   onBack: () => void;
   onContinue: () => void;
+}
+
+/**
+ * Dynamically loads Mozilla PDF.js from the local static assets.
+ * Guarantees zero plugin dependencies and 100% universal browser rendering.
+ */
+function loadPdfJs(): Promise<any> {
+  if (typeof window === "undefined") return Promise.reject(new Error("Window undefined"));
+  if ((window as any).pdfjsLib) {
+    return Promise.resolve((window as any).pdfjsLib);
+  }
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="/pdf.min.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => {
+        const pdfjs = (window as any).pdfjsLib;
+        if (pdfjs) {
+          pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+          resolve(pdfjs);
+        } else {
+          reject(new Error("pdfjsLib not defined after script load"));
+        }
+      });
+      existing.addEventListener("error", reject);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "/pdf.min.js";
+    script.async = true;
+    script.onload = () => {
+      const pdfjs = (window as any).pdfjsLib;
+      if (pdfjs) {
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+        resolve(pdfjs);
+      } else {
+        reject(new Error("pdfjsLib not defined"));
+      }
+    };
+    script.onerror = (e) => reject(new Error("Failed to load PDF.js: " + String(e)));
+    document.head.appendChild(script);
+  });
 }
 
 export default function PagePreview({
@@ -42,7 +84,7 @@ export default function PagePreview({
 
   const tabs = useMemo<PreviewTab[]>(() => {
     const list: PreviewTab[] = [];
-    pdfDocs.forEach((d, idx) => {
+    pdfDocs.forEach((d) => {
       list.push({
         id: d.id,
         type: "pdf",
@@ -101,33 +143,161 @@ export default function PagePreview({
     return imageDocs.slice(startIndex, startIndex + gridLayout);
   }, [isImageBatch, imageDocs, currentSheet, gridLayout]);
 
-  // Object URL for PDF native viewer (cleaned up on unmount/change)
-  // Object URL & text content for universal document preview
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [textContent, setTextContent] = useState<string | null>(null);
+  // Document types detection
+  const isTextDoc = Boolean(
+    !isImageBatch &&
+    activeTab.doc?.file &&
+    (activeTab.doc.file.type.startsWith("text/") ||
+      /\.(txt|csv|md|log|json)$/i.test(activeTab.doc.file.name))
+  );
 
+  const isImageDoc = Boolean(
+    !isImageBatch &&
+    activeTab.doc &&
+    (activeTab.doc.type === "image" ||
+      activeTab.doc.file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(activeTab.doc.file.name))
+  );
+
+  const isPdfDoc = Boolean(!isImageBatch && !isTextDoc && !isImageDoc && activeTab.doc?.file);
+
+  const isSingleOrOneInOne = Boolean(
+    (isImageBatch && (gridLayout === 1 || imageDocs.length === 1)) ||
+    (!isImageBatch && (activeSettings?.pagesPerSheet === 1 || isImageDoc))
+  );
+
+  // Text content reader for text files
+  const [textContent, setTextContent] = useState<string | null>(null);
+  useEffect(() => {
+    if (isTextDoc && activeTab.doc?.file) {
+      activeTab.doc.file
+        .text()
+        .then((txt) => setTextContent(txt.slice(0, 5000)))
+        .catch(() => setTextContent(null));
+    } else {
+      setTextContent(null);
+    }
+  }, [isTextDoc, activeTab.doc?.file]);
+
+  // Object URL for image documents fallback
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!isImageBatch && activeTab.doc?.file) {
-      const file = activeTab.doc.file;
-      const isText = file.type.startsWith("text/") || /\.(txt|csv|md|log|json)$/i.test(file.name);
-      if (isText) {
-        file
-          .text()
-          .then((txt) => setTextContent(txt.slice(0, 5000)))
-          .catch(() => setTextContent(null));
-      } else {
-        setTextContent(null);
-      }
-      const url = URL.createObjectURL(file);
-      setPdfBlobUrl(url);
+      const url = URL.createObjectURL(activeTab.doc.file);
+      setBlobUrl(url);
       return () => {
         URL.revokeObjectURL(url);
       };
     } else {
-      setPdfBlobUrl(null);
-      setTextContent(null);
+      setBlobUrl(null);
     }
   }, [isImageBatch, activeTab.doc?.file]);
+
+  // ─── PDF.js Direct Canvas Rendering ───
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [pdfDocProxy, setPdfDocProxy] = useState<any>(null);
+  const [pdfTotalPages, setPdfTotalPages] = useState<number>(1);
+  const [isPdfRendering, setIsPdfRendering] = useState<boolean>(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // 1. Load PDF document into memory via PDF.js
+  useEffect(() => {
+    if (!isPdfDoc || !activeTab.doc?.file) {
+      setPdfDocProxy(null);
+      return;
+    }
+
+    let isSubscribed = true;
+    setIsPdfRendering(true);
+    setPdfError(null);
+
+    const file = activeTab.doc.file;
+
+    loadPdfJs()
+      .then(async (pdfjs) => {
+        if (!isSubscribed) return;
+        const arrayBuffer = await file.arrayBuffer();
+        if (!isSubscribed) return;
+
+        const loadingTask = pdfjs.getDocument({
+          data: new Uint8Array(arrayBuffer),
+          cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+          cMapPacked: true,
+        });
+
+        const doc = await loadingTask.promise;
+        if (!isSubscribed) return;
+
+        setPdfDocProxy(doc);
+        setPdfTotalPages(doc.numPages || 1);
+        setIsPdfRendering(false);
+      })
+      .catch((err) => {
+        if (!isSubscribed) return;
+        console.error("[PagePreview] PDF parse error:", err);
+        setPdfError("Unable to render PDF preview.");
+        setIsPdfRendering(false);
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isPdfDoc, activeTab.doc?.file]);
+
+  // 2. Render current page to <canvas>
+  useEffect(() => {
+    if (!isPdfDoc || !pdfDocProxy || !canvasRef.current) return;
+
+    let isSubscribed = true;
+    setIsPdfRendering(true);
+
+    const safePage = Math.min(Math.max(1, currentPage), pdfTotalPages);
+
+    pdfDocProxy
+      .getPage(safePage)
+      .then((page: any) => {
+        if (!isSubscribed || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // Render at high resolution to match device pixel ratio
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const targetWidth = isLandscape ? 476 : 336;
+        const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
+        const baseScale = targetWidth / unscaledViewport.width;
+        const scale = Math.max(1.2, baseScale * Math.min(dpr, 2.5));
+        const viewport = page.getViewport({ scale });
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const renderTask = page.render({
+          canvasContext: ctx,
+          viewport: viewport,
+        });
+
+        return renderTask.promise;
+      })
+      .then(() => {
+        if (isSubscribed) setIsPdfRendering(false);
+      })
+      .catch((err: any) => {
+        if (isSubscribed) {
+          console.warn("[PagePreview] Page render error:", err);
+          setIsPdfRendering(false);
+        }
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isPdfDoc, pdfDocProxy, currentPage, pdfTotalPages, isLandscape]);
+
+  // Effective page count for pagination controls
+  const totalDocPages = isPdfDoc
+    ? pdfTotalPages
+    : activeTab.doc?.pageCount || 1;
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -184,9 +354,17 @@ export default function PagePreview({
             {isLandscape ? "▭ Landscape" : "▯ Portrait"}
           </span>
 
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">
-            {activeSettings?.duplex === "double" ? "2-Sided (Duplex)" : "1-Sided"}
-          </span>
+          {activeSettings?.colorMode !== "color" && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">
+              {activeSettings?.duplex === "double" ? "2-Sided (Duplex)" : "1-Sided"}
+            </span>
+          )}
+
+          {isSingleOrOneInOne && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              {activeSettings?.pageFit === "fill" ? "📐 Fill Page (Full Bleed)" : "📏 Fit to Page"}
+            </span>
+          )}
 
           {isImageBatch && (
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -211,8 +389,14 @@ export default function PagePreview({
                 : "none",
             }}
           >
-            {/* Authentic Printable Margins (p-3 sm:p-4) with ZERO artificial mock text! */}
-            <div className="w-full h-full p-2.5 sm:p-4 flex items-center justify-center">
+            {/* Authentic Printable Margins or Full-Bleed Edge-to-Edge */}
+            <div
+              className={`w-full h-full flex items-center justify-center overflow-hidden ${
+                isSingleOrOneInOne && activeSettings?.pageFit === "fill"
+                  ? "p-0"
+                  : "p-2.5 sm:p-4"
+              }`}
+            >
               {/* ──────────────────────────────────────────────────
                   A. IMAGE BATCH: Render actual photos in grid
                   (1in1, 2in1, 4in1, 6in1, 9in1)
@@ -225,7 +409,11 @@ export default function PagePreview({
                       <img
                         src={currentSheetPhotos[0].thumbnailUrl}
                         alt="Photo Preview"
-                        className="max-w-full max-h-full object-contain"
+                        className={
+                          activeSettings?.pageFit === "fill"
+                            ? "w-full h-full object-cover"
+                            : "max-w-full max-h-full object-contain"
+                        }
                       />
                     </div>
                   )}
@@ -315,48 +503,78 @@ export default function PagePreview({
               )}
 
               {/* ──────────────────────────────────────────────────
-                  B. UNIVERSAL DOCUMENT PREVIEW: Support All Document Types
+                  B. UNIVERSAL DOCUMENT PREVIEW: Direct Canvas / Text / Image
+                  (Zero iframes, zero plugins, 100% viewable)
               ────────────────────────────────────────────────── */}
               {!isImageBatch && activeTab.doc && (
                 <div className="w-full h-full flex items-center justify-center overflow-hidden bg-white relative">
-                  {/* Case 1: Image document (single image or photo) */}
-                  {(activeTab.doc.type === "image" ||
-                    activeTab.doc.file.type.startsWith("image/") ||
-                    /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(activeTab.doc.file.name)) ? (
+                  {/* Case 1: Image Document */}
+                  {isImageDoc ? (
                     <img
-                      src={activeTab.doc.thumbnailUrl || pdfBlobUrl || undefined}
+                      src={activeTab.doc.thumbnailUrl || blobUrl || undefined}
                       alt={activeTab.doc.file.name}
-                      className="max-w-full max-h-full object-contain"
+                      className={
+                        activeSettings?.pageFit === "fill"
+                          ? "w-full h-full object-cover"
+                          : "max-w-full max-h-full object-contain"
+                      }
                     />
-                  ) : textContent !== null ? (
-                    /* Case 2: Text / CSV / Log document */
+                  ) : isTextDoc && textContent !== null ? (
+                    /* Case 2: Text / CSV / Markdown Document */
                     <div className="w-full h-full p-3.5 text-left overflow-auto font-mono text-[10px] sm:text-xs text-zinc-800 leading-relaxed whitespace-pre-wrap select-text">
                       {textContent}
                     </div>
-                  ) : pdfBlobUrl ? (
-                    /* Case 3: PDF / Rich document */
-                    <object
-                      data={`${pdfBlobUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                      type="application/pdf"
-                      className="w-full h-full border-0"
-                    >
-                      <iframe
-                        src={`${pdfBlobUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                        className="w-full h-full border-0"
-                        title="PDF Document Page"
+                  ) : isPdfDoc ? (
+                    /* Case 3: PDF Document Rendered Directly to Canvas via Mozilla PDF.js */
+                    <div className="w-full h-full flex items-center justify-center relative overflow-hidden bg-white">
+                      {isPdfRendering && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-2xs z-10 gap-1.5">
+                          <div className="w-5 h-5 rounded-full border-2 border-zinc-300 border-t-zinc-900 animate-spin" />
+                          <span className="text-[10px] font-bold text-zinc-600">
+                            Rendering Page {currentPage}...
+                          </span>
+                        </div>
+                      )}
+
+                      <canvas
+                        ref={canvasRef}
+                        className={
+                          isSingleOrOneInOne && activeSettings?.pageFit === "fill"
+                            ? "w-full h-full object-cover"
+                            : "max-w-full max-h-full object-contain"
+                        }
+                        style={{ display: pdfDocProxy ? "block" : "none" }}
                       />
-                    </object>
+
+                      {pdfError && (
+                        <div className="p-4 text-center text-xs text-zinc-500">
+                          <span className="block text-red-500 font-semibold mb-1">Preview Notice</span>
+                          {pdfError}
+                        </div>
+                      )}
+
+                      {!pdfDocProxy && !pdfError && !isPdfRendering && (
+                        <div className="flex flex-col items-center justify-center text-zinc-400 gap-1.5 p-4 text-center">
+                          <div className="w-5 h-5 rounded-full border-2 border-zinc-300 border-t-zinc-900 animate-spin" />
+                          <span className="text-xs font-medium">Loading document...</span>
+                        </div>
+                      )}
+                    </div>
                   ) : activeTab.doc.thumbnailUrl ? (
                     <img
                       src={activeTab.doc.thumbnailUrl}
                       alt="Document Page"
-                      className="max-w-full max-h-full object-contain"
+                      className={
+                        isSingleOrOneInOne && activeSettings?.pageFit === "fill"
+                          ? "w-full h-full object-cover"
+                          : "max-w-full max-h-full object-contain"
+                      }
                     />
                   ) : (
                     <div className="w-full h-full border border-zinc-200 flex flex-col items-center justify-center text-zinc-400 text-xs p-4 text-center">
                       <span>📄</span>
                       <span className="mt-1 font-medium">{activeTab.doc.file.name}</span>
-                      <span className="text-[10px] text-zinc-400 mt-0.5">Page {currentPage} of {activeTab.doc.pageCount}</span>
+                      <span className="text-[10px] text-zinc-400 mt-0.5">Page {currentPage}</span>
                     </div>
                   )}
                 </div>
@@ -392,7 +610,7 @@ export default function PagePreview({
           </div>
         )}
 
-        {!isImageBatch && (activeTab.doc?.pageCount || 1) > 1 && (
+        {!isImageBatch && totalDocPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-4">
             <button
               type="button"
@@ -404,17 +622,15 @@ export default function PagePreview({
             </button>
 
             <span className="text-xs font-mono font-bold text-zinc-800">
-              Page {currentPage} of {activeTab.doc?.pageCount || 1}
+              Page {currentPage} of {totalDocPages}
             </span>
 
             <button
               type="button"
               onClick={() =>
-                setCurrentPage((p) =>
-                  Math.min(activeTab.doc?.pageCount || 1, p + 1)
-                )
+                setCurrentPage((p) => Math.min(totalDocPages, p + 1))
               }
-              disabled={currentPage >= (activeTab.doc?.pageCount || 1)}
+              disabled={currentPage >= totalDocPages}
               className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             >
               Next Page →
@@ -460,12 +676,29 @@ export default function PagePreview({
             </span>
           </div>
 
-          <div className="flex justify-between py-1.5">
-            <span className="text-zinc-500">Duplex / Sides</span>
-            <span className="font-semibold text-zinc-900 capitalize">
-              {activeSettings?.duplex === "double" ? "2-Sided (Back to Back)" : "Single Sided"}
-            </span>
-          </div>
+          {isSingleOrOneInOne && (
+            <div
+              className={`flex justify-between py-1.5 ${
+                activeSettings?.colorMode !== "color" ? "border-b border-zinc-100" : ""
+              }`}
+            >
+              <span className="text-zinc-500">Page Fit / Margins</span>
+              <span className="font-semibold text-zinc-900">
+                {activeSettings?.pageFit === "fill"
+                  ? "Fill Page (Borderless / Edge-to-Edge)"
+                  : "Fit to Page (Printable Margins)"}
+              </span>
+            </div>
+          )}
+
+          {activeSettings?.colorMode !== "color" && (
+            <div className="flex justify-between py-1.5">
+              <span className="text-zinc-500">Duplex / Sides</span>
+              <span className="font-semibold text-zinc-900 capitalize">
+                {activeSettings?.duplex === "double" ? "2-Sided (Back to Back)" : "Single Sided"}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

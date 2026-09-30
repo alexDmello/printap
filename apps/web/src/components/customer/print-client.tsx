@@ -241,7 +241,9 @@ export default function PrintClient({
   };
 
   const activeFinishing = finishingServices.filter((s) => s.enabled);
-  const totalAmount = calculateOrderTotal(documents, rateCard, activeFinishing);
+  const printingCost = calculateOrderTotal(documents, rateCard, activeFinishing);
+  const PLATFORM_CHARGES = 1.0;
+  const totalAmount = documents.length > 0 ? printingCost + PLATFORM_CHARGES : 0;
 
   // Total sheets calculated
   const totalSheets = useMemo(() => {
@@ -799,12 +801,13 @@ export default function PrintClient({
       {step === "upload" && documents.length > 0 && (
         <BottomPriceBar
           totalPrice={totalAmount}
+          printingCost={printingCost}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
           activeFinishingCount={activeFinishing.length}
           activeFinishingLabels={activeFinishing.map((s) => s.label)}
-          buttonLabel="Configure Print Settings →"
+          buttonLabel="Continue →"
           onContinue={() => setStep("settings")}
         />
       )}
@@ -812,6 +815,7 @@ export default function PrintClient({
       {step === "settings" && (
         <BottomPriceBar
           totalPrice={totalAmount}
+          printingCost={printingCost}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
@@ -826,12 +830,13 @@ export default function PrintClient({
       {step === "preview" && (
         <BottomPriceBar
           totalPrice={totalAmount}
+          printingCost={printingCost}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
           activeFinishingCount={activeFinishing.length}
           activeFinishingLabels={activeFinishing.map((s) => s.label)}
-          buttonLabel={`Send to Print & Pay ₹${totalAmount.toFixed(2)} →`}
+          buttonLabel="Confirm →"
           onContinue={handleStartPrintAndPayment}
           onBack={() => setStep("settings")}
         />

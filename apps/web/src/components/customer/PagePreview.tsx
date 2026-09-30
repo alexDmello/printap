@@ -120,21 +120,11 @@ export default function PagePreview({
     <div className="space-y-4 animate-fade-in-up">
       {/* ── Header ── */}
       <div className="glass rounded-2xl p-5 glow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-zinc-900">Printed Sheet Preview</h2>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
-              Exact visual simulation of how your document will physically emerge from the printer
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition cursor-pointer flex items-center gap-1.5"
-          >
-            <span>⚙</span>
-            <span>Edit Settings</span>
-          </button>
+        <div>
+          <h2 className="text-sm font-bold text-zinc-900">Printed Sheet Preview</h2>
+          <p className="text-[11px] text-zinc-500 mt-0.5">
+            Exact visual simulation of how your document will physically emerge from the printer
+          </p>
         </div>
 
         {/* Multi-Document / Images Switcher Tabs */}

@@ -285,15 +285,6 @@ export default function FileUpload({
         </div>
       )}
 
-      {/* Continue button */}
-      {documents.length > 0 && (
-        <button
-          onClick={onContinue}
-          className="btn-primary w-full py-3.5 rounded-xl font-semibold text-white text-sm tracking-wide"
-        >
-          Configure Print Settings →
-        </button>
-      )}
 
       {/* Privacy badge */}
       <div className="rounded-xl px-4 py-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200">

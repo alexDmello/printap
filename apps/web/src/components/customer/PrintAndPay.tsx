@@ -48,72 +48,83 @@ export default function PrintAndPay({
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      {/* ─── Token Identity Hero Card ─── */}
-      <div className="glass rounded-2xl p-5 border border-zinc-200/80 shadow-sm text-center relative overflow-hidden bg-white/80">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-            Your Counter Token
-          </span>
-          <button
-            type="button"
-            onClick={handleCopyToken}
-            className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 rounded-md transition cursor-pointer"
-          >
-            {copiedToken ? "Copied ✓" : "Copy Token"}
-          </button>
-        </div>
-
-        <div className="flex items-center justify-center my-1">
-          <div className="text-4xl sm:text-5xl font-black text-zinc-900 font-mono tracking-tight bg-zinc-100 px-6 py-2 rounded-xl border border-zinc-200 shadow-inner">
-            {token.tokenCode}
+      {/* ─── Unified Compact Token & Spooling Progress Card ─── */}
+      <div className="glass rounded-2xl p-4 border border-zinc-200/90 shadow-sm bg-white/85">
+        {/* Top: Token badge & Copy + Spool status badge */}
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+          {/* Left: Token display */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                Counter Token
+              </span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-2xl sm:text-3xl font-black text-zinc-900 font-mono tracking-tight bg-zinc-100 px-3 py-0.5 rounded-lg border border-zinc-200 shadow-inner">
+                  {token.tokenCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyToken}
+                  className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 px-2 py-1 rounded-md transition cursor-pointer"
+                  title="Copy token code"
+                >
+                  {copiedToken ? "Copied ✓" : "Copy"}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <p className="text-xs text-zinc-500 mt-2.5">
-          Show this Token at <span className="font-semibold text-zinc-800">{shopName}</span> when collecting your paper.
-        </p>
-      </div>
-
-      {/* ─── Automatic Printing & Spool Progress Card ─── */}
-      <div className="glass rounded-2xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs bg-white/70">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${
-              isCompleteTransfer ? "bg-emerald-500 animate-pulse" : "bg-indigo-600 animate-ping"
-            }`} />
-            <span className="text-xs font-bold text-zinc-900">
-              {isCompleteTransfer
-                ? "Document Spooled — Printing in Progress"
-                : isTransferring
-                ? "Streaming Directly to Hardware Printer..."
-                : "Connecting to Counter Terminal..."}
+          {/* Right: Spooling status badge */}
+          <div className="text-right flex flex-col items-end flex-shrink-0">
+            <span
+              className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border ${
+                isCompleteTransfer
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : "bg-indigo-50 text-indigo-800 border-indigo-200"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isCompleteTransfer
+                    ? "bg-emerald-500 animate-pulse"
+                    : "bg-indigo-600 animate-ping"
+                }`}
+              />
+              <span>
+                {isCompleteTransfer
+                  ? "Printing in Progress"
+                  : isTransferring
+                  ? "Streaming..."
+                  : "Connecting..."}
+              </span>
+            </span>
+            <span className="text-[10px] font-medium text-zinc-400 mt-1">
+              {documents.length} document{documents.length !== 1 ? "s" : ""} at{" "}
+              <span className="font-semibold text-zinc-700">{shopName}</span>
             </span>
           </div>
-          <span className="text-[11px] font-mono font-semibold text-zinc-600">
-            {documents.length} {documents.length === 1 ? "file" : "files"}
-          </span>
         </div>
 
-        {/* Progress track */}
-        <div className="w-full bg-zinc-100 rounded-full h-2 overflow-hidden border border-zinc-200/80 my-2">
-          <div
-            className="bg-zinc-900 h-full transition-all duration-300 rounded-full"
-            style={{ width: `${isCompleteTransfer ? 100 : Math.max(percent, 8)}%` }}
-          />
-        </div>
+        {/* Bottom: Progress Bar & File name */}
+        <div className="pt-3">
+          <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden border border-zinc-200/80 mb-1.5">
+            <div
+              className="bg-zinc-900 h-full transition-all duration-300 rounded-full"
+              style={{
+                width: `${isCompleteTransfer ? 100 : Math.max(percent, 8)}%`,
+              }}
+            />
+          </div>
 
-        <div className="flex justify-between items-center text-[11px] text-zinc-500 mt-1">
-          <span className="truncate max-w-[240px]">
-            {progress?.currentFileName || documents[0]?.file.name}
-          </span>
-          <span className="font-mono font-semibold">
-            {isCompleteTransfer ? "100% Spooled" : `${percent}%`}
-          </span>
+          <div className="flex justify-between items-center text-[11px] text-zinc-500">
+            <span className="truncate max-w-[240px] sm:max-w-xs font-medium">
+              📄 {progress?.currentFileName || documents[0]?.file.name}
+            </span>
+            <span className="font-mono font-bold text-zinc-700">
+              {isCompleteTransfer ? "100% Spooled ✓" : `${percent}%`}
+            </span>
+          </div>
         </div>
-
-        <p className="text-[11px] text-zinc-500 mt-2 bg-zinc-50 p-2 rounded-lg border border-zinc-100">
-          ⚡ Your document goes directly to the counter printer over peer-to-peer Wi-Fi. No waiting in long print queues.
-        </p>
       </div>
 
       {/* ─── Shop Confirmation & Handover Banner ─── */}

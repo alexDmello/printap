@@ -4,6 +4,7 @@ import React, { useState } from "react";
 
 interface BottomPriceBarProps {
   totalPrice: number;
+  printingCost?: number;
   documentCount: number;
   totalSheets: number;
   colorMode: "bw" | "color";
@@ -17,6 +18,7 @@ interface BottomPriceBarProps {
 
 export default function BottomPriceBar({
   totalPrice,
+  printingCost,
   documentCount,
   totalSheets,
   colorMode,
@@ -28,6 +30,12 @@ export default function BottomPriceBar({
   disabled = false,
 }: BottomPriceBarProps) {
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showGstBreakdown, setShowGstBreakdown] = useState(false);
+
+  const basePrintCost =
+    printingCost !== undefined
+      ? printingCost
+      : Math.max(0, totalPrice - 1.0);
 
   return (
     <>
@@ -99,6 +107,46 @@ export default function BottomPriceBar({
                     ))}
                   </div>
                 )}
+
+                <div className="pt-2 border-t border-zinc-100 flex justify-between items-center text-zinc-600">
+                  <span>Printing Charges</span>
+                  <span className="font-semibold font-mono text-zinc-900">
+                    ₹{basePrintCost.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* GST and other charges with dotted line and expandable breakdown */}
+                <div className="pt-2 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowGstBreakdown((prev) => !prev)}
+                    className="w-full flex items-center justify-between text-zinc-700 hover:text-zinc-950 transition cursor-pointer text-xs group"
+                  >
+                    <span className="border-b border-dotted border-zinc-400 group-hover:border-zinc-700 pb-0.5 flex items-center gap-1.5 font-medium">
+                      <span>GST and other charges</span>
+                      <span className="text-[10px] text-zinc-400 group-hover:text-zinc-600">
+                        {showGstBreakdown ? "▲" : "▼"}
+                      </span>
+                    </span>
+                    <span className="font-semibold font-mono text-zinc-900">
+                      ₹1.00
+                    </span>
+                  </button>
+
+                  {/* Expandable sub-breakdown for ₹1.00 */}
+                  {showGstBreakdown && (
+                    <div className="mt-2 ml-2 pl-3 border-l-2 border-zinc-200 space-y-1.5 text-[11px] text-zinc-500 animate-fade-in">
+                      <div className="flex justify-between items-center">
+                        <span>Platform fee</span>
+                        <span className="font-mono text-zinc-700">₹0.82</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>GST (18%)</span>
+                        <span className="font-mono text-zinc-700">₹0.18</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="pt-3 border-t border-zinc-100 flex justify-between items-center">
@@ -106,7 +154,7 @@ export default function BottomPriceBar({
                   Total Payable
                 </span>
                 <span className="text-xl font-extrabold text-emerald-600 font-mono">
-                  ₹{totalPrice}
+                  ₹{totalPrice.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -120,32 +168,20 @@ export default function BottomPriceBar({
         className="fixed bottom-0 left-0 right-0 z-40 bg-white/98 backdrop-blur-md border-t border-zinc-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom,0px)]"
       >
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          {/* Left: Price summary with tap-to-view breakdown */}
+          {/* Left: Total on top, Cost below, with dotted underline to view details */}
           <button
             type="button"
             onClick={() => setShowBreakdown((prev) => !prev)}
-            className="text-left group select-none min-w-0 flex items-center gap-2 hover:opacity-90 transition cursor-pointer"
+            className="text-left group select-none min-w-0 flex items-center hover:opacity-90 transition cursor-pointer"
+            title="Click to view price details and GST breakdown"
           >
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
-                  Total
-                </span>
-                <span className="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight group-hover:text-emerald-500 transition">
-                  ₹{totalPrice}
-                </span>
-                <span className="text-[10px] font-semibold text-zinc-400 group-hover:text-zinc-600 transition underline underline-offset-2">
-                  {showBreakdown ? "▲ Hide" : "▼ Details"}
-                </span>
-              </div>
-              <div className="text-[11px] text-zinc-500 font-medium truncate">
-                {totalSheets} sheet{totalSheets !== 1 ? "s" : ""} •{" "}
-                {colorMode === "color" ? "Color" : "B&W"}
-                {activeFinishingCount > 0 &&
-                  ` • +${activeFinishingCount} addon${
-                    activeFinishingCount > 1 ? "s" : ""
-                  }`}
-              </div>
+            <div className="border-b border-dotted border-zinc-400 group-hover:border-zinc-700 pb-0.5 transition inline-flex flex-col">
+              <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase leading-none">
+                Total
+              </span>
+              <span className="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight leading-tight mt-0.5">
+                ₹{totalPrice.toFixed(2)}
+              </span>
             </div>
           </button>
 

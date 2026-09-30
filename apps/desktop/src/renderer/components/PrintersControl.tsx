@@ -12,6 +12,8 @@ import {
 
 export type PrinterRole = "bw" | "color" | "both" | "disabled";
 
+import type { DirtyHandler } from "./ServicesRates";
+
 export interface PrinterAssignment {
   id?: string;
   shop_id: string;
@@ -26,6 +28,7 @@ export interface PrintersControlProps {
   isLoadingPrinters?: boolean;
   onRescanPrinters?: () => Promise<void>;
   onAssignmentsSaved?: (assignments: Record<string, PrinterAssignment>) => void;
+  onRegisterDirtyHandler?: (handler: DirtyHandler | null) => void;
 }
 
 export const PrintersControl: React.FC<PrintersControlProps> = ({
@@ -33,6 +36,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
   isLoadingPrinters: externalIsLoading,
   onRescanPrinters,
   onAssignmentsSaved,
+  onRegisterDirtyHandler,
 }) => {
   const { shopId } = useAuth();
   const [internalPrinters, setInternalPrinters] = useState<PrinterInfo[]>([]);
@@ -44,6 +48,9 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
     text: string;
     type: "success" | "error";
   } | null>(null);
+
+  // Initial snapshot to track unsaved edits
+  const initialAssignmentsRef = React.useRef<string>("");
 
   const printers = externalPrinters !== undefined ? externalPrinters : internalPrinters;
   const isLoading = externalIsLoading !== undefined ? externalIsLoading : internalIsLoading;
@@ -70,6 +77,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           map[item.printer_name] = item;
         }
         setAssignments(map);
+        initialAssignmentsRef.current = JSON.stringify(map);
         localStorage.setItem(getStorageKey(), JSON.stringify(map));
         return;
       }
@@ -80,7 +88,9 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
     const cached = localStorage.getItem(getStorageKey());
     if (cached) {
       try {
-        setAssignments(JSON.parse(cached));
+        const map = JSON.parse(cached);
+        setAssignments(map);
+        initialAssignmentsRef.current = JSON.stringify(map);
       } catch {
         // ignore
       }
@@ -140,7 +150,13 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           };
         }
       });
-      return hasChanges ? next : prev;
+      if (hasChanges) {
+        if (!initialAssignmentsRef.current) {
+          initialAssignmentsRef.current = JSON.stringify(next);
+        }
+        return next;
+      }
+      return prev;
     });
   }, [printers, shopId]);
 
@@ -160,24 +176,19 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
   );
 
   const handleRoleChange = (printerName: string, role: PrinterRole) => {
-    setAssignments((prev) => {
-      const next = {
-        ...prev,
-        [printerName]: {
-          ...(prev[printerName] || {
-            shop_id: shopId || "",
-            printer_name: printerName,
-            is_default: false,
-            is_active: true,
-          }),
-          role,
-          is_active: role !== "disabled",
-        },
-      };
-      localStorage.setItem(getStorageKey(), JSON.stringify(next));
-      onAssignmentsSaved?.(next);
-      return next;
-    });
+    setAssignments((prev) => ({
+      ...prev,
+      [printerName]: {
+        ...(prev[printerName] || {
+          shop_id: shopId || "",
+          printer_name: printerName,
+          is_default: false,
+          is_active: true,
+        }),
+        role,
+        is_active: role !== "disabled",
+      },
+    }));
   };
 
   const handleToggleDefault = (printerName: string) => {
@@ -190,14 +201,31 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           is_default: key === printerName ? !current : false,
         };
       });
-      localStorage.setItem(getStorageKey(), JSON.stringify(next));
-      onAssignmentsSaved?.(next);
       return next;
     });
   };
 
-  const handleSave = async () => {
-    if (!shopId) return;
+  // Check if assignments have unsaved modifications
+  const isDirty = () => {
+    if (!initialAssignmentsRef.current) return false;
+    return JSON.stringify(assignments) !== initialAssignmentsRef.current;
+  };
+
+  // Discard edits back to baseline
+  const handleDiscard = () => {
+    if (!initialAssignmentsRef.current) return;
+    try {
+      const parsed = JSON.parse(initialAssignmentsRef.current);
+      setAssignments(parsed);
+      localStorage.setItem(getStorageKey(), initialAssignmentsRef.current);
+      onAssignmentsSaved?.(parsed);
+    } catch (e) {
+      console.error("Failed to discard printer assignments", e);
+    }
+  };
+
+  const handleSave = async (): Promise<boolean> => {
+    if (!shopId) return false;
     setIsSaving(true);
     setStatusMessage(null);
 
@@ -229,16 +257,34 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           type: "success",
         });
       }
+      initialAssignmentsRef.current = JSON.stringify(assignments);
+      return true;
     } catch {
       setStatusMessage({
         text: "Saved locally in terminal storage.",
         type: "success",
       });
+      initialAssignmentsRef.current = JSON.stringify(assignments);
+      return true;
     } finally {
       setIsSaving(false);
       setTimeout(() => setStatusMessage(null), 3500);
     }
   };
+
+  // Register dirty handler with parent
+  useEffect(() => {
+    if (!onRegisterDirtyHandler) return;
+    onRegisterDirtyHandler({
+      isDirty,
+      save: handleSave,
+      discard: handleDiscard,
+      pageName: "Printers Control",
+    });
+    return () => {
+      onRegisterDirtyHandler(null);
+    };
+  }, [assignments, shopId, onRegisterDirtyHandler]);
 
   const getConnectionDisplay = (p: PrinterInfo) => {
     switch (p.connectionType) {

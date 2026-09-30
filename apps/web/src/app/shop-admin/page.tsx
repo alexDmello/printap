@@ -61,6 +61,14 @@ export default function ShopAdminPage() {
   const [isSavingServices, setIsSavingServices] = useState(false);
   const [saveServicesMsg, setSaveServicesMsg] = useState("");
 
+  // Unsaved changes tracking
+  const initialServicesSnapshotRef = useRef<string>("");
+  const [unsavedModal, setUnsavedModal] = useState<{
+    isOpen: boolean;
+    targetTab?: Tab;
+    isLogout?: boolean;
+  } | null>(null);
+
   // New Custom Service Form State
   const [showAddCustom, setShowAddCustom] = useState(false);
   const [newServiceName, setNewServiceName] = useState("");
@@ -71,21 +79,42 @@ export default function ShopAdminPage() {
   // Sync pricing state when shop loads
   useEffect(() => {
     if (shop) {
-      if (shop.price_bw !== undefined && shop.price_bw !== null) setPriceBw(Number(shop.price_bw));
-      if (shop.price_color !== undefined && shop.price_color !== null) setPriceColor(Number(shop.price_color));
-      if (shop.services && Array.isArray(shop.services) && shop.services.length > 0) {
-        setServicesList(shop.services);
-        const colorItem = shop.services.find((s) => s.id === "core_color");
-        if (colorItem) setColorEnabled(colorItem.enabled);
-      } else {
-        setServicesList(
-          DEFAULT_SHOP_SERVICES.map((s) => {
-            if (s.id === "core_bw" && shop.price_bw !== undefined) return { ...s, price: Number(shop.price_bw) };
-            if (s.id === "core_color" && shop.price_color !== undefined) return { ...s, price: Number(shop.price_color) };
-            return s;
-          })
-        );
+      let b = 2;
+      let c = 10;
+      let ce = true;
+      let list = DEFAULT_SHOP_SERVICES;
+
+      if (shop.price_bw !== undefined && shop.price_bw !== null) {
+        b = Number(shop.price_bw);
+        setPriceBw(b);
       }
+      if (shop.price_color !== undefined && shop.price_color !== null) {
+        c = Number(shop.price_color);
+        setPriceColor(c);
+      }
+      if (shop.services && Array.isArray(shop.services) && shop.services.length > 0) {
+        list = shop.services;
+        setServicesList(list);
+        const colorItem = shop.services.find((s) => s.id === "core_color");
+        if (colorItem) {
+          ce = colorItem.enabled;
+          setColorEnabled(ce);
+        }
+      } else {
+        list = DEFAULT_SHOP_SERVICES.map((s) => {
+          if (s.id === "core_bw" && shop.price_bw !== undefined) return { ...s, price: Number(shop.price_bw) };
+          if (s.id === "core_color" && shop.price_color !== undefined) return { ...s, price: Number(shop.price_color) };
+          return s;
+        });
+        setServicesList(list);
+      }
+
+      initialServicesSnapshotRef.current = JSON.stringify({
+        priceBw: b,
+        priceColor: c,
+        colorEnabled: ce,
+        servicesList: list,
+      });
     }
   }, [shop]);
 
@@ -127,8 +156,35 @@ export default function ShopAdminPage() {
     setServicesList((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const handleSaveServices = async () => {
-    if (!shopId) return;
+  // Check if services have unsaved modifications
+  const isServicesDirty = () => {
+    if (!initialServicesSnapshotRef.current) return false;
+    return (
+      JSON.stringify({
+        priceBw,
+        priceColor,
+        colorEnabled,
+        servicesList,
+      }) !== initialServicesSnapshotRef.current
+    );
+  };
+
+  // Discard edits back to baseline snapshot
+  const handleDiscardServices = () => {
+    if (!initialServicesSnapshotRef.current) return;
+    try {
+      const parsed = JSON.parse(initialServicesSnapshotRef.current);
+      setPriceBw(parsed.priceBw);
+      setPriceColor(parsed.priceColor);
+      setColorEnabled(parsed.colorEnabled);
+      setServicesList(parsed.servicesList);
+    } catch (e) {
+      console.error("Failed to discard services", e);
+    }
+  };
+
+  const handleSaveServices = async (): Promise<boolean> => {
+    if (!shopId) return false;
     setIsSavingServices(true);
     setSaveServicesMsg("");
     try {
@@ -163,13 +219,77 @@ export default function ShopAdminPage() {
             }
           : prev
       );
+      initialServicesSnapshotRef.current = JSON.stringify({
+        priceBw,
+        priceColor,
+        colorEnabled,
+        servicesList: updatedServices,
+      });
       setSaveServicesMsg("Pricing and services updated successfully!");
       setTimeout(() => setSaveServicesMsg(""), 3500);
+      return true;
     } catch (err) {
       alert("Error saving: " + (err instanceof Error ? err.message : String(err)));
+      return false;
     } finally {
       setIsSavingServices(false);
     }
+  };
+
+  // Guard navigation when switching tabs
+  const handleSelectTab = (targetTab: Tab) => {
+    if (targetTab === activeTab) return;
+    if (activeTab === "services" && isServicesDirty()) {
+      setUnsavedModal({
+        isOpen: true,
+        targetTab,
+      });
+      return;
+    }
+    setActiveTab(targetTab);
+  };
+
+  // Guard logout when dirty
+  const handleLogoutRequest = () => {
+    if (activeTab === "services" && isServicesDirty()) {
+      setUnsavedModal({
+        isOpen: true,
+        isLogout: true,
+      });
+      return;
+    }
+    handleLogout();
+  };
+
+  // Modal actions
+  const handleSaveAndContinue = async () => {
+    setIsSavingServices(true);
+    const ok = await handleSaveServices();
+    setIsSavingServices(false);
+    if (ok === false) return;
+
+    const modal = unsavedModal;
+    setUnsavedModal(null);
+    if (modal?.isLogout) {
+      handleLogout();
+    } else if (modal?.targetTab) {
+      setActiveTab(modal.targetTab);
+    }
+  };
+
+  const handleDiscardAndContinue = () => {
+    handleDiscardServices();
+    const modal = unsavedModal;
+    setUnsavedModal(null);
+    if (modal?.isLogout) {
+      handleLogout();
+    } else if (modal?.targetTab) {
+      setActiveTab(modal.targetTab);
+    }
+  };
+
+  const handleCancelNavigation = () => {
+    setUnsavedModal(null);
   };
 
   // 1. Restore login from localStorage
@@ -554,7 +674,7 @@ export default function ShopAdminPage() {
             {copiedLink ? "✓ Link Copied!" : "📋 Copy Print Link"}
           </button>
           <button
-            onClick={handleLogout}
+            onClick={handleLogoutRequest}
             className="px-3.5 py-2 rounded-xl text-xs font-medium text-[--color-muted] hover:text-[--color-foreground] glass hover:bg-[--color-surface-light] transition"
           >
             Log Out
@@ -574,7 +694,7 @@ export default function ShopAdminPage() {
         ].map((t) => (
           <button
             key={t.key}
-            onClick={() => setActiveTab(t.key as Tab)}
+            onClick={() => handleSelectTab(t.key as Tab)}
             className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === t.key
                 ? "bg-[--color-accent] text-white shadow-md shadow-indigo-500/20"
@@ -630,7 +750,7 @@ export default function ShopAdminPage() {
               </p>
               <div className="mt-4 flex gap-3">
                 <button
-                  onClick={() => setActiveTab("qr")}
+                  onClick={() => handleSelectTab("qr")}
                   className="btn-primary px-4 py-2 rounded-xl text-xs font-semibold text-white"
                 >
                   Generate Counter Standee →
@@ -1246,6 +1366,50 @@ export default function ShopAdminPage() {
             <div className="flex justify-between py-2">
               <span className="text-[--color-muted]">Created Date</span>
               <span className="text-[--color-muted]">{new Date(shop.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved Changes Confirmation Modal */}
+      {unsavedModal?.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={handleCancelNavigation}
+        >
+          <div
+            className="w-full max-w-md p-6 rounded-2xl glass glow-lg border border-[--color-border] bg-[--color-surface]/95 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-[--color-foreground]">Unsaved Changes</h3>
+            <p className="text-xs text-[--color-muted] leading-relaxed">
+              You have unsaved changes in <strong className="text-[--color-foreground]">Services & Rates</strong>. Would you like to save your changes before leaving this section?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCancelNavigation}
+                disabled={isSavingServices}
+                className="px-4 py-2 rounded-xl text-xs font-medium glass hover:bg-[--color-surface-light] text-[--color-muted] hover:text-[--color-foreground] transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndContinue}
+                disabled={isSavingServices}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndContinue}
+                disabled={isSavingServices}
+                className="btn-primary px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-md shadow-indigo-500/20"
+              >
+                {isSavingServices ? "Saving..." : "Save & Continue"}
+              </button>
             </div>
           </div>
         </div>

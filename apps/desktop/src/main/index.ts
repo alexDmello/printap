@@ -25,8 +25,10 @@ function createWindow(): void {
   const windowIcon = existsSync(devIcon) ? devIcon : existsSync(prodIcon) ? prodIcon : undefined;
 
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 650,
+    width: 1180,
+    height: 750,
+    minWidth: 920,
+    minHeight: 580,
     title: "Printap — Shop Agent",
     icon: windowIcon,
     webPreferences: {

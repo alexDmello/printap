@@ -18,6 +18,7 @@ interface SidebarProps {
   isOnline: boolean;
   onToggleOnline: (value: boolean) => void;
   isTogglingOnline?: boolean;
+  onLogoutRequest?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOnline,
   onToggleOnline,
   isTogglingOnline = false,
+  onLogoutRequest,
 }) => {
   const { shop, logout } = useAuth();
   const [showOfflineConfirm, setShowOfflineConfirm] = React.useState(false);
@@ -142,7 +144,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             className="sidebar-logout-btn"
-            onClick={logout}
+            onClick={() => {
+              if (onLogoutRequest) {
+                onLogoutRequest();
+              } else {
+                logout();
+              }
+            }}
             title="Sign out of this shop terminal"
           >
             <span>Disconnect Terminal</span>

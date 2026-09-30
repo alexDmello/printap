@@ -5,7 +5,7 @@ import { Login } from "./components/Login";
 import { LiveDashboard, type LiveJob } from "./components/LiveDashboard";
 import { Profile } from "./components/Profile";
 import { PrintersControl, type PrinterAssignment } from "./components/PrintersControl";
-import { ServicesRates } from "./components/ServicesRates";
+import { ServicesRates, type DirtyHandler } from "./components/ServicesRates";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
 import {
@@ -18,7 +18,7 @@ import { startPresence, stopPresence } from "./lib/shop-presence";
 import logoImg from "./assets/logo.png";
 
 function ShopAdminShell(): React.ReactElement {
-  const { isAuthenticated, isLoading, shopId } = useAuth();
+  const { isAuthenticated, isLoading, shopId, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AdminPage>("live");
 
   // Live session state
@@ -39,6 +39,93 @@ function ShopAdminShell(): React.ReactElement {
     }
   });
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
+
+  // Dirty handlers registry for pages with editable unsaved changes (Services, Printers, etc.)
+  const dirtyHandlersRef = useRef<Record<string, DirtyHandler | null>>({});
+  const [unsavedModal, setUnsavedModal] = useState<{
+    isOpen: boolean;
+    targetPage?: AdminPage;
+    isLogout?: boolean;
+    pageName: string;
+  } | null>(null);
+  const [isSavingUnsaved, setIsSavingUnsaved] = useState(false);
+
+  // Intercept page navigation to prevent loss of unsaved changes
+  const handleSelectPage = useCallback(
+    (targetPage: AdminPage) => {
+      if (targetPage === currentPage) return;
+
+      const currentHandler = dirtyHandlersRef.current[currentPage];
+      if (currentHandler && currentHandler.isDirty()) {
+        setUnsavedModal({
+          isOpen: true,
+          targetPage,
+          pageName: currentHandler.pageName || "current page",
+        });
+        return;
+      }
+
+      setCurrentPage(targetPage);
+    },
+    [currentPage]
+  );
+
+  // Intercept logout/disconnect terminal when changes are dirty
+  const handleLogoutRequest = useCallback(() => {
+    const currentHandler = dirtyHandlersRef.current[currentPage];
+    if (currentHandler && currentHandler.isDirty()) {
+      setUnsavedModal({
+        isOpen: true,
+        isLogout: true,
+        pageName: currentHandler.pageName || "current page",
+      });
+      return;
+    }
+
+    logout();
+  }, [currentPage, logout]);
+
+  // Modal actions: Save & Continue
+  const handleSaveAndContinue = async () => {
+    const currentHandler = dirtyHandlersRef.current[currentPage];
+    if (currentHandler) {
+      setIsSavingUnsaved(true);
+      const success = await currentHandler.save();
+      setIsSavingUnsaved(false);
+      if (!success) {
+        return;
+      }
+    }
+
+    const modal = unsavedModal;
+    setUnsavedModal(null);
+    if (modal?.isLogout) {
+      logout();
+    } else if (modal?.targetPage) {
+      setCurrentPage(modal.targetPage);
+    }
+  };
+
+  // Modal actions: Discard & Continue
+  const handleDiscardAndContinue = () => {
+    const currentHandler = dirtyHandlersRef.current[currentPage];
+    if (currentHandler) {
+      currentHandler.discard();
+    }
+
+    const modal = unsavedModal;
+    setUnsavedModal(null);
+    if (modal?.isLogout) {
+      logout();
+    } else if (modal?.targetPage) {
+      setCurrentPage(modal.targetPage);
+    }
+  };
+
+  // Modal actions: Cancel Navigation
+  const handleCancelNavigation = () => {
+    setUnsavedModal(null);
+  };
 
   // Ref to hold current assignments for printer routing
   const assignmentsRef = useRef<Record<string, PrinterAssignment>>({});
@@ -636,10 +723,11 @@ function ShopAdminShell(): React.ReactElement {
     <div className="app-shell">
       <Sidebar
         currentPage={currentPage}
-        onSelectPage={setCurrentPage}
+        onSelectPage={handleSelectPage}
         isOnline={isShopOnline}
         onToggleOnline={handleToggleOnline}
         isTogglingOnline={isTogglingOnline}
+        onLogoutRequest={handleLogoutRequest}
       />
 
       <div className="main-workspace">
@@ -739,6 +827,9 @@ function ShopAdminShell(): React.ReactElement {
               onAssignmentsSaved={(newAssignments) => {
                 assignmentsRef.current = newAssignments;
               }}
+              onRegisterDirtyHandler={(handler) => {
+                dirtyHandlersRef.current["printers"] = handler;
+              }}
             />
           </div>
 
@@ -752,7 +843,11 @@ function ShopAdminShell(): React.ReactElement {
               overflow: "hidden",
             }}
           >
-            <ServicesRates />
+            <ServicesRates
+              onRegisterDirtyHandler={(handler) => {
+                dirtyHandlersRef.current["services"] = handler;
+              }}
+            />
           </div>
 
           <div
@@ -791,10 +886,54 @@ function ShopAdminShell(): React.ReactElement {
               overflow: "hidden",
             }}
           >
-            <Profile onNavigateToQr={() => setCurrentPage("qr")} />
+            <Profile onNavigateToQr={() => handleSelectPage("qr")} />
           </div>
         </main>
       </div>
+
+      {unsavedModal?.isOpen && (
+        <div className="modal-overlay" onClick={handleCancelNavigation}>
+          <div
+            className="confirm-dialog-card"
+            style={{ maxWidth: 440 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="confirm-dialog-title">Unsaved Changes</div>
+            <div
+              className="confirm-dialog-body"
+              style={{ color: "var(--text-secondary)", lineHeight: 1.5, margin: "12px 0 20px" }}
+            >
+              You have unsaved changes in <strong>{unsavedModal.pageName}</strong>. Would you like to save your changes before leaving this section?
+            </div>
+            <div className="confirm-dialog-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn-dialog-cancel"
+                onClick={handleCancelNavigation}
+                disabled={isSavingUnsaved}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-dialog-discard"
+                onClick={handleDiscardAndContinue}
+                disabled={isSavingUnsaved}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="btn-dialog-save"
+                onClick={handleSaveAndContinue}
+                disabled={isSavingUnsaved}
+              >
+                {isSavingUnsaved ? "Saving..." : "Save & Continue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

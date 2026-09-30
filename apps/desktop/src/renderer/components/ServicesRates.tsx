@@ -8,7 +8,18 @@ import {
 } from "@printap/shared";
 import { IconCheck, IconTrash, IconRefresh } from "./Icons";
 
-export const ServicesRates: React.FC = () => {
+export interface DirtyHandler {
+  isDirty: () => boolean;
+  save: () => Promise<boolean>;
+  discard: () => void;
+  pageName: string;
+}
+
+interface ServicesRatesProps {
+  onRegisterDirtyHandler?: (handler: DirtyHandler | null) => void;
+}
+
+export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHandler }) => {
   const { shop, shopId, refreshShop } = useAuth();
 
   // Core rates
@@ -21,6 +32,9 @@ export const ServicesRates: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string>("");
 
+  // Initial snapshot ref to detect unsaved changes
+  const initialSnapshotRef = React.useRef<string>("");
+
   // New Custom Service form state
   const [showAddCustom, setShowAddCustom] = useState(false);
   const [customName, setCustomName] = useState("");
@@ -30,30 +44,47 @@ export const ServicesRates: React.FC = () => {
   // Sync state from shop data
   useEffect(() => {
     if (shop) {
+      let b = 2;
+      let c = 10;
+      let ce = true;
+      let list = DEFAULT_SHOP_SERVICES;
+
       if (shop.price_bw !== undefined && shop.price_bw !== null) {
-        setPriceBw(Number(shop.price_bw));
+        b = Number(shop.price_bw);
+        setPriceBw(b);
       }
       if (shop.price_color !== undefined && shop.price_color !== null) {
-        setPriceColor(Number(shop.price_color));
+        c = Number(shop.price_color);
+        setPriceColor(c);
       }
 
       if (shop.services && Array.isArray(shop.services) && shop.services.length > 0) {
-        setServicesList(shop.services);
+        list = shop.services;
+        setServicesList(list);
         const colorItem = shop.services.find((s) => s.id === "core_color");
-        if (colorItem) setColorEnabled(colorItem.enabled);
+        if (colorItem) {
+          ce = colorItem.enabled;
+          setColorEnabled(ce);
+        }
       } else {
-        setServicesList(
-          DEFAULT_SHOP_SERVICES.map((s) => {
-            if (s.id === "core_bw" && shop.price_bw !== undefined) {
-              return { ...s, price: Number(shop.price_bw) };
-            }
-            if (s.id === "core_color" && shop.price_color !== undefined) {
-              return { ...s, price: Number(shop.price_color) };
-            }
-            return s;
-          })
-        );
+        list = DEFAULT_SHOP_SERVICES.map((s) => {
+          if (s.id === "core_bw" && shop.price_bw !== undefined) {
+            return { ...s, price: Number(shop.price_bw) };
+          }
+          if (s.id === "core_color" && shop.price_color !== undefined) {
+            return { ...s, price: Number(shop.price_color) };
+          }
+          return s;
+        });
+        setServicesList(list);
       }
+
+      initialSnapshotRef.current = JSON.stringify({
+        priceBw: b,
+        priceColor: c,
+        colorEnabled: ce,
+        servicesList: list,
+      });
     }
   }, [shop]);
 
@@ -101,9 +132,35 @@ export const ServicesRates: React.FC = () => {
     setServicesList((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // Discard changes back to snapshot
+  const handleDiscard = () => {
+    if (!initialSnapshotRef.current) return;
+    try {
+      const parsed = JSON.parse(initialSnapshotRef.current);
+      setPriceBw(parsed.priceBw);
+      setPriceColor(parsed.priceColor);
+      setColorEnabled(parsed.colorEnabled);
+      setServicesList(parsed.servicesList);
+    } catch (e) {
+      console.error("Failed to discard changes", e);
+    }
+  };
+
+  // Check if current form is dirty
+  const isDirty = () => {
+    if (!initialSnapshotRef.current) return false;
+    const currentSnapshot = JSON.stringify({
+      priceBw,
+      priceColor,
+      colorEnabled,
+      servicesList,
+    });
+    return currentSnapshot !== initialSnapshotRef.current;
+  };
+
   // Save changes to Supabase
-  const handleSave = async () => {
-    if (!shopId) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!shopId) return false;
     setIsSaving(true);
     setSaveMessage("");
 
@@ -127,14 +184,36 @@ export const ServicesRates: React.FC = () => {
       if (error) throw error;
 
       await refreshShop();
+      initialSnapshotRef.current = JSON.stringify({
+        priceBw,
+        priceColor,
+        colorEnabled,
+        servicesList,
+      });
       setSaveMessage("Rates and services updated successfully! Web app is now in sync.");
       setTimeout(() => setSaveMessage(""), 4000);
+      return true;
     } catch (err) {
       alert("Error saving rates: " + (err instanceof Error ? err.message : String(err)));
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Register dirty handler with parent
+  useEffect(() => {
+    if (!onRegisterDirtyHandler) return;
+    onRegisterDirtyHandler({
+      isDirty,
+      save: handleSave,
+      discard: handleDiscard,
+      pageName: "Services & Rates",
+    });
+    return () => {
+      onRegisterDirtyHandler(null);
+    };
+  }, [priceBw, priceColor, colorEnabled, servicesList, shopId]);
 
   // Unit label helper
   const getUnitLabel = (unit: ServiceUnit) => {

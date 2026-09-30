@@ -157,7 +157,7 @@ function ShopAdminShell(): React.ReactElement {
     rescanPrinters();
   }, [rescanPrinters]);
 
-  // 2. Fetch today's print count from Supabase when shopId is loaded
+  // 2. Fetch today's print count and recent orders from Supabase when shopId is loaded
   const loadTodayPrintsCount = useCallback(async (id: string) => {
     try {
       const supabase = getSupabase();
@@ -172,6 +172,46 @@ function ShopAdminShell(): React.ReactElement {
 
       if (!error && typeof count === "number") {
         setTodayPrintsCount(count);
+      }
+
+      // Also hydrate today's print_orders into recentJobs so pending payments & history remain visible
+      const { data: orders } = await supabase
+        .from("print_orders")
+        .select("session_id, token_code, payment_method, payment_status, total_amount, status, created_at")
+        .eq("shop_id", id)
+        .gte("created_at", startOfToday.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (orders && orders.length > 0) {
+        setRecentJobs((prev) => {
+          const map = new Map<string, LiveJob>();
+          orders.forEach((o) => {
+            map.set(o.session_id, {
+              sessionId: o.session_id,
+              tokenCode: o.token_code || undefined,
+              totalAmount: Number(o.total_amount) || 0,
+              paymentMethod: (o.payment_method as any) || "upi",
+              paymentStatus: (o.payment_status as any) || "pending",
+              status: o.status === "printing" ? "printing" : "done",
+              detail: `Token ${o.token_code || ""}`,
+              timestamp: new Date(o.created_at),
+            });
+          });
+          prev.forEach((p) => {
+            const existing = map.get(p.sessionId);
+            map.set(p.sessionId, {
+              ...existing,
+              ...p,
+              tokenCode: p.tokenCode || existing?.tokenCode,
+              totalAmount:
+                p.totalAmount !== undefined && p.totalAmount > 0
+                  ? p.totalAmount
+                  : existing?.totalAmount,
+            });
+          });
+          return Array.from(map.values());
+        });
       }
     } catch (e) {
       console.warn("[App] Could not load today's count:", e);
@@ -294,16 +334,55 @@ function ShopAdminShell(): React.ReactElement {
 
     const channel = startShopSignaling(shopId, {
       onSessionStart: (sessionId) => {
-        setActiveJob({
+        setActiveJob((prev) => ({
+          ...prev,
           sessionId,
           status: "receiving",
           progressPct: 0,
-          timestamp: new Date(),
+          timestamp: prev?.timestamp || new Date(),
+        }));
+      },
+
+      onManifestReceived: (sessionId, manifestOrder) => {
+        handledOrderSessions.current.add(sessionId);
+
+        const token = manifestOrder.tokenCode;
+        const amount = manifestOrder.totalAmount;
+
+        setActiveJob((prev) => ({
+          ...prev,
+          sessionId,
+          tokenCode: token || prev?.tokenCode,
+          totalAmount: amount !== undefined && amount > 0 ? amount : prev?.totalAmount,
+          paymentMethod: manifestOrder.paymentMethod || prev?.paymentMethod || "upi",
+          paymentStatus: (manifestOrder.paymentStatus as any) || "pending",
+          fileCount: manifestOrder.totalFiles,
+          status: "receiving",
+          detail: `Receiving order ${token || ""} (${manifestOrder.totalFiles} files)...`,
+          timestamp: prev?.timestamp || new Date(),
+        }));
+
+        setRecentJobs((prev) => {
+          const filtered = prev.filter((j) => j.sessionId !== sessionId);
+          const initialJob: LiveJob = {
+            sessionId,
+            tokenCode: token,
+            totalAmount: amount,
+            paymentMethod: manifestOrder.paymentMethod || "upi",
+            paymentStatus: (manifestOrder.paymentStatus as any) || "pending",
+            fileCount: manifestOrder.totalFiles,
+            fileName: `Order ${token || sessionId.slice(0, 8)}`,
+            status: "receiving",
+            detail: `Receiving ${manifestOrder.totalFiles} file(s)...`,
+            timestamp: new Date(),
+          };
+          return [initialJob, ...filtered.slice(0, 19)];
         });
       },
 
       onFileProgress: (sessionId, fileName, pct, _received, _total, fileIndex, totalFiles) => {
         setActiveJob((prev) => ({
+          ...prev,
           sessionId,
           fileName:
             totalFiles && totalFiles > 1
@@ -355,8 +434,15 @@ function ShopAdminShell(): React.ReactElement {
           ? order.tokenCode
           : `#${printerNumber}${sessionNum}`;
 
+        const finalAmount =
+          order.totalAmount !== undefined && order.totalAmount > 0
+            ? order.totalAmount
+            : activeJob?.totalAmount !== undefined && activeJob.totalAmount > 0
+            ? activeJob.totalAmount
+            : 0;
+
         console.log(
-          `[App] Order received: Token ${finalTokenCode} on Printer #${printerNumber}, ${files.length} files`
+          `[App] Order received: Token ${finalTokenCode} (₹${finalAmount}) on Printer #${printerNumber}, ${files.length} files`
         );
 
         const jobFiles = files.map((f) => ({
@@ -366,22 +452,23 @@ function ShopAdminShell(): React.ReactElement {
           settings: f.settings,
         }));
 
-        setActiveJob({
+        setActiveJob((prev) => ({
+          ...prev,
           sessionId,
           tokenCode: finalTokenCode,
           fileCount: files.length,
           files: jobFiles,
-          totalAmount: order.totalAmount,
-          paymentMethod: order.paymentMethod,
-          paymentStatus: "pending",
+          totalAmount: finalAmount,
+          paymentMethod: order.paymentMethod || prev?.paymentMethod || "upi",
+          paymentStatus: prev?.paymentStatus || "pending",
           fileName:
             files.length > 1
               ? `${files.length} documents (${finalTokenCode})`
               : files[0]?.fileName,
           status: "saving",
           detail: `Token ${finalTokenCode} received (${files.length} files). Spooling to Printer #${printerNumber}...`,
-          timestamp: new Date(),
-        });
+          timestamp: prev?.timestamp || new Date(),
+        }));
 
         // Broadcast confirmed token to customer via signaling
         if (signalingChannelRef.current) {
@@ -441,8 +528,8 @@ function ShopAdminShell(): React.ReactElement {
           tokenCode: finalTokenCode,
           fileCount: files.length,
           files: jobFiles,
-          totalAmount: order.totalAmount,
-          paymentMethod: order.paymentMethod,
+          totalAmount: finalAmount,
+          paymentMethod: order.paymentMethod || "upi",
           paymentStatus: "pending",
           fileName:
             files.length > 1
@@ -453,13 +540,18 @@ function ShopAdminShell(): React.ReactElement {
           timestamp: new Date(),
         };
 
-        setRecentJobs((prev) => [completedJob, ...prev.slice(0, 19)]);
+        setRecentJobs((prev) => {
+          const filtered = prev.filter((j) => j.sessionId !== sessionId);
+          return [completedJob, ...filtered.slice(0, 19)];
+        });
         setTodayPrintsCount((c) => c + files.length);
 
         setActiveJob((prev) =>
           prev
             ? {
                 ...prev,
+                tokenCode: finalTokenCode,
+                totalAmount: finalAmount,
                 status: "done",
                 detail: `Order ${finalTokenCode} complete! Paper ready on tray.`,
               }
@@ -492,13 +584,18 @@ function ShopAdminShell(): React.ReactElement {
         ];
 
         setActiveJob((prev) => ({
+          ...prev,
           sessionId,
           fileName: fileName || prev?.fileName,
           fileCount: 1,
           files: singleFile,
-          totalAmount: 5,
-          paymentMethod: "cash",
-          paymentStatus: "pending",
+          tokenCode: prev?.tokenCode || "#11",
+          totalAmount:
+            prev?.totalAmount !== undefined && prev.totalAmount > 0
+              ? prev.totalAmount
+              : 5,
+          paymentMethod: prev?.paymentMethod || "cash",
+          paymentStatus: prev?.paymentStatus || "pending",
           status: "saving",
           detail: "PDF received, forwarding to printer driver...",
           timestamp: prev?.timestamp || new Date(),
@@ -545,13 +642,23 @@ function ShopAdminShell(): React.ReactElement {
 
             const completedJob: LiveJob = {
               sessionId,
+              tokenCode: activeJob?.tokenCode || "#11",
+              totalAmount:
+                activeJob?.totalAmount !== undefined && activeJob.totalAmount > 0
+                  ? activeJob.totalAmount
+                  : 5,
+              paymentMethod: activeJob?.paymentMethod || "cash",
+              paymentStatus: "pending",
               fileName: fileName || `Print #${sessionId.slice(0, 8)}`,
               status: "done",
               detail: `Printed on ${targetPrinter || "default printer"} & shredded`,
               timestamp: new Date(),
             };
 
-            setRecentJobs((prev) => [completedJob, ...prev.slice(0, 19)]);
+            setRecentJobs((prev) => {
+              const filtered = prev.filter((j) => j.sessionId !== sessionId);
+              return [completedJob, ...filtered.slice(0, 19)];
+            });
             setTodayPrintsCount((c) => c + 1);
 
             // Keep "Completed" visible for 3 seconds then return to idle
@@ -576,7 +683,10 @@ function ShopAdminShell(): React.ReactElement {
               timestamp: new Date(),
             };
 
-            setRecentJobs((prev) => [failedJob, ...prev.slice(0, 19)]);
+            setRecentJobs((prev) => {
+              const filtered = prev.filter((j) => j.sessionId !== sessionId);
+              return [failedJob, ...filtered.slice(0, 19)];
+            });
             setActiveJob(failedJob);
           }
         } catch (err) {
@@ -588,7 +698,11 @@ function ShopAdminShell(): React.ReactElement {
             detail: msg,
             timestamp: new Date(),
           };
-          setRecentJobs((prev) => [failedJob, ...prev.slice(0, 19)]);
+
+          setRecentJobs((prev) => {
+            const filtered = prev.filter((j) => j.sessionId !== sessionId);
+            return [failedJob, ...filtered.slice(0, 19)];
+          });
           setActiveJob(failedJob);
         }
       },

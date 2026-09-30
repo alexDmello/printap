@@ -119,14 +119,38 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
 
   // Filter combined jobs list for payment side (active + recent)
   const allJobsMap = new Map<string, LiveJob>();
-  if (currentJob) allJobsMap.set(currentJob.sessionId, currentJob);
+
+  // 1. Put recent jobs first
   recentJobs.forEach((j) => {
-    if (!allJobsMap.has(j.sessionId)) allJobsMap.set(j.sessionId, j);
+    if (j.sessionId) allJobsMap.set(j.sessionId, { ...j });
   });
+
+  // 2. Merge currentJob if present
+  if (currentJob && currentJob.sessionId) {
+    const existing = allJobsMap.get(currentJob.sessionId);
+    allJobsMap.set(currentJob.sessionId, {
+      ...existing,
+      ...currentJob,
+      tokenCode: currentJob.tokenCode || existing?.tokenCode,
+      totalAmount:
+        currentJob.totalAmount !== undefined && currentJob.totalAmount > 0
+          ? currentJob.totalAmount
+          : existing?.totalAmount,
+      paymentMethod: currentJob.paymentMethod || existing?.paymentMethod || "upi",
+      paymentStatus:
+        currentJob.paymentStatus || existing?.paymentStatus || "pending",
+      files: currentJob.files || existing?.files,
+      fileCount: currentJob.fileCount || existing?.fileCount,
+    });
+  }
+
   const allJobs = Array.from(allJobsMap.values());
 
   const pendingPayments = allJobs.filter(
-    (j) => !j.paymentStatus || j.paymentStatus === "pending"
+    (j) =>
+      // Exclude uninitialized socket connections that don't have order details yet
+      (j.tokenCode || (j.totalAmount !== undefined && j.totalAmount > 0)) &&
+      (!j.paymentStatus || j.paymentStatus === "pending")
   );
   const confirmedPayments = allJobs.filter(
     (j) => j.paymentStatus === "confirmed"
@@ -485,7 +509,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                   <div key={job.sessionId} className="payment-order-card pending fade-in">
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {job.tokenCode && <span className="token-pill">{job.tokenCode}</span>}
+                        <span className="token-pill">{job.tokenCode || "#--"}</span>
                       </div>
                       <span
                         style={{
@@ -544,7 +568,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 <div key={job.sessionId} className="payment-order-card confirmed fade-in">
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {job.tokenCode && <span className="token-pill">{job.tokenCode}</span>}
+                      <span className="token-pill">{job.tokenCode || "#--"}</span>
                     </div>
                     <span
                       style={{

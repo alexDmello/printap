@@ -70,6 +70,7 @@ export interface SignalingCallbacks {
     totalFiles?: number
   ) => void;
   onFileReceived: FileReceivedCallback;
+  onManifestReceived?: (sessionId: string, order: TransferManifestOrder) => void;
   onOrderReceived?: OrderReceivedCallback;
   onSessionError?: (sessionId: string, error: string) => void;
 }
@@ -269,8 +270,10 @@ function setupDataChannelReceiver(
             }
           }
 
-          // Trigger single-file callback
-          callbacks.onFileReceived(session.sessionId, assembled.buffer, fileName);
+          // Trigger single-file callback ONLY if NOT part of a structured order manifest!
+          if (!manifest) {
+            callbacks.onFileReceived(session.sessionId, assembled.buffer, fileName);
+          }
 
           chunks = [];
           receivedSize = 0;
@@ -287,6 +290,7 @@ function setupDataChannelReceiver(
         if (msg.type === "order-manifest") {
           console.log(`[shop] Order manifest received:`, msg);
           manifest = msg.order;
+          callbacks.onManifestReceived?.(session.sessionId, msg.order);
           return;
         }
 
@@ -334,11 +338,14 @@ function setupDataChannelReceiver(
               });
             }
 
-            callbacks.onFileReceived(
-              session.sessionId,
-              assembled.buffer,
-              currentFileHeader.fileName
-            );
+            // Only call legacy onFileReceived if NOT part of a structured order manifest!
+            if (!manifest) {
+              callbacks.onFileReceived(
+                session.sessionId,
+                assembled.buffer,
+                currentFileHeader.fileName
+              );
+            }
             chunks = [];
             receivedSize = 0;
           }

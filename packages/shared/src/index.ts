@@ -60,15 +60,25 @@ export {
   type TransferMessage,
 } from "./types";
 
+export {
+  HEARTBEAT_INTERVAL_MS,
+  presenceChannelName,
+  setShopOnline,
+  type ShopPresencePayload,
+} from "./presence";
+
 export interface ShopInfo {
   id: string;
   name: string;
   slug?: string;
   upi_vpa: string;
   status: "active" | "suspended" | string;
+  is_online?: boolean;
+  last_seen_at?: string;
   /** Shop rate card (pricing) */
   price_bw?: number;
   price_color?: number;
   services?: import("./types").ShopServiceItem[];
   created_at: string;
 }
+

@@ -63,6 +63,12 @@ interface ElectronAPI {
   onPrintStatus: (
     callback: (data: PrintStatusData) => void
   ) => () => void;
+
+  setShopOffline: (shopId: string) => Promise<{ success: boolean; error?: string }>;
+
+  setActiveShopId: (shopId: string | null) => Promise<{ success: boolean }>;
+
+  onAppWillQuit: (callback: () => void) => () => void;
 }
 
 interface Window {

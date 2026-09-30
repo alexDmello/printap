@@ -38,5 +38,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("print-status", handler);
     };
   },
+
+  setShopOffline: (shopId: string) =>
+    ipcRenderer.invoke("set-shop-offline", shopId),
+
+  setActiveShopId: (shopId: string | null) =>
+    ipcRenderer.invoke("set-active-shop", shopId),
+
+  onAppWillQuit: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("app-will-quit", handler);
+    return () => {
+      ipcRenderer.removeListener("app-will-quit", handler);
+    };
+  },
 });
+
 

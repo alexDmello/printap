@@ -4,10 +4,11 @@ import path from "path";
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ["@printap/shared"] })],
     resolve: {
       alias: {
         "@shared": path.resolve(__dirname, "../../packages/shared/src"),
+        "@printap/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
       },
     },
   },
@@ -19,6 +20,7 @@ export default defineConfig({
     resolve: {
       alias: {
         "@shared": path.resolve(__dirname, "../../packages/shared/src"),
+        "@printap/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
         "@renderer": path.resolve(__dirname, "src/renderer"),
       },
     },

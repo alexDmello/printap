@@ -296,6 +296,203 @@ body {
   color: var(--accent-rose);
 }
 
+/* ─── Sidebar Online/Offline Presence Card ─── */
+.sidebar-online-card {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--transition);
+}
+
+.sidebar-online-card.online {
+  background: rgba(236, 253, 245, 0.65);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.sidebar-online-card.offline {
+  background: rgba(244, 244, 245, 0.65);
+  border-color: rgba(113, 113, 122, 0.2);
+}
+
+.sidebar-online-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-online-label-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sidebar-online-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar-online-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.sidebar-online-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.beacon-dot.offline {
+  background: var(--text-muted);
+  box-shadow: none;
+  animation: none;
+}
+
+/* Toggle Switch */
+.toggle-switch-btn {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 20px;
+  background: #d4d4d8;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.toggle-switch-btn.checked {
+  background: var(--accent-emerald);
+}
+
+.toggle-switch-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggle-switch-knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-switch-btn.checked .toggle-switch-knob {
+  transform: translateX(16px);
+}
+
+.toggle-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  border-top-color: var(--accent-emerald);
+  border-radius: 50%;
+  animation: spinToggle 0.6s linear infinite;
+}
+
+@keyframes spinToggle {
+  to { transform: rotate(360deg); }
+}
+
+/* Offline Confirmation Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  -webkit-app-region: no-drag;
+}
+
+.confirm-dialog-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-subtle);
+  animation: modalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.confirm-dialog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.confirm-dialog-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-dialog-cancel {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-dialog-cancel:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.btn-dialog-confirm {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-dialog-confirm:hover {
+  background: #dc2626;
+}
+
 /* ─── Main Content Workspace ─── */
 .main-workspace {
   flex: 1;

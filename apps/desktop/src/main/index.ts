@@ -37,6 +37,28 @@ function createWindow(): void {
   }
 }
 
+let activeShopId: string | null = null;
+let isCleaningUp = false;
+
+async function performShutdownCleanup(): Promise<void> {
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send("app-will-quit");
+    } catch {}
+  }
+  if (activeShopId) {
+    try {
+      const { setShopOnline } = await import("@printap/shared");
+      console.log(`[main] Setting shop ${activeShopId} offline before quit...`);
+      await setShopOnline(activeShopId, false);
+    } catch (err) {
+      console.error("[main] Failed to set shop offline on quit:", err);
+    }
+  }
+}
+
 app.whenReady().then(() => {
   // Ensure the temp directory exists
   if (!existsSync(TEMP_DIR)) {
@@ -50,8 +72,39 @@ app.whenReady().then(() => {
   });
 });
 
+app.on("before-quit", async (e) => {
+  if (activeShopId && !isCleaningUp) {
+    e.preventDefault();
+    await performShutdownCleanup();
+    app.quit();
+  }
+});
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+// ─── IPC: Set Active Shop for cleanup tracking ───
+ipcMain.handle("set-active-shop", (_event, shopId: string | null) => {
+  activeShopId = shopId;
+  return { success: true };
+});
+
+// ─── IPC: Set Shop Offline on demand ───
+ipcMain.handle("set-shop-offline", async (_event, shopId: string) => {
+  const targetId = shopId || activeShopId;
+  if (!targetId) return { success: true };
+  try {
+    const { setShopOnline } = await import("@printap/shared");
+    const result = await setShopOnline(targetId, false);
+    if (targetId === activeShopId) {
+      activeShopId = null;
+    }
+    return result;
+  } catch (err) {
+    console.error("[main] Failed to set shop offline:", err);
+    return { success: false, error: String(err) };
+  }
 });
 
 // ─── Utility: send status updates to renderer ───

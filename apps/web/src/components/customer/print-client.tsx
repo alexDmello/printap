@@ -16,11 +16,15 @@ import {
   DEFAULT_FINISHING_SERVICES,
   calculateOrderTotal,
   SESSION_STORAGE_KEY,
+  getSupabase,
+  presenceChannelName,
 } from "@printap/shared";
 import {
   sendOrderToShop,
   type TransferProgress,
 } from "@/lib/customer-signaling";
+
+import ShopOffline from "./ShopOffline";
 
 import FileUpload from "./FileUpload";
 import PrintSettingsPanel from "./PrintSettings";
@@ -117,6 +121,58 @@ export default function PrintClient({
   const [errorMsg, setErrorMsg] = useState("");
   const [token, setToken] = useState<QueueToken | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
+  const [isShopOnline, setIsShopOnline] = useState(true);
+
+  // Monitor shop online status in realtime
+  useEffect(() => {
+    if (!shopId) return;
+
+    const supabase = getSupabase();
+
+    // 1. Subscribe to updates on shops table
+    const dbChannel = supabase
+      .channel(`customer-shop-status:${shopId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "shops",
+          filter: `id=eq.${shopId}`,
+        },
+        (payload) => {
+          if (
+            payload.new &&
+            typeof (payload.new as { is_online?: boolean }).is_online ===
+              "boolean"
+          ) {
+            const online = (payload.new as { is_online: boolean }).is_online;
+            setIsShopOnline(online);
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Also listen for Presence leave events
+    const presenceChannel = supabase.channel(presenceChannelName(shopId), {
+      config: { presence: { key: shopId } },
+    });
+
+    presenceChannel
+      .on("presence", { event: "leave" }, () => {
+        console.log("[PrintClient] Shop presence left");
+        setIsShopOnline(false);
+      })
+      .on("presence", { event: "join" }, () => {
+        setIsShopOnline(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(dbChannel);
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [shopId]);
 
   // Determine if color printing is enabled by the shop
   const colorAvailable = useMemo(() => {
@@ -271,6 +327,20 @@ export default function PrintClient({
     },
     [shopId, token]
   );
+
+  // If the shop goes offline and there is no active transfer/order in flight, show offline screen
+  const isOrderActive = ["transferring", "token", "queue", "pickup"].includes(
+    step
+  );
+  if (!isShopOnline && !isOrderActive) {
+    return (
+      <ShopOffline
+        shopId={shopId}
+        shopName={shopName}
+        onGoOnline={() => setIsShopOnline(true)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-zinc-900 flex flex-col items-center justify-between px-4 py-6 sm:px-6 safe-area-inset relative">

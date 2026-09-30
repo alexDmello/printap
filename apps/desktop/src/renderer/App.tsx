@@ -12,7 +12,8 @@ import {
   startShopSignaling,
   stopShopSignaling,
 } from "./lib/shop-signaling";
-import { getSupabase } from "@printap/shared";
+import { getSupabase, setShopOnline } from "@printap/shared";
+import { startPresence, stopPresence } from "./lib/shop-presence";
 
 function ShopAdminShell(): React.ReactElement {
   const { isAuthenticated, isLoading, shopId } = useAuth();
@@ -23,6 +24,16 @@ function ShopAdminShell(): React.ReactElement {
   const [activeJob, setActiveJob] = useState<LiveJob | null>(null);
   const [recentJobs, setRecentJobs] = useState<LiveJob[]>([]);
   const [todayPrintsCount, setTodayPrintsCount] = useState<number>(0);
+
+  // Shop Online/Offline Presence state
+  const [isShopOnline, setIsShopOnline] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("printap_shop_online_pref") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   const [printers, setPrinters] = useState<PrinterInfo[]>(() => {
     try {
       const cached = localStorage.getItem("printap_cached_printers");
@@ -120,9 +131,86 @@ function ShopAdminShell(): React.ReactElement {
     return cleanup;
   }, []);
 
-  // 5. Connect WebRTC Signaling when authenticated
+  const handleToggleOnline = useCallback(
+    async (online: boolean) => {
+      if (!shopId) return;
+      setIsTogglingOnline(true);
+      try {
+        if (online) {
+          const res = await startPresence(shopId);
+          if (res.success) {
+            setIsShopOnline(true);
+            try {
+              localStorage.setItem("printap_shop_online_pref", "true");
+            } catch {}
+          }
+        } else {
+          await stopPresence();
+          setIsShopOnline(false);
+          try {
+            localStorage.setItem("printap_shop_online_pref", "false");
+          } catch {}
+        }
+      } catch (err) {
+        console.error("[App] Toggle online error:", err);
+      } finally {
+        setIsTogglingOnline(false);
+      }
+    },
+    [shopId]
+  );
+
+  // Synchronize presence on authentication or shop change
   useEffect(() => {
     if (!isAuthenticated || !shopId) {
+      stopPresence();
+      return;
+    }
+
+    let isMounted = true;
+    const initPresence = async () => {
+      const savedPref =
+        localStorage.getItem("printap_shop_online_pref") === "true";
+      if (savedPref) {
+        setIsTogglingOnline(true);
+        const res = await startPresence(shopId);
+        if (isMounted) {
+          if (res.success) {
+            setIsShopOnline(true);
+          } else {
+            setIsShopOnline(false);
+          }
+          setIsTogglingOnline(false);
+        }
+      } else {
+        // Reset stale DB flag on startup when pref is offline
+        await setShopOnline(shopId, false);
+        if (isMounted) {
+          setIsShopOnline(false);
+        }
+      }
+    };
+
+    initPresence();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, shopId]);
+
+  // Graceful shutdown listener from Electron Main
+  useEffect(() => {
+    if (!window.electronAPI?.onAppWillQuit) return;
+    const cleanup = window.electronAPI.onAppWillQuit(() => {
+      console.log("[App] onAppWillQuit received, stopping presence...");
+      stopPresence();
+    });
+    return cleanup;
+  }, []);
+
+  // 5. Connect WebRTC Signaling when authenticated AND shop is online
+  useEffect(() => {
+    if (!isAuthenticated || !shopId || !isShopOnline) {
       setIsListening(false);
       return;
     }
@@ -403,7 +491,7 @@ function ShopAdminShell(): React.ReactElement {
       stopShopSignaling(channel);
       setIsListening(false);
     };
-  }, [isAuthenticated, shopId, loadTodayPrintsCount, refreshAssignments]);
+  }, [isAuthenticated, shopId, isShopOnline, loadTodayPrintsCount, refreshAssignments]);
 
   // Loading state
   if (isLoading) {
@@ -431,7 +519,13 @@ function ShopAdminShell(): React.ReactElement {
   // Authenticated -> Full Shop Admin Shell
   return (
     <div className="app-shell">
-      <Sidebar currentPage={currentPage} onSelectPage={setCurrentPage} />
+      <Sidebar
+        currentPage={currentPage}
+        onSelectPage={setCurrentPage}
+        isOnline={isShopOnline}
+        onToggleOnline={handleToggleOnline}
+        isTogglingOnline={isTogglingOnline}
+      />
 
       <div className="main-workspace">
         <div className="window-drag-strip">
@@ -458,18 +552,33 @@ function ShopAdminShell(): React.ReactElement {
               gap: 8,
               fontSize: 12,
               fontWeight: 500,
-              color: isListening ? "var(--accent-emerald)" : "var(--text-muted)",
+              color:
+                isShopOnline && isListening
+                  ? "var(--accent-emerald)"
+                  : "var(--text-muted)",
             }}
           >
             <span
-              className="beacon-dot"
+              className={`beacon-dot ${
+                isShopOnline && isListening ? "online" : "offline"
+              }`}
               style={{
-                background: isListening ? "var(--accent-emerald)" : "var(--text-muted)",
-                boxShadow: isListening ? "0 0 8px rgba(16, 185, 129, 0.4)" : "none",
+                background:
+                  isShopOnline && isListening
+                    ? "var(--accent-emerald)"
+                    : "var(--text-muted)",
+                boxShadow:
+                  isShopOnline && isListening
+                    ? "0 0 8px rgba(16, 185, 129, 0.4)"
+                    : "none",
               }}
             />
             <span>
-              {isListening ? "Direct P2P Active" : "Hardware Offline"}
+              {isShopOnline
+                ? isListening
+                  ? "Shop Online • P2P Active"
+                  : "Connecting P2P..."
+                : "Shop Offline (Standby)"}
             </span>
           </div>
         </div>

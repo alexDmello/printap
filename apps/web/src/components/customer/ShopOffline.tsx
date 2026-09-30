@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { getSupabase, presenceChannelName } from "@printap/shared";
+import { getSupabase } from "@printap/shared";
 
 interface ShopOfflineProps {
   shopId?: string;
@@ -24,7 +24,7 @@ export default function ShopOffline({
     } else {
       setTimeout(() => {
         window.location.reload();
-      }, 800);
+      }, 500);
     }
   }, [onGoOnline]);
 
@@ -51,7 +51,7 @@ export default function ShopOffline({
     } catch (err) {
       console.warn("[ShopOffline] Manual check error:", err);
     } finally {
-      setTimeout(() => setIsChecking(false), 600);
+      setTimeout(() => setIsChecking(false), 500);
     }
   };
 
@@ -60,9 +60,10 @@ export default function ShopOffline({
 
     const supabase = getSupabase();
 
-    // 1. Subscribe to Realtime Postgres changes on the shops table
+    // 1. Subscribe to Realtime Postgres changes on the shops table with unique channel id
+    const channelId = `shop-offline-watch-${shopId}-${Math.random().toString(36).substring(2, 9)}`;
     const dbChannel = supabase
-      .channel(`shop-offline-watch:${shopId}`)
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
@@ -80,19 +81,7 @@ export default function ShopOffline({
       )
       .subscribe();
 
-    // 2. Also listen for Presence join on the presence channel
-    const presenceChannel = supabase.channel(presenceChannelName(shopId), {
-      config: { presence: { key: shopId } },
-    });
-
-    presenceChannel
-      .on("presence", { event: "join" }, () => {
-        console.log("[ShopOffline] Presence join detected from shop agent");
-        triggerOnline();
-      })
-      .subscribe();
-
-    // 3. Fallback polling every 12 seconds in case websocket drops
+    // 2. Fallback polling every 5 seconds
     const pollInterval = setInterval(async () => {
       try {
         const { data } = await supabase
@@ -107,12 +96,15 @@ export default function ShopOffline({
       } catch (err) {
         console.warn("[ShopOffline] Polling error:", err);
       }
-    }, 12000);
+    }, 5000);
 
     return () => {
       clearInterval(pollInterval);
-      supabase.removeChannel(dbChannel);
-      supabase.removeChannel(presenceChannel);
+      try {
+        supabase.removeChannel(dbChannel);
+      } catch (e) {
+        console.warn("[ShopOffline] Cleanup error:", e);
+      }
     };
   }, [shopId, triggerOnline]);
 
@@ -122,6 +114,16 @@ export default function ShopOffline({
         {/* Subtle decorative glow ring */}
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        {/* Printap Brand Header */}
+        <div className="inline-flex items-center gap-2 mb-6">
+          <img
+            src="/logo.png"
+            alt="Printap"
+            className="w-7 h-7 rounded-lg object-cover shadow-sm border border-black/10"
+          />
+          <span className="text-sm font-bold tracking-tight text-gray-900">Printap</span>
+        </div>
 
         {/* Animated Terminal Offline Beacon Icon */}
         <div className="relative w-20 h-20 mx-auto mb-6 flex items-center justify-center">

@@ -20,10 +20,15 @@ let mainWindow: BrowserWindow | null = null;
 
 // ─── Window Setup ───
 function createWindow(): void {
+  const devIcon = path.join(__dirname, "../../resources/icon.png");
+  const prodIcon = path.join(process.resourcesPath, "icon.png");
+  const windowIcon = existsSync(devIcon) ? devIcon : existsSync(prodIcon) ? prodIcon : undefined;
+
   mainWindow = new BrowserWindow({
     width: 900,
     height: 650,
     title: "Printap — Shop Agent",
+    icon: windowIcon,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,

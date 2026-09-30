@@ -20,6 +20,11 @@ export const metadata: Metadata = {
     "Scan a QR code, upload your PDF, pay via UPI, and the shop prints it — all without waiting in line. No cloud storage. Your files never leave your device.",
   keywords: ["print", "xerox", "QR", "UPI", "queue-free", "instant print"],
   authors: [{ name: "Mellod" }],
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {

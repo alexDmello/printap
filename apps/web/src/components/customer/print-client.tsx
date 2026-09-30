@@ -17,7 +17,6 @@ import {
   calculateOrderTotal,
   SESSION_STORAGE_KEY,
   getSupabase,
-  presenceChannelName,
 } from "@printap/shared";
 import {
   sendOrderToShop,
@@ -133,20 +132,28 @@ export default function PrintClient({
     const supabase = getSupabase();
 
     // 1. Immediately verify latest status from DB
-    supabase
-      .from("shops")
-      .select("is_online")
-      .eq("id", shopId)
-      .maybeSingle()
-      .then(({ data, error }) => {
+    const checkStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("shops")
+          .select("is_online")
+          .eq("id", shopId)
+          .maybeSingle();
+
         if (!error && data && isMounted) {
           setIsShopOnline(Boolean(data.is_online));
         }
-      });
+      } catch (err) {
+        console.warn("[PrintClient] Status check error:", err);
+      }
+    };
 
-    // 2. Subscribe to updates on shops table
+    checkStatus();
+
+    // 2. Subscribe to updates on shops table with a unique channel name
+    const channelId = `customer-shop-${shopId}-${Math.random().toString(36).substring(2, 9)}`;
     const dbChannel = supabase
-      .channel(`customer-shop-status:${shopId}`)
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
@@ -163,37 +170,24 @@ export default function PrintClient({
             isMounted
           ) {
             const online = (payload.new as { is_online: boolean }).is_online;
+            console.log(`[PrintClient] Realtime status update: is_online = ${online}`);
             setIsShopOnline(online);
           }
         }
       )
       .subscribe();
 
-    // 3. Listen for Presence events and verify on sync
-    const presenceChannel = supabase.channel(presenceChannelName(shopId), {
-      config: { presence: { key: shopId } },
-    });
-
-    presenceChannel
-      .on("presence", { event: "sync" }, () => {
-        const state = presenceChannel.presenceState();
-        const hasShopPresence = Object.keys(state).length > 0;
-        if (!hasShopPresence && isMounted) {
-          setIsShopOnline(false);
-        }
-      })
-      .on("presence", { event: "leave" }, () => {
-        if (isMounted) setIsShopOnline(false);
-      })
-      .on("presence", { event: "join" }, () => {
-        if (isMounted) setIsShopOnline(true);
-      })
-      .subscribe();
+    // 3. Fallback polling every 5 seconds to ensure fail-safe synchronization
+    const pollInterval = setInterval(checkStatus, 5000);
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(dbChannel);
-      supabase.removeChannel(presenceChannel);
+      clearInterval(pollInterval);
+      try {
+        supabase.removeChannel(dbChannel);
+      } catch (e) {
+        console.warn("[PrintClient] Cleanup error:", e);
+      }
     };
   }, [shopId]);
 
@@ -370,9 +364,11 @@ export default function PrintClient({
       {/* ─── Header ─── */}
       <header className="text-center mb-5 animate-fade-in-up w-full max-w-md">
         <div className="inline-flex items-center gap-2 mb-1.5">
-          <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center text-sm shadow-md">
-            🖨️
-          </div>
+          <img
+            src="/logo.png"
+            alt="Printap"
+            className="w-8 h-8 rounded-xl object-cover shadow-sm border border-black/10"
+          />
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight">
             Printap
           </h1>

@@ -9,6 +9,7 @@ import {
   IconQr,
   IconTag,
 } from "./Icons";
+import logoImg from "../assets/logo.png";
 
 export type AdminPage = "live" | "printers" | "services" | "analytics" | "qr" | "profile";
 
@@ -87,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Header */}
         <div className="sidebar-header">
           <div className="brand-badge">
-            <IconPrinter size={18} color="#ffffff" />
+            <img src={logoImg} alt="Printap" className="brand-logo-img" />
           </div>
           <div>
             <div className="brand-title">

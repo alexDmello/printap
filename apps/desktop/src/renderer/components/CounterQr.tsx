@@ -9,6 +9,7 @@ import {
   IconPrinter,
   IconShield,
 } from "./Icons";
+import logoImg from "../assets/logo.png";
 
 export const CounterQr: React.FC = () => {
   const { shop } = useAuth();
@@ -101,7 +102,7 @@ export const CounterQr: React.FC = () => {
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 36px Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("🖨️ PRINTAP SELF-SERVICE COUNTER", W / 2, 95);
+    ctx.fillText("PRINTAP SELF-SERVICE COUNTER", W / 2, 95);
 
     ctx.fillStyle = "#a1a1aa";
     ctx.font = "500 22px Inter, sans-serif";
@@ -341,7 +342,19 @@ export const CounterQr: React.FC = () => {
             />
 
             {/* Standee Branding Header */}
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <img
+                src={logoImg}
+                alt="Printap"
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 8,
+                  objectFit: "cover",
+                  marginBottom: 8,
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
+                }}
+              />
               <div
                 style={{
                   fontSize: 11,

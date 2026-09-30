@@ -6,9 +6,11 @@ export default function Home() {
       {/* Hero */}
       <div className="text-center max-w-lg animate-fade-in-up">
         <div className="inline-flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-indigo-500/20">
-            🖨️
-          </div>
+          <img
+            src="/logo.png"
+            alt="Printap"
+            className="w-12 h-12 rounded-2xl object-cover shadow-lg border border-black/10"
+          />
           <h1 className="text-4xl font-bold gradient-text tracking-tight">
             Printap
           </h1>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { IconPrinter, IconShield } from "./Icons";
+import logoImg from "../assets/logo.png";
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -31,7 +32,7 @@ export const Login: React.FC = () => {
     <div className="login-container">
       <div className="login-card fade-in">
         <div className="login-brand-icon">
-          <IconPrinter size={24} color="#ffffff" />
+          <img src={logoImg} alt="Printap" />
         </div>
 
         <h1 className="login-title">Printap Counter Agent</h1>

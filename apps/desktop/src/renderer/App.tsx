@@ -14,6 +14,7 @@ import {
 } from "./lib/shop-signaling";
 import { getSupabase, setShopOnline } from "@printap/shared";
 import { startPresence, stopPresence } from "./lib/shop-presence";
+import logoImg from "./assets/logo.png";
 
 function ShopAdminShell(): React.ReactElement {
   const { isAuthenticated, isLoading, shopId } = useAuth();
@@ -485,7 +486,17 @@ function ShopAdminShell(): React.ReactElement {
           fontSize: 14,
         }}
       >
-        <div style={{ fontSize: 32 }}>🖨️</div>
+        <img
+          src={logoImg}
+          alt="Printap"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            objectFit: "cover",
+            boxShadow: "0 4px 14px rgba(0, 0, 0, 0.15)",
+          }}
+        />
         <div>Initializing Printap Terminal...</div>
       </div>
     );

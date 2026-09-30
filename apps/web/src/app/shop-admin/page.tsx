@@ -293,7 +293,7 @@ export default function ShopAdminPage() {
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 36px Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("🖨️ PRINTAP SELF-SERVICE COUNTER", W / 2, 95);
+    ctx.fillText("PRINTAP SELF-SERVICE COUNTER", W / 2, 95);
 
     ctx.fillStyle = "#a1a1aa";
     ctx.font = "500 22px Inter, sans-serif";
@@ -520,9 +520,11 @@ export default function ShopAdminPage() {
       {/* Top Header Bar */}
       <header className="flex items-center justify-between py-4 border-b border-[--color-border]/60 mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl shadow-md">
-            🖨️
-          </div>
+          <img
+            src="/logo.png"
+            alt="Printap"
+            className="w-10 h-10 rounded-xl object-cover shadow-md border border-black/10"
+          />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-[--color-foreground]">{shop.name}</h1>
@@ -1010,6 +1012,13 @@ export default function ShopAdminPage() {
             </div>
 
             <div className="bg-white rounded-2xl p-6 text-[#09090b] shadow-2xl mx-auto max-w-sm">
+              <div className="flex justify-center mb-2">
+                <img
+                  src="/logo.png"
+                  alt="Printap"
+                  className="w-8 h-8 rounded-lg object-cover shadow-sm border border-black/10"
+                />
+              </div>
               <div className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">
                 PRINTAP SELF-SERVICE COUNTER
               </div>

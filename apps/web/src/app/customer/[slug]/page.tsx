@@ -2,7 +2,6 @@ import { getSupabase, sanitizeSubdomain } from "@printap/shared";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import PrintClient from "@/components/customer/print-client";
-import ShopOffline from "@/components/customer/ShopOffline";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -137,11 +136,6 @@ export default async function CustomerShopPage({ params }: Props) {
         </div>
       </div>
     );
-  }
-
-  // Presence check: shop desktop terminal must be online to accept orders
-  if (!shop.is_online) {
-    return <ShopOffline shopId={shop.id} shopName={shop.name} />;
   }
 
   return (

@@ -255,9 +255,11 @@ export default function PlatformAdminPage() {
       {/* Header */}
       <header className="flex items-center justify-between py-4 border-b border-[--color-border]/60 mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-indigo-500/20">
-            🛡️
-          </div>
+          <img
+            src="/logo.png"
+            alt="Printap"
+            className="w-11 h-11 rounded-2xl object-cover shadow-lg border border-black/10"
+          />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-[--color-foreground]">

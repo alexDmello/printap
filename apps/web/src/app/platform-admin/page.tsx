@@ -225,8 +225,8 @@ export default function PlatformAdminPage() {
   );
 
   return (
-    <div className="wabi-root text-[#f4f4f5] flex min-h-screen">
-      {/* Monochrome Black & White Left Sidebar Rail */}
+    <div className="wabi-root text-zinc-900 flex min-h-screen">
+      {/* White Left Sidebar Rail */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -244,12 +244,12 @@ export default function PlatformAdminPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
         {/* Top Navbar */}
-        <header className="sticky top-0 z-30 h-16 bg-[#0c0c0e]/90 backdrop-blur-md border-b border-[#222226] px-6 flex items-center justify-between">
+        <header className="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Mobile Hamburger Button */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-xl bg-[#18181b] text-zinc-300 hover:text-white border border-[#2a2a2e]"
+              className="lg:hidden p-2 rounded-xl bg-zinc-100 text-zinc-700 hover:text-black border border-zinc-200"
             >
               <IconMenu size={18} />
             </button>
@@ -257,7 +257,7 @@ export default function PlatformAdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-zinc-400">Console /</span>
-                <span className="text-xs font-bold font-mono uppercase tracking-wider text-white">
+                <span className="text-xs font-bold font-mono uppercase tracking-wider text-black">
                   {activeTab === "overview" && "Bento Overview"}
                   {activeTab === "analytics" && "Analytics Suite"}
                   {activeTab === "shops" && "Shops Directory"}
@@ -271,9 +271,9 @@ export default function PlatformAdminPage() {
 
           <div className="flex items-center gap-3">
             {/* Quick Surcharge Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs font-mono">
-              <span className="text-zinc-400">Active Surcharge:</span>
-              <span className="text-white font-bold">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-zinc-100 border border-zinc-200 text-xs font-mono">
+              <span className="text-zinc-500">Active Surcharge:</span>
+              <span className="text-black font-bold">
                 ₹{globalTotalCharge.toFixed(2)}
               </span>
             </div>
@@ -282,7 +282,7 @@ export default function PlatformAdminPage() {
             <button
               onClick={loadPlatformData}
               disabled={loading}
-              className="p-2 rounded-xl bg-[#18181b] hover:bg-[#27272a] text-zinc-300 hover:text-white border border-[#2a2a2e] text-xs transition flex items-center gap-1.5"
+              className="p-2 rounded-xl bg-white hover:bg-zinc-100 text-zinc-700 hover:text-black border border-zinc-200 text-xs transition flex items-center gap-1.5"
               title="Refresh network data"
             >
               <span className={loading ? "animate-spin" : ""}>

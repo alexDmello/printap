@@ -57,7 +57,7 @@ export function Sidebar({
       subtext: "Volume, Yield & Velocity",
       icon: IconAnalytics,
       badge: "LIVE",
-      badgeColor: "bg-white/10 text-white border-white/20",
+      badgeColor: "bg-black text-white border-black",
     },
     {
       id: "shops" as NavigationTab,
@@ -65,7 +65,7 @@ export function Sidebar({
       subtext: "Counters & Kill-Switch",
       icon: IconShops,
       badge: `${shopsCount}`,
-      badgeColor: "bg-zinc-800 text-zinc-300 border-zinc-700",
+      badgeColor: "bg-zinc-100 text-zinc-800 border-zinc-200",
     },
     {
       id: "ledger" as NavigationTab,
@@ -73,7 +73,7 @@ export function Sidebar({
       subtext: "Network Event Stream",
       icon: IconLedger,
       badge: `${eventsCount}`,
-      badgeColor: "bg-zinc-800 text-zinc-300 border-zinc-700",
+      badgeColor: "bg-zinc-100 text-zinc-800 border-zinc-200",
     },
     {
       id: "pricing" as NavigationTab,
@@ -81,7 +81,7 @@ export function Sidebar({
       subtext: "Global Surcharge Config",
       icon: IconPricing,
       badge: `₹${globalTotalCharge.toFixed(2)}`,
-      badgeColor: "bg-white/10 text-zinc-200 border-white/20",
+      badgeColor: "bg-zinc-100 text-zinc-900 border-zinc-300 font-semibold",
     },
     {
       id: "health" as NavigationTab,
@@ -103,39 +103,39 @@ export function Sidebar({
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Sidebar Rail */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#0c0c0e] border-r border-[#222226] flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-white border-r border-zinc-200 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Top Header & Branding */}
         <div>
-          <div className="p-5 border-b border-[#1f1f23] flex items-center justify-between">
+          <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Monochrome Emblem */}
-              <div className="w-10 h-10 rounded-xl bg-white text-black border border-white/30 flex items-center justify-center shadow-lg relative group">
+              {/* Black Seal Emblem */}
+              <div className="w-10 h-10 rounded-xl bg-black text-white border border-zinc-800 flex items-center justify-center shadow-md relative group">
                 <span className="font-serif text-lg font-bold select-none tracking-tight">
                   印
                 </span>
-                <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-white ring-2 ring-[#0c0c0e]" />
+                <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-black ring-2 ring-white" />
               </div>
 
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm tracking-tight text-white">
+                  <span className="font-bold text-sm tracking-tight text-black">
                     Printap
                   </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-700 border border-zinc-200">
                     CORE
                   </span>
                 </div>
-                <div className="text-[11px] font-mono text-zinc-400 truncate max-w-[140px]">
+                <div className="text-[11px] font-mono text-zinc-500 truncate max-w-[140px]">
                   admin.{ROOT_DOMAIN}
                 </div>
               </div>
@@ -144,7 +144,7 @@ export function Sidebar({
             {/* Mobile close button */}
             <button
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+              className="lg:hidden p-1.5 rounded-lg text-zinc-500 hover:text-black hover:bg-zinc-100"
             >
               <IconClose size={18} />
             </button>
@@ -154,9 +154,9 @@ export function Sidebar({
           <div className="p-4 pb-2">
             <button
               onClick={onOpenCreateModal}
-              className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition group"
+              className="w-full py-2.5 px-3 rounded-xl bg-black hover:bg-zinc-800 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition group"
             >
-              <span className="w-4 h-4 rounded-md bg-black text-white flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
+              <span className="w-4 h-4 rounded-md bg-white text-black flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
                 <IconPlus size={12} />
               </span>
               <span>Register New Shop</span>
@@ -180,16 +180,16 @@ export function Sidebar({
                     onClick={() => handleSelect(item.id)}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all relative ${
                       isActive
-                        ? "bg-white/10 text-white border border-white/15 shadow-sm"
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-900/60 border border-transparent"
+                        ? "bg-zinc-100 text-black border border-zinc-200 shadow-xs font-medium"
+                        : "text-zinc-600 hover:text-black hover:bg-zinc-50 border border-transparent"
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`p-1.5 rounded-lg transition ${
                           isActive
-                            ? "bg-white text-black"
-                            : "bg-zinc-900 text-zinc-400"
+                            ? "bg-black text-white"
+                            : "bg-zinc-100 text-zinc-600"
                         }`}
                       >
                         <Icon size={16} />
@@ -213,7 +213,7 @@ export function Sidebar({
                     )}
 
                     {isActive && (
-                      <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />
+                      <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-black" />
                     )}
                   </button>
                 );
@@ -223,20 +223,20 @@ export function Sidebar({
         </div>
 
         {/* Bottom Rail: Network Status & Refresh */}
-        <div className="p-4 border-t border-[#1f1f23] bg-[#0c0c0e]">
-          <div className="p-3 rounded-xl bg-[#141416] border border-[#222226] mb-3">
+        <div className="p-4 border-t border-zinc-100 bg-white">
+          <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 mb-3">
             <div className="flex items-center justify-between text-[11px] mb-1.5">
-              <span className="text-zinc-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="text-zinc-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
                 Signal Mesh
               </span>
-              <span className="text-[10px] font-mono text-white font-semibold">
+              <span className="text-[10px] font-mono text-black font-semibold">
                 Operational
               </span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-zinc-300">
-              <span className="text-[10px] text-zinc-400">Active Counters</span>
-              <span className="font-mono text-xs font-semibold text-white">
+            <div className="flex items-center justify-between text-[11px] text-zinc-700">
+              <span className="text-[10px] text-zinc-500">Active Counters</span>
+              <span className="font-mono text-xs font-semibold text-black">
                 {activeCount} / {shopsCount}
               </span>
             </div>
@@ -244,13 +244,13 @@ export function Sidebar({
 
           <div className="flex items-center justify-between">
             <div className="text-[10px] font-mono text-zinc-400">
-              v1.4 • SUMI-E (MONO)
+              v1.4 • WHITE & BLACK
             </div>
 
             <button
               onClick={onRefresh}
               disabled={loading}
-              className="p-2 rounded-lg bg-[#18181b] hover:bg-[#27272a] text-zinc-300 hover:text-white border border-[#2a2a2e] text-xs transition flex items-center gap-1.5 disabled:opacity-50"
+              className="p-2 rounded-lg bg-white hover:bg-zinc-100 text-zinc-700 hover:text-black border border-zinc-200 text-xs transition flex items-center gap-1.5 disabled:opacity-50"
               title="Refresh platform data"
             >
               <span className={loading ? "animate-spin" : ""}>

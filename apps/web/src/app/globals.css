@@ -203,84 +203,85 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
 
-/* ─── Wabi-Sabi Bento Theme (Platform Admin - Monochrome Black & White) ─── */
+/* ─── Wabi-Sabi Bento Theme (Platform Admin - White Main, Black Secondary) ─── */
 .wabi-root {
-  background-color: #09090b;
+  background-color: #fafafa;
   background-image: 
-    radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.02), transparent 40%),
-    radial-gradient(ellipse at 85% 90%, rgba(255, 255, 255, 0.015), transparent 40%);
+    radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    radial-gradient(ellipse at 15% 10%, rgba(0, 0, 0, 0.015), transparent 40%),
+    radial-gradient(ellipse at 85% 90%, rgba(0, 0, 0, 0.015), transparent 40%);
   background-size: 24px 24px, 100% 100%, 100% 100%;
-  color: #f4f4f5;
+  color: #09090b;
   min-height: 100vh;
 }
 
 .wabi-bento-card {
-  background: #121214;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 
-    0 1px 3px rgba(0, 0, 0, 0.6),
-    0 4px 20px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wabi-bento-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(0, 0, 0, 0.18);
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.7),
-    0 10px 28px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 10px 28px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .wabi-bento-subtle {
-  background: #0e0e10;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #f4f4f5;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .wabi-bento-elevated {
-  background: #18181b;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: 
-    0 4px 24px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .wabi-seal {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.04);
+  color: #09090b;
   border-radius: 6px;
   letter-spacing: 0.05em;
 }
 
 .wabi-btn-primary {
-  background: #ffffff;
-  color: #000000;
+  background: #09090b;
+  color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .wabi-btn-primary:hover {
-  background: #e4e4e7;
+  background: #27272a;
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .wabi-btn-secondary {
-  background: #18181b;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #ffffff;
+  color: #09090b;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   font-weight: 600;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .wabi-btn-secondary:hover {
-  background: #27272a;
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #f4f4f5;
+  border-color: rgba(0, 0, 0, 0.25);
   transform: translateY(-1px);
 }
+
 
 

@@ -35,25 +35,25 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-[#222226]">
+      <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-zinc-200">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-white" />
-            <h2 className="text-lg font-bold text-white tracking-tight">
+            <span className="w-2.5 h-2.5 rounded-full bg-black" />
+            <h2 className="text-lg font-bold text-black tracking-tight">
               Global Print Ledger & Transaction Log
             </h2>
             <span className="wabi-seal px-2 py-0.5 text-[10px] font-mono">
               台帳 • LEDGER
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-zinc-500 mt-1">
             Real-time immutable ledger of print events triggered across all connected shop terminals.
           </p>
         </div>
 
-        <div className="p-2.5 px-4 rounded-2xl bg-[#18181b] border border-[#2a2a2e] flex items-center gap-3">
-          <span className="text-xs text-zinc-400">Ledger Yield:</span>
-          <span className="text-sm font-bold font-mono text-white">
+        <div className="p-2.5 px-4 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+          <span className="text-xs text-zinc-500">Ledger Yield:</span>
+          <span className="text-sm font-bold font-mono text-black">
             ₹{totalFilteredFee.toFixed(2)}
           </span>
         </div>
@@ -71,7 +71,7 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
             placeholder="Search by session hash, shop name, or slug..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white font-sans"
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-black placeholder-zinc-400 focus:outline-none focus:border-black font-sans"
           />
         </div>
 
@@ -81,7 +81,7 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
           <select
             value={selectedShopId}
             onChange={(e) => setSelectedShopId(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs text-white focus:outline-none focus:border-white font-sans"
+            className="px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-black focus:outline-none focus:border-black font-sans"
           >
             <option value="all">All Terminal Counters ({shops.length})</option>
             {shops.map((s) => (
@@ -98,7 +98,7 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[#222226] bg-[#161618] text-zinc-400 font-mono">
+              <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-500 font-mono">
                 <th className="py-3.5 px-5 font-normal">Session Hash</th>
                 <th className="py-3.5 px-4 font-normal">Terminal Counter</th>
                 <th className="py-3.5 px-4 font-normal">Subdomain</th>
@@ -106,7 +106,7 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
                 <th className="py-3.5 px-5 font-normal text-right">Timestamp</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1f1f23]">
+            <tbody className="divide-y divide-zinc-100">
               {filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-zinc-400">
@@ -115,17 +115,17 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
                 </tr>
               ) : (
                 filteredEvents.map((ev) => (
-                  <tr key={ev.id} className="hover:bg-white/[0.02] transition">
-                    <td className="py-3.5 px-5 font-mono text-zinc-400">
+                  <tr key={ev.id} className="hover:bg-zinc-50/70 transition">
+                    <td className="py-3.5 px-5 font-mono text-zinc-500">
                       #{ev.session_id.slice(0, 10)}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-white">
+                    <td className="py-3.5 px-4 font-semibold text-black">
                       {ev.shop_name}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-zinc-300">
+                    <td className="py-3.5 px-4 font-mono text-zinc-700">
                       {ev.shop_slug}.{ROOT_DOMAIN}
                     </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-white">
+                    <td className="py-3.5 px-4 text-right font-mono font-bold text-black">
                       ₹{Number(ev.fee_amount || globalPlatformFee).toFixed(2)}
                     </td>
                     <td className="py-3.5 px-5 text-right text-[11px] text-zinc-400">
@@ -139,7 +139,7 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
         </div>
 
         {/* Footer info strip */}
-        <div className="p-4 border-t border-[#1f1f23] flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-4 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
           <span>
             Displaying {filteredEvents.length} transactions
           </span>

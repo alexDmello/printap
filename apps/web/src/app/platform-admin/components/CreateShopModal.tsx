@@ -78,32 +78,32 @@ export function CreateShopModal({ isOpen, onClose, onSuccess }: CreateShopModalP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
-      <div className="wabi-bento-card rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-[#2a2a2e] bg-[#121214] relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="wabi-bento-card rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-zinc-200 bg-white relative">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="wabi-seal px-2 py-0.5 text-[10px] font-mono">
               新規 • NEW
             </span>
-            <h2 className="text-base font-bold text-white">
+            <h2 className="text-base font-bold text-black">
               Register New Shop Terminal
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+            className="p-1 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-100"
           >
             <IconClose size={16} />
           </button>
         </div>
 
-        <p className="text-xs text-zinc-400 mb-5">
+        <p className="text-xs text-zinc-500 mb-5">
           Provisions an instant dedicated subdomain under {ROOT_DOMAIN} with WebRTC signaling.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-white mb-1.5">
+            <label className="block text-xs font-semibold text-black mb-1.5">
               Shop Name
             </label>
             <input
@@ -111,22 +111,22 @@ export function CreateShopModal({ isOpen, onClose, onSuccess }: CreateShopModalP
               placeholder="e.g. Campus Xerox & Prints"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-black placeholder-zinc-400 focus:outline-none focus:border-black"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-white mb-1.5">
+            <label className="block text-xs font-semibold text-black mb-1.5">
               Subdomain Slug
             </label>
-            <div className="flex items-center rounded-xl bg-[#18181b] border border-[#2a2a2e] px-3 focus-within:border-white">
+            <div className="flex items-center rounded-xl bg-zinc-50 border border-zinc-200 px-3 focus-within:border-black">
               <input
                 type="text"
                 placeholder="campus-xerox"
                 value={slug}
                 onChange={(e) => setSlug(sanitizeSubdomain(e.target.value))}
-                className="flex-1 py-2.5 bg-transparent text-xs text-white font-mono outline-none"
+                className="flex-1 py-2.5 bg-transparent text-xs text-black font-mono outline-none"
                 required
               />
               <span className="text-xs text-zinc-400 font-mono">.{ROOT_DOMAIN}</span>
@@ -134,7 +134,7 @@ export function CreateShopModal({ isOpen, onClose, onSuccess }: CreateShopModalP
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-white mb-1.5">
+            <label className="block text-xs font-semibold text-black mb-1.5">
               Settlement UPI VPA
             </label>
             <input
@@ -142,22 +142,22 @@ export function CreateShopModal({ isOpen, onClose, onSuccess }: CreateShopModalP
               placeholder="e.g. storename@okaxis or 9876543210@paytm"
               value={upi}
               onChange={(e) => setUpi(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-black placeholder-zinc-400 focus:outline-none focus:border-black"
               required
             />
           </div>
 
           {error && (
-            <div className="p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-zinc-300">
+            <div className="p-3 rounded-xl bg-zinc-100 border border-zinc-300 text-xs text-black">
               {error}
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1f1f23]">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white"
+              className="px-4 py-2 rounded-xl text-xs text-zinc-600 hover:text-black"
             >
               Cancel
             </button>

@@ -101,20 +101,20 @@ export function EditShopModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
-      <div className="wabi-bento-card rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-[#2a2a2e] bg-[#121214] relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="wabi-bento-card rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-zinc-200 bg-white relative max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="wabi-seal px-2 py-0.5 text-[10px] font-mono">
               編集 • EDIT
             </span>
-            <h2 className="text-base font-bold text-white">
+            <h2 className="text-base font-bold text-black">
               Edit Terminal Configuration
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+            className="p-1 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-100"
           >
             <IconClose size={16} />
           </button>
@@ -126,28 +126,28 @@ export function EditShopModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-white mb-1.5">
+            <label className="block text-xs font-semibold text-black mb-1.5">
               Shop Name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs text-white focus:outline-none focus:border-white"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-black focus:outline-none focus:border-black"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-white mb-1.5">
+            <label className="block text-xs font-semibold text-black mb-1.5">
               Subdomain Slug
             </label>
-            <div className="flex items-center rounded-xl bg-[#18181b] border border-[#2a2a2e] px-3 focus-within:border-white">
+            <div className="flex items-center rounded-xl bg-zinc-50 border border-zinc-200 px-3 focus-within:border-black">
               <input
                 type="text"
                 value={slug}
                 onChange={(e) => setSlug(sanitizeSubdomain(e.target.value))}
-                className="flex-1 py-2.5 bg-transparent text-xs text-white font-mono outline-none"
+                className="flex-1 py-2.5 bg-transparent text-xs text-black font-mono outline-none"
                 required
               />
               <span className="text-xs text-zinc-400 font-mono">.{ROOT_DOMAIN}</span>
@@ -155,30 +155,30 @@ export function EditShopModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-white mb-1.5">
+            <label className="block text-xs font-semibold text-black mb-1.5">
               Settlement UPI VPA
             </label>
             <input
               type="text"
               value={upi}
               onChange={(e) => setUpi(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs text-white focus:outline-none focus:border-white"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-black focus:outline-none focus:border-black"
               required
             />
           </div>
 
           {/* Surcharge Override Box */}
-          <div className="p-4 rounded-2xl bg-[#18181b] border border-[#27272a] space-y-3">
-            <div className="text-xs font-bold text-white flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
+            <div className="text-xs font-bold text-black flex items-center justify-between">
               <span>Terminal Surcharge Override</span>
-              <span className="text-[11px] text-white font-mono font-bold">
+              <span className="text-[11px] text-black font-mono font-bold">
                 Total: ₹{totalCharge.toFixed(2)}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] text-zinc-400 mb-1">
+                <label className="block text-[10px] text-zinc-500 mb-1">
                   Base Fee (₹)
                 </label>
                 <input
@@ -187,12 +187,12 @@ export function EditShopModal({
                   min="0"
                   value={fee}
                   onChange={(e) => handleFeeChange(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-[#202024] border border-[#2d2d32] text-xs font-mono font-bold text-white"
+                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-mono font-bold text-black"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] text-zinc-400 mb-1">
+                <label className="block text-[10px] text-zinc-500 mb-1">
                   GST (%)
                 </label>
                 <input
@@ -202,28 +202,28 @@ export function EditShopModal({
                   max="100"
                   value={gstPct}
                   onChange={(e) => handleGstChange(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-[#202024] border border-[#2d2d32] text-xs font-mono font-bold text-white text-center"
+                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-mono font-bold text-black text-center"
                 />
               </div>
             </div>
 
-            <div className="text-[10px] text-zinc-400 flex justify-between pt-1 border-t border-[#27272a]">
+            <div className="text-[10px] text-zinc-400 flex justify-between pt-1 border-t border-zinc-200">
               <span>Auto-GST: ₹{gstAmount.toFixed(2)}</span>
               <span>Customer Surcharge: ₹{totalCharge.toFixed(2)}</span>
             </div>
           </div>
 
           {error && (
-            <div className="p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-zinc-300">
+            <div className="p-3 rounded-xl bg-zinc-100 border border-zinc-300 text-xs text-black">
               {error}
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1f1f23]">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white"
+              className="px-4 py-2 rounded-xl text-xs text-zinc-600 hover:text-black"
             >
               Cancel
             </button>

@@ -22,6 +22,7 @@ import {
 } from "@printap/shared";
 import {
   sendOrderToShop,
+  requestTokenFromShop,
   type TransferProgress,
 } from "@/lib/customer-signaling";
 
@@ -73,49 +74,6 @@ interface Props {
   gstPercentage?: number;
   gstAmount?: number;
   totalCharge?: number;
-}
-
-async function calculateShopToken(shopId: string, hasColor: boolean): Promise<string> {
-  try {
-    const supabase = getSupabase();
-    // 1. Fetch printer assignments to get assigned printer number
-    const { data: assignments } = await supabase
-      .from("printer_assignments")
-      .select("role, printer_number, is_default, is_active")
-      .eq("shop_id", shopId);
-
-    let printerNum = 1;
-    if (assignments && assignments.length > 0) {
-      const active = assignments.filter((a) => a.is_active !== false);
-      if (hasColor) {
-        const colorPr = active.find((a) => a.role === "color" || a.role === "both");
-        if (colorPr?.printer_number) printerNum = colorPr.printer_number;
-        else if (active.find((a) => a.is_default)?.printer_number) {
-          printerNum = active.find((a) => a.is_default)!.printer_number;
-        }
-      } else {
-        const bwPr = active.find((a) => a.role === "bw" || a.role === "both");
-        if (bwPr?.printer_number) printerNum = bwPr.printer_number;
-        else if (active.find((a) => a.is_default)?.printer_number) {
-          printerNum = active.find((a) => a.is_default)!.printer_number;
-        }
-      }
-    }
-
-    // 2. Fetch today's print orders count (resets daily from 00:00:00 local time)
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const { count } = await supabase
-      .from("print_orders")
-      .select("*", { count: "exact", head: true })
-      .eq("shop_id", shopId)
-      .gte("created_at", startOfToday.toISOString());
-
-    const nextSession = (count ?? 0) + 1;
-    return `#${printerNum}${nextSession}`;
-  } catch {
-    return `#11`;
-  }
 }
 
 export default function PrintClient({
@@ -423,13 +381,12 @@ export default function PrintClient({
     setCurrentSessionId(sessionId);
 
     const hasColor = documents.some((d) => d.settings.colorMode === "color");
-    const tokenCode = await calculateShopToken(shopId, hasColor);
-
-    const newToken: QueueToken = {
-      tokenCode,
-      queuePosition: 1,
-      estimatedWaitMinutes: 2,
-    };
+    const newToken = await requestTokenFromShop(shopId, {
+      sessionId,
+      hasColor,
+      totalAmount,
+      fileCount: documents.length,
+    });
 
     setToken(newToken);
     setIsPaymentConfirmedByShop(false);
@@ -498,13 +455,12 @@ export default function PrintClient({
 
       const sessionId = crypto.randomUUID();
       const hasColor = documents.some((d) => d.settings.colorMode === "color");
-      const tokenCode = await calculateShopToken(shopId, hasColor);
-
-      const newToken: QueueToken = {
-        tokenCode,
-        queuePosition: 1,
-        estimatedWaitMinutes: 2,
-      };
+      const newToken = await requestTokenFromShop(shopId, {
+        sessionId,
+        hasColor,
+        totalAmount,
+        fileCount: documents.length,
+      });
 
       setToken(newToken);
       setStep("transferring");

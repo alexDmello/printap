@@ -381,3 +381,63 @@ export async function sendFileToShop(
     onProgress
   );
 }
+
+/**
+ * Request an authoritative, collision-free local token directly from the Shop Desktop App.
+ * Uses the Supabase signaling broadcast channel with zero DB count queries.
+ */
+export async function requestTokenFromShop(
+  shopId: string,
+  params: {
+    sessionId: string;
+    hasColor: boolean;
+    totalAmount?: number;
+    fileCount?: number;
+  },
+  timeoutMs: number = 2500
+): Promise<QueueToken> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const channel = joinSignalingChannel(shopId);
+
+    const onTokenAssigned = ({ payload }: { payload: Record<string, unknown> }) => {
+      const p = payload as unknown as SignalPayload;
+      if (p.sessionId === params.sessionId && p.tokenCode) {
+        if (!settled) {
+          settled = true;
+          console.log(`[customer] Received authoritative local token from shop: ${p.tokenCode}`);
+          resolve({
+            tokenCode: p.tokenCode,
+            queuePosition: p.queuePosition || 1,
+            estimatedWaitMinutes: (p.queuePosition || 1) * 2,
+          });
+        }
+      }
+    };
+
+    channel.on("broadcast", { event: "assign-token" }, onTokenAssigned);
+    channel.on("broadcast", { event: "order-status" }, onTokenAssigned);
+
+    // Broadcast request-token event
+    broadcast(channel, "request-token", {
+      sessionId: params.sessionId,
+      hasColor: params.hasColor,
+      totalAmount: params.totalAmount,
+      fileCount: params.fileCount,
+    });
+
+    // Fallback if shop desktop takes longer than timeoutMs to respond
+    setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        console.warn("[customer] request-token timeout, using provisional local token");
+        resolve({
+          tokenCode: `#${params.hasColor ? 2 : 1}1`,
+          queuePosition: 1,
+          estimatedWaitMinutes: 2,
+        });
+      }
+    }, timeoutMs);
+  });
+}
+

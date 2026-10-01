@@ -13,7 +13,14 @@ import {
   startShopSignaling,
   stopShopSignaling,
   broadcastPaymentConfirmed,
+  broadcastOrderStatus,
+  broadcastTokenAssigned,
 } from "./lib/shop-signaling";
+import {
+  FifoPrintDispatcher,
+  type QueuedPrintJob,
+  type TokenAllocation,
+} from "./lib/fifo-dispatcher";
 import { getSupabase, setShopOnline, broadcast } from "@printap/shared";
 import { startPresence, stopPresence } from "./lib/shop-presence";
 import logoImg from "./assets/logo.png";
@@ -136,6 +143,8 @@ function ShopAdminShell(): React.ReactElement {
   const signalingChannelRef = useRef<any>(null);
   // Track sessions where payment has been confirmed so spool completion does not overwrite it
   const confirmedPaymentSessionsRef = useRef<Set<string>>(new Set());
+  // FIFO Print Dispatcher with Local Atomic Token Allocator
+  const fifoDispatcherRef = useRef<FifoPrintDispatcher | null>(null);
 
   // Manual or initial printer detection
   const rescanPrinters = useCallback(async () => {
@@ -254,6 +263,160 @@ function ShopAdminShell(): React.ReactElement {
     }
   }, []);
 
+  // Wire FIFO Print Dispatcher callbacks
+  useEffect(() => {
+    if (!fifoDispatcherRef.current) {
+      fifoDispatcherRef.current = new FifoPrintDispatcher(
+        shopId || "default",
+        todayPrintsCount
+      );
+    } else if (shopId) {
+      fifoDispatcherRef.current.setShopId(shopId);
+    }
+
+    fifoDispatcherRef.current.setCallbacks({
+      onJobStarted: (job, printerName) => {
+        console.log(
+          `[App] Dispatcher: Job ${job.tokenCode} started printing on ${printerName}`
+        );
+        const isAlreadyConfirmed = confirmedPaymentSessionsRef.current.has(
+          job.sessionId
+        );
+
+        setActiveJob((prev) => ({
+          sessionId: job.sessionId,
+          tokenCode: job.tokenCode,
+          fileCount: job.files.length,
+          files: job.files.map((f) => ({
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            pageCount: f.pageCount,
+            settings: f.settings,
+          })),
+          totalAmount: job.totalAmount,
+          paymentMethod: job.paymentMethod || prev?.paymentMethod || "upi",
+          paymentStatus:
+            isAlreadyConfirmed || (prev?.sessionId === job.sessionId && prev?.paymentStatus === "confirmed")
+              ? "confirmed"
+              : (job.paymentStatus as any) || "pending",
+          fileName:
+            job.files.length > 1
+              ? `${job.files.length} documents (${job.tokenCode})`
+              : job.files[0]?.fileName,
+          status: "printing",
+          detail: `Token ${job.tokenCode} (${job.files.length} file(s)) spooling to ${printerName}...`,
+          timestamp: new Date(),
+        }));
+      },
+
+      onJobFileProgress: (
+        sessionId,
+        fileName,
+        fileIndex,
+        totalFiles,
+        printerName
+      ) => {
+        setActiveJob((prev) => {
+          if (!prev || prev.sessionId !== sessionId) return prev;
+          return {
+            ...prev,
+            status: "printing",
+            detail: `Printing ${fileIndex}/${totalFiles}: ${fileName} on ${printerName}`,
+          };
+        });
+      },
+
+      onJobCompleted: async (job, printerName) => {
+        console.log(
+          `[App] Dispatcher: Job ${job.tokenCode} completed on ${printerName}`
+        );
+        const isConfirmed = confirmedPaymentSessionsRef.current.has(job.sessionId);
+        const paymentConfirmed = isConfirmed || job.paymentStatus === "confirmed";
+
+        if (paymentConfirmed) {
+          confirmedPaymentSessionsRef.current.add(job.sessionId);
+        }
+
+        // Record print event in Supabase ledger
+        try {
+          const supabase = getSupabase();
+          await supabase.from("print_events").insert({
+            shop_id: shopId,
+            session_id: job.sessionId,
+            fee_amount: 1.0,
+          });
+        } catch (err) {
+          console.warn("[App] Could not insert print_event:", err);
+        }
+
+        const completedJob: LiveJob = {
+          sessionId: job.sessionId,
+          tokenCode: job.tokenCode,
+          fileCount: job.files.length,
+          files: job.files.map((f) => ({
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            pageCount: f.pageCount,
+            settings: f.settings,
+          })),
+          totalAmount: job.totalAmount,
+          paymentMethod: job.paymentMethod || "upi",
+          paymentStatus: paymentConfirmed ? "confirmed" : (job.paymentStatus as any) || "pending",
+          paymentConfirmedAt: paymentConfirmed ? new Date() : undefined,
+          fileName:
+            job.files.length > 1
+              ? `${job.files.length} documents`
+              : job.files[0]?.fileName,
+          status: "done",
+          detail: `Token ${job.tokenCode} — ${job.files.length} file(s) printed & shredded`,
+          timestamp: new Date(),
+        };
+
+        setRecentJobs((prev) => {
+          const filtered = prev.filter((j) => j.sessionId !== job.sessionId);
+          return [completedJob, ...filtered.slice(0, 19)];
+        });
+        setTodayPrintsCount((c) => c + job.files.length);
+
+        setActiveJob((prev) => {
+          if (!prev || prev.sessionId !== job.sessionId) return prev;
+          return {
+            ...prev,
+            tokenCode: job.tokenCode,
+            totalAmount: job.totalAmount,
+            paymentStatus: paymentConfirmed ? "confirmed" : prev.paymentStatus,
+            status: "done",
+            detail: `Order ${job.tokenCode} complete! Paper ready on tray.`,
+          };
+        });
+
+        setTimeout(() => {
+          setActiveJob((prev) => (prev?.sessionId === job.sessionId ? null : prev));
+        }, 5000);
+      },
+
+      onJobFailed: (job, error, printerName) => {
+        console.error(
+          `[App] Dispatcher: Job ${job.tokenCode} failed on ${printerName}:`,
+          error
+        );
+        const failedJob: LiveJob = {
+          sessionId: job.sessionId,
+          tokenCode: job.tokenCode,
+          fileName: job.files[0]?.fileName || `Print #${job.sessionId.slice(0, 8)}`,
+          status: "error",
+          detail: `${error} (${printerName})`,
+          timestamp: new Date(),
+        };
+        setRecentJobs((prev) => {
+          const filtered = prev.filter((j) => j.sessionId !== job.sessionId);
+          return [failedJob, ...filtered.slice(0, 19)];
+        });
+        setActiveJob(failedJob);
+      },
+    });
+  }, [shopId, todayPrintsCount]);
+
   // 4. Listen to hardware status events from Electron Main
   useEffect(() => {
     const cleanup = window.electronAPI.onPrintStatus((data) => {
@@ -367,17 +530,98 @@ function ShopAdminShell(): React.ReactElement {
         }));
       },
 
-      onManifestReceived: (sessionId, manifestOrder) => {
-        handledOrderSessions.current.add(sessionId);
+      onRequestToken: async (sessionId, hasColor, totalAmount, fileCount) => {
+        refreshAssignments(shopId);
+        if (!fifoDispatcherRef.current) {
+          fifoDispatcherRef.current = new FifoPrintDispatcher(shopId, todayPrintsCount);
+        }
 
-        const token = manifestOrder.tokenCode;
+        const allocation = fifoDispatcherRef.current.allocateToken(
+          sessionId,
+          hasColor,
+          assignmentsRef.current
+        );
+
+        console.log(
+          `[App] Atomically allocated local token ${allocation.tokenCode} (seq #${allocation.tokenCode}) for session ${sessionId.slice(0, 8)}`
+        );
+
+        // Broadcast assign-token and order-status back to customer immediately
+        if (signalingChannelRef.current) {
+          try {
+            await broadcastTokenAssigned(signalingChannelRef.current, {
+              sessionId,
+              tokenCode: allocation.tokenCode,
+              printerNumber: allocation.printerNumber,
+              queuePosition: allocation.queuePosition,
+            });
+            await broadcastOrderStatus(signalingChannelRef.current, {
+              sessionId,
+              tokenCode: allocation.tokenCode,
+              printerNumber: allocation.printerNumber,
+              queuePosition: allocation.queuePosition,
+              paymentStatus: confirmedPaymentSessionsRef.current.has(sessionId)
+                ? "confirmed"
+                : "pending",
+            });
+          } catch (err) {
+            console.warn("[App] Error broadcasting assign-token:", err);
+          }
+        }
+
+        const isConfirmed = confirmedPaymentSessionsRef.current.has(sessionId);
+        setActiveJob((prev) => ({
+          ...prev,
+          sessionId,
+          tokenCode: allocation.tokenCode,
+          totalAmount: totalAmount || prev?.totalAmount || 0,
+          paymentMethod: prev?.paymentMethod || "upi",
+          paymentStatus: isConfirmed ? "confirmed" : "pending",
+          fileCount: fileCount || prev?.fileCount || 1,
+          status: "receiving",
+          detail: `Assigned Token ${allocation.tokenCode} — ready for document stream`,
+          timestamp: new Date(),
+        }));
+      },
+
+      onManifestReceived: async (sessionId, manifestOrder) => {
+        handledOrderSessions.current.add(sessionId);
+        refreshAssignments(shopId);
+        if (!fifoDispatcherRef.current) {
+          fifoDispatcherRef.current = new FifoPrintDispatcher(shopId, todayPrintsCount);
+        }
+
+        const hasColor =
+          manifestOrder.finishingServices?.some((f: any) => f.colorMode === "color") || false;
+
+        // Use already allocated token or atomically allocate one locally
+        const allocation =
+          fifoDispatcherRef.current.getAllocatedToken(sessionId) ||
+          fifoDispatcherRef.current.allocateToken(sessionId, hasColor, assignmentsRef.current);
+
+        const token = allocation.tokenCode;
         const amount = manifestOrder.totalAmount;
         const isAlreadyConfirmed = confirmedPaymentSessionsRef.current.has(sessionId);
+
+        // Broadcast authoritative token status back to customer
+        if (signalingChannelRef.current) {
+          try {
+            await broadcastOrderStatus(signalingChannelRef.current, {
+              sessionId,
+              tokenCode: token,
+              printerNumber: allocation.printerNumber,
+              queuePosition: allocation.queuePosition,
+              paymentStatus: isAlreadyConfirmed
+                ? "confirmed"
+                : manifestOrder.paymentStatus || "pending",
+            });
+          } catch {}
+        }
 
         setActiveJob((prev) => ({
           ...prev,
           sessionId,
-          tokenCode: token || prev?.tokenCode,
+          tokenCode: token,
           totalAmount: amount !== undefined && amount > 0 ? amount : prev?.totalAmount,
           paymentMethod: manifestOrder.paymentMethod || prev?.paymentMethod || "upi",
           paymentStatus:
@@ -386,7 +630,7 @@ function ShopAdminShell(): React.ReactElement {
               : (manifestOrder.paymentStatus as any) || prev?.paymentStatus || "pending",
           fileCount: manifestOrder.totalFiles,
           status: "receiving",
-          detail: `Receiving order ${token || ""} (${manifestOrder.totalFiles} files)...`,
+          detail: `Receiving order ${token} (${manifestOrder.totalFiles} files)...`,
           timestamp: prev?.timestamp || new Date(),
         }));
 
@@ -404,13 +648,13 @@ function ShopAdminShell(): React.ReactElement {
           const filtered = prev.filter((j) => j.sessionId !== sessionId);
           const initialJob: LiveJob = {
             sessionId,
-            tokenCode: token || existing?.tokenCode,
+            tokenCode: token,
             totalAmount: amount !== undefined && amount > 0 ? amount : existing?.totalAmount,
             paymentMethod: manifestOrder.paymentMethod || existing?.paymentMethod || "upi",
             paymentStatus: paymentConfirmed ? "confirmed" : existing?.paymentStatus || "pending",
             paymentConfirmedAt: existing?.paymentConfirmedAt,
             fileCount: manifestOrder.totalFiles,
-            fileName: `Order ${token || sessionId.slice(0, 8)}`,
+            fileName: `Order ${token}`,
             status: "receiving",
             detail: `Receiving ${manifestOrder.totalFiles} file(s)...`,
             timestamp: existing?.timestamp || new Date(),
@@ -439,40 +683,16 @@ function ShopAdminShell(): React.ReactElement {
         handledOrderSessions.current.add(sessionId);
 
         refreshAssignments(shopId);
-        const map = assignmentsRef.current;
+        if (!fifoDispatcherRef.current) {
+          fifoDispatcherRef.current = new FifoPrintDispatcher(shopId, todayPrintsCount);
+        }
 
-        // 1. Pick target printer based on job settings (color vs bw)
         const hasColor = files.some((f) => f.settings?.colorMode === "color");
-        let targetAssignment: PrinterAssignment | undefined;
+        const allocation =
+          fifoDispatcherRef.current.getAllocatedToken(sessionId) ||
+          fifoDispatcherRef.current.allocateToken(sessionId, hasColor, assignmentsRef.current);
 
-        if (hasColor) {
-          targetAssignment = Object.values(map).find(
-            (a) => a.role === "color" || a.role === "both"
-          );
-        } else {
-          targetAssignment = Object.values(map).find(
-            (a) => a.role === "bw" || a.role === "both"
-          );
-        }
-
-        if (!targetAssignment) {
-          targetAssignment = Object.values(map).find(
-            (a) => a.is_default && a.role !== "disabled"
-          );
-        }
-        if (!targetAssignment) {
-          targetAssignment = Object.values(map).find((a) => a.role !== "disabled") || Object.values(map)[0];
-        }
-
-        const printerNumber = targetAssignment?.printer_number || 1;
-        const targetPrinter = targetAssignment?.printer_name;
-
-        // 2. Token format: #{printerNumber}{todaySessionCount} (e.g. Printer #2, 14th print -> #214)
-        const sessionNum = todayPrintsCount + 1;
-        const finalTokenCode = order.tokenCode && order.tokenCode.startsWith("#")
-          ? order.tokenCode
-          : `#${printerNumber}${sessionNum}`;
-
+        const finalTokenCode = allocation.tokenCode;
         const finalAmount =
           order.totalAmount !== undefined && order.totalAmount > 0
             ? order.totalAmount
@@ -480,54 +700,13 @@ function ShopAdminShell(): React.ReactElement {
             ? activeJob.totalAmount
             : 0;
 
-        console.log(
-          `[App] Order received: Token ${finalTokenCode} (₹${finalAmount}) on Printer #${printerNumber}, ${files.length} files`
-        );
-
-        const jobFiles = files.map((f) => ({
-          fileName: f.fileName,
-          fileSize: f.fileSize,
-          pageCount: f.pageCount,
-          settings: f.settings,
-        }));
-
         const isAlreadyConfirmed = confirmedPaymentSessionsRef.current.has(sessionId);
 
-        setActiveJob((prev) => {
-          const paymentConfirmed =
-            isAlreadyConfirmed ||
-            (prev?.sessionId === sessionId && prev?.paymentStatus === "confirmed");
-          return {
-            ...prev,
-            sessionId,
-            tokenCode: finalTokenCode,
-            fileCount: files.length,
-            files: jobFiles,
-            totalAmount: finalAmount,
-            paymentMethod: order.paymentMethod || prev?.paymentMethod || "upi",
-            paymentStatus: paymentConfirmed ? "confirmed" : prev?.paymentStatus || "pending",
-            fileName:
-              files.length > 1
-                ? `${files.length} documents (${finalTokenCode})`
-                : files[0]?.fileName,
-            status: "saving",
-            detail: `Token ${finalTokenCode} received (${files.length} files). Spooling to Printer #${printerNumber}...`,
-            timestamp: prev?.timestamp || new Date(),
-          };
-        });
+        console.log(
+          `[App] Order received: Token ${finalTokenCode} (₹${finalAmount}) for printer #${allocation.printerNumber}, ${files.length} files. Enqueueing into FIFO queue.`
+        );
 
-        // Broadcast confirmed token to customer via signaling
-        if (signalingChannelRef.current) {
-          try {
-            await broadcast(signalingChannelRef.current, "order-status", {
-              sessionId,
-              tokenCode: finalTokenCode,
-              paymentStatus: isAlreadyConfirmed ? "confirmed" : "pending",
-            });
-          } catch {}
-        }
-
-        // Update token_code in Supabase print_orders
+        // Update Supabase print_orders token_code asynchronously
         try {
           const supabase = getSupabase();
           await supabase
@@ -536,93 +715,29 @@ function ShopAdminShell(): React.ReactElement {
             .eq("session_id", sessionId);
         } catch {}
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const settings = file.settings;
-
-          setActiveJob((prev) => ({
-            ...prev!,
-            status: "printing",
-            detail: `Printing ${i + 1}/${files.length}: ${file.fileName} (${settings.copies} copy, ${settings.colorMode.toUpperCase()}) on ${targetPrinter || "default printer"}`,
-          }));
-
-          try {
-            await window.electronAPI.printPdf(file.buffer, sessionId, {
-              printer: targetPrinter,
-              copies: settings.copies,
-              orientation: settings.orientation,
-              scale: settings.pageFit === "fill" ? "noscale" : "fit",
-            });
-          } catch (err) {
-            console.error(`[App] Error printing file ${file.fileName}:`, err);
-          }
-        }
-
-        // Record print event in Supabase ledger
-        try {
-          const supabase = getSupabase();
-          await supabase.from("print_events").insert({
-            shop_id: shopId,
-            session_id: sessionId,
-            fee_amount: 1.0,
-          });
-        } catch (err) {
-          console.warn("[App] Could not insert print_event:", err);
-        }
-
-        const isConfirmed = confirmedPaymentSessionsRef.current.has(sessionId);
-
-        setRecentJobs((prev) => {
-          const existing = prev.find((j) => j.sessionId === sessionId);
-          const paymentConfirmed =
-            isConfirmed ||
-            existing?.paymentStatus === "confirmed";
-
-          if (paymentConfirmed) {
-            confirmedPaymentSessionsRef.current.add(sessionId);
-          }
-
-          const completedJob: LiveJob = {
+        // Enqueue into FIFO dispatcher! Dispatcher handles multi-printer capability matching and concurrent printing.
+        fifoDispatcherRef.current.enqueue(
+          {
             sessionId,
             tokenCode: finalTokenCode,
-            fileCount: files.length,
-            files: jobFiles,
+            printerNumber: allocation.printerNumber,
+            targetPrinterName: allocation.targetPrinterName,
+            hasColor,
+            files: files.map((f) => ({
+              fileId: f.fileId,
+              fileName: f.fileName,
+              fileSize: f.fileSize,
+              pageCount: f.pageCount,
+              settings: f.settings,
+              buffer: f.buffer,
+            })),
             totalAmount: finalAmount,
-            paymentMethod: order.paymentMethod || existing?.paymentMethod || "upi",
-            paymentStatus: paymentConfirmed ? "confirmed" : existing?.paymentStatus || "pending",
-            paymentConfirmedAt: existing?.paymentConfirmedAt || (paymentConfirmed ? new Date() : undefined),
-            fileName:
-              files.length > 1
-                ? `${files.length} documents`
-                : files[0]?.fileName,
-            status: "done",
-            detail: `Token ${finalTokenCode} — ${files.length} file(s) printed & shredded`,
-            timestamp: existing?.timestamp || new Date(),
-          };
-
-          const filtered = prev.filter((j) => j.sessionId !== sessionId);
-          return [completedJob, ...filtered.slice(0, 19)];
-        });
-        setTodayPrintsCount((c) => c + files.length);
-
-        setActiveJob((prev) => {
-          if (!prev) return null;
-          const paymentConfirmed = isConfirmed || prev.paymentStatus === "confirmed";
-          return {
-            ...prev,
-            tokenCode: finalTokenCode,
-            totalAmount: finalAmount,
-            paymentStatus: paymentConfirmed ? "confirmed" : prev.paymentStatus,
-            status: "done",
-            detail: `Order ${finalTokenCode} complete! Paper ready on tray.`,
-          };
-        });
-
-        setTimeout(() => {
-          setActiveJob((prev) =>
-            prev?.sessionId === sessionId ? null : prev
-          );
-        }, 5000);
+            paymentMethod: order.paymentMethod || "upi",
+            paymentStatus: isAlreadyConfirmed ? "confirmed" : (order.paymentStatus as any) || "pending",
+            enqueuedAt: new Date(),
+          },
+          assignmentsRef.current
+        );
       },
 
       onFileReceived: async (sessionId, buffer, fileName) => {
@@ -631,160 +746,51 @@ function ShopAdminShell(): React.ReactElement {
           return;
         }
 
-        console.log(
-          `[App] Legacy file received: ${fileName || sessionId}, bytes: ${buffer.byteLength}`
-        );
+        refreshAssignments(shopId);
+        if (!fifoDispatcherRef.current) {
+          fifoDispatcherRef.current = new FifoPrintDispatcher(shopId, todayPrintsCount);
+        }
 
-        const singleFile = [
-          {
-            fileName: fileName || "Document.pdf",
-            fileSize: buffer.byteLength,
-            pageCount: 1,
-          },
-        ];
+        const allocation =
+          fifoDispatcherRef.current.getAllocatedToken(sessionId) ||
+          fifoDispatcherRef.current.allocateToken(sessionId, false, assignmentsRef.current);
 
         const isLegacyConfirmed = confirmedPaymentSessionsRef.current.has(sessionId);
 
-        setActiveJob((prev) => {
-          const paymentConfirmed =
-            isLegacyConfirmed ||
-            (prev?.sessionId === sessionId && prev?.paymentStatus === "confirmed");
-          return {
-            ...prev,
-            sessionId,
-            fileName: fileName || prev?.fileName,
-            fileCount: 1,
-            files: singleFile,
-            tokenCode: prev?.tokenCode || "#11",
-            totalAmount:
-              prev?.totalAmount !== undefined && prev.totalAmount > 0
-                ? prev.totalAmount
-                : 5,
-            paymentMethod: prev?.paymentMethod || "cash",
-            paymentStatus: paymentConfirmed ? "confirmed" : prev?.paymentStatus || "pending",
-            status: "saving",
-            detail: "PDF received, forwarding to printer driver...",
-            timestamp: prev?.timestamp || new Date(),
-          };
-        });
-
-        // Determine destination printer from assignments
-        refreshAssignments(shopId);
-        const map = assignmentsRef.current;
-        let targetPrinter: string | undefined = undefined;
-
-        // Check for an explicit default or first active printer
-        const defaultAssignment = Object.values(map).find(
-          (a) => a.is_default && a.role !== "disabled"
+        console.log(
+          `[App] Legacy file received: ${fileName || sessionId}. Enqueueing into FIFO queue with Token ${allocation.tokenCode}`
         );
-        if (defaultAssignment) {
-          targetPrinter = defaultAssignment.printer_name;
-        } else {
-          const firstActive = Object.values(map).find(
-            (a) => a.role !== "disabled"
-          );
-          if (firstActive) {
-            targetPrinter = firstActive.printer_name;
-          }
-        }
 
-        try {
-          const result = await window.electronAPI.printPdf(buffer, sessionId, {
-            printer: targetPrinter,
-            copies: 1,
-          });
-
-          if (result.success) {
-            // Record print event in Supabase ledger
-            try {
-              const supabase = getSupabase();
-              await supabase.from("print_events").insert({
-                shop_id: shopId,
-                session_id: sessionId,
-                fee_amount: 1.0,
-              });
-            } catch (err) {
-              console.warn("[App] Could not insert print_event:", err);
-            }
-
-            const isConfirmed = confirmedPaymentSessionsRef.current.has(sessionId);
-
-            setRecentJobs((prev) => {
-              const existing = prev.find((j) => j.sessionId === sessionId);
-              const paymentConfirmed =
-                isConfirmed ||
-                existing?.paymentStatus === "confirmed";
-
-              if (paymentConfirmed) {
-                confirmedPaymentSessionsRef.current.add(sessionId);
-              }
-
-              const completedJob: LiveJob = {
-                sessionId,
-                tokenCode: existing?.tokenCode || "#11",
-                totalAmount:
-                  existing?.totalAmount !== undefined && existing.totalAmount > 0
-                    ? existing.totalAmount
-                    : 5,
-                paymentMethod: existing?.paymentMethod || "cash",
-                paymentStatus: paymentConfirmed ? "confirmed" : existing?.paymentStatus || "pending",
-                paymentConfirmedAt: existing?.paymentConfirmedAt || (paymentConfirmed ? new Date() : undefined),
-                fileName: fileName || existing?.fileName || `Print #${sessionId.slice(0, 8)}`,
-                status: "done",
-                detail: `Printed on ${targetPrinter || "default printer"} & shredded`,
-                timestamp: existing?.timestamp || new Date(),
-              };
-
-              const filtered = prev.filter((j) => j.sessionId !== sessionId);
-              return [completedJob, ...filtered.slice(0, 19)];
-            });
-            setTodayPrintsCount((c) => c + 1);
-
-            // Keep "Completed" visible for 3 seconds then return to idle
-            setActiveJob((prev) => {
-              if (!prev) return null;
-              const paymentConfirmed = isConfirmed || prev.paymentStatus === "confirmed";
-              return {
-                ...prev,
-                paymentStatus: paymentConfirmed ? "confirmed" : prev.paymentStatus,
-                status: "done",
-                detail: "Job completed & shredded safely",
-              };
-            });
-            setTimeout(() => {
-              setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
-            }, 3500);
-          } else {
-            const failedJob: LiveJob = {
-              sessionId,
-              fileName: fileName || `Print #${sessionId.slice(0, 8)}`,
-              status: "error",
-              detail: result.error || "Spool failed",
-              timestamp: new Date(),
-            };
-
-            setRecentJobs((prev) => {
-              const filtered = prev.filter((j) => j.sessionId !== sessionId);
-              return [failedJob, ...filtered.slice(0, 19)];
-            });
-            setActiveJob(failedJob);
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          const failedJob: LiveJob = {
+        fifoDispatcherRef.current.enqueue(
+          {
             sessionId,
-            fileName: fileName || `Print #${sessionId.slice(0, 8)}`,
-            status: "error",
-            detail: msg,
-            timestamp: new Date(),
-          };
-
-          setRecentJobs((prev) => {
-            const filtered = prev.filter((j) => j.sessionId !== sessionId);
-            return [failedJob, ...filtered.slice(0, 19)];
-          });
-          setActiveJob(failedJob);
-        }
+            tokenCode: allocation.tokenCode,
+            printerNumber: allocation.printerNumber,
+            targetPrinterName: allocation.targetPrinterName,
+            hasColor: false,
+            files: [
+              {
+                fileName: fileName || "Document.pdf",
+                fileSize: buffer.byteLength,
+                pageCount: 1,
+                settings: {
+                  copies: 1,
+                  colorMode: "bw",
+                  orientation: "portrait",
+                  pageFit: "fit",
+                  paperSize: "a4",
+                  pagesToPrint: "all",
+                },
+                buffer,
+              },
+            ],
+            totalAmount: 5,
+            paymentMethod: "cash",
+            paymentStatus: isLegacyConfirmed ? "confirmed" : "pending",
+            enqueuedAt: new Date(),
+          },
+          assignmentsRef.current
+        );
       },
 
       onSessionError: (sessionId, error) => {
@@ -812,6 +818,7 @@ function ShopAdminShell(): React.ReactElement {
     async (sessionId: string) => {
       console.log(`[App] Confirming payment for session ${sessionId}...`);
       confirmedPaymentSessionsRef.current.add(sessionId);
+      fifoDispatcherRef.current?.updateJobPaymentStatus(sessionId, "confirmed");
 
       setActiveJob((prev) => {
         if (!prev || prev.sessionId !== sessionId) return prev;

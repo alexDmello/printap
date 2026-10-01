@@ -60,6 +60,12 @@ export type OrderReceivedCallback = (order: ReceivedOrder) => void;
 
 export interface SignalingCallbacks {
   onSessionStart?: (sessionId: string) => void;
+  onRequestToken?: (
+    sessionId: string,
+    hasColor: boolean,
+    totalAmount?: number,
+    fileCount?: number
+  ) => void;
   onFileProgress?: (
     sessionId: string,
     fileName: string,
@@ -123,6 +129,20 @@ export function startShopSignaling(
       } catch (err) {
         console.error(`[shop] Failed to add ICE candidate:`, err);
       }
+    }
+  );
+
+  // Listen for customer token allocation requests (zero-db local atomic tokens)
+  channel.on(
+    "broadcast",
+    { event: "request-token" },
+    ({ payload }: { payload: Record<string, unknown> }) => {
+      const { sessionId, hasColor, totalAmount, fileCount } =
+        payload as unknown as SignalPayload;
+      console.log(
+        `[shop] Received request-token for session ${sessionId} (hasColor: ${hasColor})`
+      );
+      callbacks.onRequestToken?.(sessionId, Boolean(hasColor), totalAmount, fileCount);
     }
   );
 
@@ -460,5 +480,32 @@ export async function broadcastPaymentConfirmed(
     tokenCode,
     confirmedAt: new Date().toISOString(),
   });
+}
+
+/** Broadcast order/queue status to customer. */
+export async function broadcastOrderStatus(
+  channel: RealtimeChannel,
+  payload: {
+    sessionId: string;
+    tokenCode?: string;
+    queuePosition?: number;
+    printerNumber?: number;
+    paymentStatus?: string;
+  }
+): Promise<void> {
+  await broadcast(channel, "order-status", payload);
+}
+
+/** Broadcast locally allocated authoritative token to customer. */
+export async function broadcastTokenAssigned(
+  channel: RealtimeChannel,
+  payload: {
+    sessionId: string;
+    tokenCode: string;
+    queuePosition?: number;
+    printerNumber?: number;
+  }
+): Promise<void> {
+  await broadcast(channel, "assign-token", payload);
 }
 

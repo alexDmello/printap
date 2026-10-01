@@ -71,15 +71,44 @@ export function getShopCustomerUrl(
   return `https://counter.${ROOT_DOMAIN}`;
 }
 
+/**
+ * Reserved subdomains that cannot be used by shop counters.
+ * "shop" and "admin" are explicitly retired from browser routing
+ * as shop and platform management are strictly controlled via Electron Desktop apps.
+ */
+export const RESERVED_SUBDOMAINS = [
+  "www",
+  "admin",
+  "shop",
+  "api",
+  "app",
+  "dashboard",
+  "portal",
+  "desktop",
+  "counter",
+  "mail",
+  "ftp",
+  "localhost",
+] as const;
+
+export function isReservedSubdomain(slug: string): boolean {
+  if (!slug) return false;
+  const lower = slug.toLowerCase().trim();
+  return RESERVED_SUBDOMAINS.includes(lower as any);
+}
+
 export type SubdomainType =
   | { type: "marketing" }
-  | { type: "shop-admin" }
-  | { type: "platform-admin" }
+  | { type: "blocked-admin"; target: "shop" | "platform" }
   | { type: "customer"; slug: string };
 
 /**
  * Extracts and classifies the subdomain from an HTTP Host header.
  * Handles production domains (mellod.in) as well as development/test hosts.
+ *
+ * NOTE: Both shop and platform administration domains (shop.mellod.in & admin.mellod.in)
+ * are blocked from browser access and classify as "blocked-admin" so the Edge middleware
+ * can display the desktop-only security notice.
  */
 export function extractSubdomain(hostHeader: string | null | undefined): SubdomainType {
   if (!hostHeader) {
@@ -106,10 +135,10 @@ export function extractSubdomain(hostHeader: string | null | undefined): Subdoma
       return { type: "marketing" };
     }
     if (sub === SHOP_ADMIN_SUBDOMAIN) {
-      return { type: "shop-admin" };
+      return { type: "blocked-admin", target: "shop" };
     }
     if (sub === PLATFORM_ADMIN_SUBDOMAIN) {
-      return { type: "platform-admin" };
+      return { type: "blocked-admin", target: "platform" };
     }
     return { type: "customer", slug: sub };
   }
@@ -121,10 +150,10 @@ export function extractSubdomain(hostHeader: string | null | undefined): Subdoma
       return { type: "marketing" };
     }
     if (sub === SHOP_ADMIN_SUBDOMAIN) {
-      return { type: "shop-admin" };
+      return { type: "blocked-admin", target: "shop" };
     }
     if (sub === PLATFORM_ADMIN_SUBDOMAIN) {
-      return { type: "platform-admin" };
+      return { type: "blocked-admin", target: "platform" };
     }
     return { type: "customer", slug: sub };
   }

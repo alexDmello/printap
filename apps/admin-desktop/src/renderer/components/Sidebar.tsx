@@ -1,5 +1,6 @@
 import React from "react";
 import { ROOT_DOMAIN } from "@printap/shared";
+import logoImg from "../assets/logo.png";
 import type { NavigationTab } from "../types";
 import {
   IconOverview,
@@ -116,11 +117,13 @@ export function Sidebar({
         <div>
           <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Black Seal Emblem */}
-              <div className="w-10 h-10 rounded-xl bg-black text-white border border-zinc-800 flex items-center justify-center shadow-md relative group">
-                <span className="font-serif text-lg font-bold select-none tracking-tight">
-                  印
-                </span>
+              {/* Black Seal Emblem with P.png Logo */}
+              <div className="w-10 h-10 rounded-xl bg-black border border-zinc-800 p-1.5 flex items-center justify-center shadow-md relative group overflow-hidden">
+                <img
+                  src={logoImg}
+                  alt="Printap Logo"
+                  className="w-full h-full object-contain select-none"
+                />
                 <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-black ring-2 ring-white" />
               </div>
 
@@ -134,7 +137,7 @@ export function Sidebar({
                   </span>
                 </div>
                 <div className="text-[11px] font-mono text-zinc-500 truncate max-w-[140px]">
-                  admin.{ROOT_DOMAIN}
+                  Executive Desktop App
                 </div>
               </div>
             </div>

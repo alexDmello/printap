@@ -4,10 +4,10 @@ import { extractSubdomain } from "@printap/shared";
 
 /**
  * Next.js Edge Middleware for Subdomain-based Routing on mellod.in:
- * - shop.mellod.in     -> /shop-admin (Shop Owner Portal)
- * - admin.mellod.in    -> /platform-admin (Platform Operator Panel)
- * - {slug}.mellod.in   -> /customer/[slug] (Customer Print Experience)
- * - www.mellod.in or mellod.in -> / (Landing & Marketing)
+ * - shop.mellod.in / admin.mellod.in -> /desktop-required (Browser Access Blocked • Desktop Only)
+ * - /shop-admin / /platform-admin   -> /desktop-required (Browser Access Blocked • Desktop Only)
+ * - {slug}.mellod.in               -> /customer/[slug] (Customer Print Experience)
+ * - www.mellod.in or mellod.in     -> / (Landing & Marketing)
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,27 +21,34 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const hostHeader = request.headers.get("host") || "";
-  const sub = extractSubdomain(hostHeader);
-
-  // 1. Shop Owner Admin: shop.mellod.in
-  if (sub.type === "shop-admin") {
-    if (!pathname.startsWith("/shop-admin")) {
-      const url = request.nextUrl.clone();
-      url.pathname = `/shop-admin${pathname === "/" ? "" : pathname}`;
-      return NextResponse.rewrite(url);
-    }
+  // Allow direct access to the desktop-required security notice
+  if (pathname.startsWith("/desktop-required")) {
     return NextResponse.next();
   }
 
-  // 2. Platform Operator Admin: admin.mellod.in
-  if (sub.type === "platform-admin") {
-    if (!pathname.startsWith("/platform-admin")) {
-      const url = request.nextUrl.clone();
-      url.pathname = `/platform-admin${pathname === "/" ? "" : pathname}`;
-      return NextResponse.rewrite(url);
-    }
-    return NextResponse.next();
+  const hostHeader = request.headers.get("host") || "";
+  const sub = extractSubdomain(hostHeader);
+
+  // 1. Blocked Admin Subdomains (shop.mellod.in or admin.mellod.in)
+  // Browser access is strictly disabled — operators must use Desktop Electron apps
+  if (sub.type === "blocked-admin") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/desktop-required";
+    url.searchParams.set("target", sub.target);
+    return NextResponse.rewrite(url);
+  }
+
+  // 2. Direct browser navigation to legacy admin paths is blocked
+  if (
+    pathname.startsWith("/shop-admin") ||
+    pathname.startsWith("/platform-admin") ||
+    pathname === "/admin" ||
+    pathname === "/shop"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/desktop-required";
+    url.searchParams.set("target", pathname.includes("shop") ? "shop" : "platform");
+    return NextResponse.rewrite(url);
   }
 
   // 3. Customer Print Page: {shop_slug}.mellod.in
@@ -56,7 +63,6 @@ export function middleware(request: NextRequest) {
   }
 
   // 4. Marketing Root: www.mellod.in / mellod.in
-  // Normal pass-through to root app routes
   return NextResponse.next();
 }
 

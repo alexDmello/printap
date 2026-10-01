@@ -1,5 +1,6 @@
 import React from "react";
 import { ROOT_DOMAIN } from "@printap/shared";
+import logoImg from "../assets/logo.png";
 import { IconHealth, IconServer, IconShield } from "./Icons";
 
 export function HealthView() {
@@ -12,18 +13,18 @@ export function HealthView() {
       desc: "Static marketing, kiosk showcase, pricing calculator, and shop signups.",
     },
     {
-      role: "Shop Owner Portal",
-      domain: `shop.${ROOT_DOMAIN}`,
-      status: "Operational",
-      type: "Merchant Console",
-      desc: "Desktop agent connection, queue management, UPI settlements, and pricing rate cards.",
+      role: "Shop Owner Console",
+      domain: "Printap Desktop Agent",
+      status: "Desktop Standalone",
+      type: "Electron Hardware App",
+      desc: "Direct spooler queue, DoD shredding, and UPI settlements. Browser web access strictly disabled.",
     },
     {
       role: "Platform Admin Console",
-      domain: `admin.${ROOT_DOMAIN}`,
-      status: "Operational",
-      type: "Super Admin",
-      desc: "Global directory, kill-switch controllers, transaction ledger, and GST configuration.",
+      domain: "Printap Executive Console",
+      status: "Desktop Standalone",
+      type: "Electron Executive App",
+      desc: "Global directory, kill-switch controllers, and monthly archival. Browser web access strictly disabled.",
     },
     {
       role: "Dynamic Customer Counters",
@@ -63,6 +64,13 @@ export function HealthView() {
       color: "text-black",
       desc: `Restricts platform services exclusively to *.${ROOT_DOMAIN} to guarantee isolation.`,
     },
+    {
+      name: "Browser Admin Lockdown",
+      status: "Strict Enforced",
+      badge: "Desktop Exclusive",
+      color: "text-black",
+      desc: "shop.mellod.in and admin.mellod.in are blocked in web browsers. Management is exclusively via Electron apps.",
+    },
   ];
 
   return (
@@ -71,7 +79,9 @@ export function HealthView() {
       <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-zinc-200">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-black" />
+            <div className="w-6 h-6 rounded-lg bg-black border border-zinc-800 p-0.5 flex items-center justify-center shadow-xs">
+              <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
+            </div>
             <h2 className="text-lg font-bold text-black tracking-tight">
               Network Topology & System Health
             </h2>

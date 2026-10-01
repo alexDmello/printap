@@ -69,12 +69,9 @@ export default function Home() {
 
         <p className="text-xs text-[--color-muted]/70">
           Are you a shop owner?{" "}
-          <a
-            href="https://shop.mellod.in"
-            className="text-[--color-accent-light] font-medium hover:underline"
-          >
-            Access Shop Portal (shop.mellod.in) →
-          </a>
+          <span className="text-[--color-accent-light] font-medium">
+            Counter queue, spooler, and UPI settlements are managed via the Printap Desktop App.
+          </span>
         </p>
       </div>
 

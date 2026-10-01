@@ -1,5 +1,6 @@
 import React from "react";
 import { ROOT_DOMAIN } from "@printap/shared";
+import logoImg from "../assets/logo.png";
 import type { ExtendedShop, GlobalPrintEvent, NavigationTab } from "../types";
 import {
   IconActivity,
@@ -49,7 +50,9 @@ export function OverviewView({
       <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-zinc-200">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-black animate-pulse" />
+            <div className="w-6 h-6 rounded-lg bg-black border border-zinc-800 p-0.5 flex items-center justify-center shadow-xs">
+              <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
+            </div>
             <h2 className="text-lg font-bold text-black tracking-tight">
               Command Deck & Network Pulse
             </h2>
@@ -87,9 +90,9 @@ export function OverviewView({
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-zinc-100 text-black border border-zinc-200">
-                  <IconActivity size={15} />
-                </span>
+                <div className="w-6 h-6 rounded-lg bg-black border border-zinc-800 p-0.5 flex items-center justify-center shadow-xs">
+                  <img src={logoImg} alt="Printap" className="w-full h-full object-contain" />
+                </div>
                 <span className="text-xs font-mono font-medium uppercase tracking-wider text-zinc-500">
                   Real-time Operational Matrix
                 </span>

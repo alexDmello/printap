@@ -1,17 +1,23 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import os from "os";
+import { existsSync } from "fs";
 import { archivalManager } from "./archival-manager";
 
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  const devIcon = path.join(__dirname, "../../resources/icon.png");
+  const prodIcon = path.join(process.resourcesPath, "icon.png");
+  const windowIcon = existsSync(devIcon) ? devIcon : existsSync(prodIcon) ? prodIcon : undefined;
+
   mainWindow = new BrowserWindow({
     width: 1320,
     height: 840,
     minWidth: 1020,
     minHeight: 640,
     title: "Printap Platform Admin — Executive Console",
+    icon: windowIcon,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,

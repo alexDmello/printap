@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getSupabase, ROOT_DOMAIN } from "@printap/shared";
+import logoImg from "./assets/logo.png";
 import type { ExtendedShop, GlobalPrintEvent, NavigationTab } from "./types";
 import { Sidebar } from "./components/Sidebar";
 import { OverviewView } from "./components/OverviewView";
@@ -252,7 +253,10 @@ export default function App() {
               <IconMenu size={18} />
             </button>
 
-            <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-black border border-zinc-800 p-1 flex items-center justify-center shadow-xs">
+                <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-zinc-400">Desktop /</span>
                 <span className="text-xs font-bold font-mono uppercase tracking-wider text-black">

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { ROOT_DOMAIN } from "@printap/shared";
+import logoImg from "../assets/logo.png";
 import type { GlobalPrintEvent, ExtendedShop } from "../types";
 import { IconSearch, IconFilter } from "./Icons";
 
@@ -36,7 +37,9 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
       <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-zinc-200">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-black" />
+            <div className="w-6 h-6 rounded-lg bg-black border border-zinc-800 p-0.5 flex items-center justify-center shadow-xs">
+              <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
+            </div>
             <h2 className="text-lg font-bold text-black tracking-tight">
               Global Print Ledger & Transaction Log
             </h2>

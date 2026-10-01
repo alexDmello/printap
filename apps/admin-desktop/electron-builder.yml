@@ -1,0 +1,25 @@
+appId: in.mellod.printap.admin
+productName: Printap Admin Console
+electronVersion: 33.4.11
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+asar: true
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Printap Admin
+portable:
+  artifactName: "Printap-Admin-Portable-${version}.${ext}"

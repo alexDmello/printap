@@ -11,9 +11,17 @@
     "dev:desktop": "npm -w apps/desktop run dev",
     "build:web": "npm -w apps/web run build",
     "build:desktop": "npm -w apps/desktop run build",
-    "dist:desktop": "npm -w apps/desktop run dist"
+    "dist:desktop": "npm -w apps/desktop run dist",
+    "dev:admin-desktop": "npm -w apps/admin-desktop run dev",
+    "build:admin-desktop": "npm -w apps/admin-desktop run build",
+    "dist:admin-desktop": "npm -w apps/admin-desktop run dist"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@esbuild/win32-x64": "^0.21.5",
+    "@rollup/rollup-win32-x64-msvc": "^4.63.5",
+    "@tailwindcss/vite": "^4.3.3"
   }
 }

@@ -10,10 +10,11 @@ import {
   type ShopInfo,
   type ShopServiceItem,
   type ServiceUnit,
+  type ShopDailyAnalytics,
 } from "@printap/shared";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { AdminSidebar, type AdminTab } from "@/components/admin/AdminSidebar";
-import { AdminAnalytics, type PrintEvent } from "@/components/admin/AdminAnalytics";
+import { AdminAnalytics, type PrintEvent, type AdminOrder } from "@/components/admin/AdminAnalytics";
 import {
   IconMenu,
   IconCopy,
@@ -56,6 +57,8 @@ export default function ShopAdminPage() {
   // Data
   const [printers, setPrinters] = useState<PrinterAssignment[]>([]);
   const [printEvents, setPrintEvents] = useState<PrintEvent[]>([]);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [dailyStats, setDailyStats] = useState<ShopDailyAnalytics[]>([]);
   const [newPrinterName, setNewPrinterName] = useState("");
   const [newPrinterRole, setNewPrinterRole] = useState<"bw" | "color" | "both">("bw");
 
@@ -424,13 +427,37 @@ export default function ShopAdminPage() {
     if (printersData) setPrinters(printersData as PrinterAssignment[]);
 
     // Print Events
-    const { data: eventsData } = await supabase
+    const { data: eventsData, error: eventsErr } = await supabase
       .from("print_events")
       .select("*")
       .eq("shop_id", shopId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(1000);
     if (eventsData) setPrintEvents(eventsData as PrintEvent[]);
+    if (eventsErr) console.warn("[ShopAdmin] print_events fetch error:", eventsErr);
+
+    // Print Orders
+    const { data: ordersData, error: ordersErr } = await supabase
+      .from("print_orders")
+      .select("*")
+      .eq("shop_id", shopId)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (ordersData) setOrders(ordersData as AdminOrder[]);
+    if (ordersErr) console.warn("[ShopAdmin] print_orders fetch error:", ordersErr);
+
+    // Pre-aggregated Daily Analytics
+    try {
+      const { data: statsData } = await supabase
+        .from("shop_daily_analytics")
+        .select("*")
+        .eq("shop_id", shopId)
+        .order("analytics_date", { ascending: false })
+        .limit(90);
+      if (statsData) setDailyStats(statsData as ShopDailyAnalytics[]);
+    } catch (e) {
+      console.warn("[ShopAdmin] shop_daily_analytics fetch warning:", e);
+    }
   }, [shopId]);
 
   useEffect(() => {
@@ -1104,6 +1131,8 @@ export default function ShopAdminPage() {
             <AdminAnalytics
               shop={shop}
               printEvents={printEvents}
+              orders={orders}
+              dailyStats={dailyStats}
               priceBw={priceBw}
               priceColor={priceColor}
               onRefresh={loadShopData}

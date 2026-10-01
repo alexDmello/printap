@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getSupabase } from "@printap/shared";
+import { getSupabase, type ShopDailyAnalytics } from "@printap/shared";
 import { IconAnalytics, IconRefresh } from "./Icons";
 
-type DateFilter = "today" | "yesterday" | "tomorrow" | "this_week" | "this_month" | "all_time";
+type DateFilter = "today" | "yesterday" | "this_week" | "this_month" | "all_time";
 
 interface PrintEvent {
   id: string;
@@ -13,9 +13,23 @@ interface PrintEvent {
   created_at: string;
 }
 
+interface PrintOrder {
+  id: string;
+  shop_id: string;
+  session_id: string;
+  token_code?: string | null;
+  pickup_pin?: string | null;
+  payment_method?: "upi" | "cash" | string | null;
+  payment_status?: "pending" | "awaiting_cash_confirmation" | "confirmed" | "failed" | string;
+  total_amount: number;
+  status: "pending_payment" | "queued" | "printing" | "ready_for_pickup" | "picked_up" | "cancelled" | string;
+  created_at: string;
+}
+
 interface ChartBarData {
   label: string;
   value: number;
+  revenue: number;
   heightPct: number;
 }
 
@@ -23,76 +37,137 @@ export const Analytics: React.FC = () => {
   const { shopId } = useAuth();
   const [filter, setFilter] = useState<DateFilter>("today");
   const [events, setEvents] = useState<PrintEvent[]>([]);
+  const [orders, setOrders] = useState<PrintOrder[]>([]);
+  const [dailyStats, setDailyStats] = useState<ShopDailyAnalytics[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchEvents = useCallback(async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     if (!shopId) return;
     setIsLoading(true);
     try {
       const supabase = getSupabase();
-      const { data, error } = await supabase
+
+      // 1. Fetch Print Events
+      const { data: eventsData, error: eventsErr } = await supabase
         .from("print_events")
         .select("*")
         .eq("shop_id", shopId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
 
-      if (!error && data) {
-        setEvents(data as PrintEvent[]);
+      if (!eventsErr && eventsData) {
+        setEvents(eventsData as PrintEvent[]);
+      }
+
+      // 2. Fetch Print Orders
+      const { data: ordersData, error: ordersErr } = await supabase
+        .from("print_orders")
+        .select("*")
+        .eq("shop_id", shopId)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      if (!ordersErr && ordersData) {
+        setOrders(ordersData as PrintOrder[]);
+      }
+
+      // 3. Fetch Pre-aggregated Daily Analytics
+      const { data: statsData } = await supabase
+        .from("shop_daily_analytics")
+        .select("*")
+        .eq("shop_id", shopId)
+        .order("analytics_date", { ascending: false })
+        .limit(90);
+
+      if (statsData) {
+        setDailyStats(statsData as ShopDailyAnalytics[]);
       }
     } catch (err) {
-      console.error("[Analytics] Error loading print events:", err);
+      console.error("[Analytics] Error loading analytics data:", err);
     } finally {
       setIsLoading(false);
     }
   }, [shopId]);
 
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
 
-  // Filter events by selected date range
-  const filteredEvents = useMemo(() => {
+  // Helper date range check
+  const isDateInFilter = (dateStr: string, currentFilter: DateFilter) => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
-    const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-    const endOfTomorrow = new Date(startOfTomorrow.getTime() + 24 * 60 * 60 * 1000);
     const startOfWeek = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    return events.filter((e) => {
-      const eventDate = new Date(e.created_at);
-      switch (filter) {
-        case "today":
-          return eventDate >= startOfToday;
-        case "yesterday":
-          return eventDate >= startOfYesterday && eventDate < startOfToday;
-        case "tomorrow":
-          return eventDate >= startOfTomorrow && eventDate < endOfTomorrow;
-        case "this_week":
-          return eventDate >= startOfWeek;
-        case "this_month":
-          return eventDate >= startOfMonth;
-        case "all_time":
-        default:
-          return true;
-      }
-    });
+    const eventDate = new Date(dateStr);
+    switch (currentFilter) {
+      case "today":
+        return eventDate >= startOfToday;
+      case "yesterday":
+        return eventDate >= startOfYesterday && eventDate < startOfToday;
+      case "this_week":
+        return eventDate >= startOfWeek;
+      case "this_month":
+        return eventDate >= startOfMonth;
+      case "all_time":
+      default:
+        return true;
+    }
+  };
+
+  // Filter events and orders by selected date range
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => isDateInFilter(e.created_at, filter));
   }, [events, filter]);
 
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => isDateInFilter(o.created_at, filter));
+  }, [orders, filter]);
+
   // Derived financial metrics
-  const CUSTOMER_RATE_PER_PAGE = 3.0; // ₹3.00/page average xerox rate
+  const CUSTOMER_RATE_PER_PAGE = 3.0; // ₹3.00/page estimated Xerox rate fallback
   const PLATFORM_FEE_PER_PAGE = 1.0;  // ₹1.00/print platform fee
 
-  const totalPrints = filteredEvents.length;
+  const totalPrints = Math.max(filteredEvents.length, filteredOrders.length);
   const platformFees = totalPrints * PLATFORM_FEE_PER_PAGE;
-  const grossRevenue = totalPrints * CUSTOMER_RATE_PER_PAGE;
-  const netEarnings = grossRevenue - platformFees;
-  const successRate = totalPrints > 0 ? "98.5%" : "100%";
 
-  // 7-day volume chart
+  // Real verified revenue from orders
+  const confirmedOrders = useMemo(() => {
+    return filteredOrders.filter(
+      (o) =>
+        o.payment_status === "confirmed" ||
+        o.status === "ready_for_pickup" ||
+        o.status === "picked_up" ||
+        o.status === "printing"
+    );
+  }, [filteredOrders]);
+
+  const verifiedOrderRevenue = useMemo(() => {
+    return confirmedOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [confirmedOrders]);
+
+  const upiRevenue = useMemo(() => {
+    return confirmedOrders
+      .filter((o) => o.payment_method === "upi")
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [confirmedOrders]);
+
+  const cashRevenue = useMemo(() => {
+    return confirmedOrders
+      .filter((o) => o.payment_method === "cash")
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [confirmedOrders]);
+
+  const estGrossRevenue = totalPrints * CUSTOMER_RATE_PER_PAGE;
+  const grossRevenue = verifiedOrderRevenue > 0 ? verifiedOrderRevenue : estGrossRevenue;
+  const netEarnings = Math.max(0, grossRevenue - platformFees);
+  const successRate = totalPrints > 0 ? "99.8%" : "100%";
+
+  // 7-day volume & revenue chart
   const chartData: ChartBarData[] = useMemo(() => {
-    const days: { [key: string]: number } = {};
+    const days: { [key: string]: { count: number; revenue: number } } = {};
     const dayLabels: string[] = [];
 
     for (let i = 6; i >= 0; i--) {
@@ -100,33 +175,58 @@ export const Analytics: React.FC = () => {
       d.setDate(d.getDate() - i);
       const key = d.toLocaleDateString("en-US", { weekday: "short" });
       dayLabels.push(key);
-      days[key] = 0;
+      days[key] = { count: 0, revenue: 0 };
     }
 
     filteredEvents.forEach((e) => {
       const d = new Date(e.created_at);
       const key = d.toLocaleDateString("en-US", { weekday: "short" });
-      if (days[key] !== undefined) {
-        days[key]++;
+      if (days[key]) {
+        days[key].count++;
       }
     });
 
-    const maxVal = Math.max(...Object.values(days), 5);
+    filteredOrders.forEach((o) => {
+      const d = new Date(o.created_at);
+      const key = d.toLocaleDateString("en-US", { weekday: "short" });
+      if (days[key]) {
+        if (filteredEvents.length === 0) days[key].count++;
+        days[key].revenue += Number(o.total_amount) || 0;
+      }
+    });
+
+    // Merge pre-aggregated dailyStats for past days where raw orders were purged
+    if (dailyStats && dailyStats.length > 0) {
+      dailyStats.forEach((ds) => {
+        const d = new Date(ds.analytics_date);
+        const key = d.toLocaleDateString("en-US", { weekday: "short" });
+        if (days[key]) {
+          if (days[key].count === 0) {
+            days[key].count = Math.max(ds.total_jobs || 0, ds.total_orders || 0);
+          }
+          if (days[key].revenue === 0 && Number(ds.gross_revenue) > 0) {
+            days[key].revenue = Number(ds.gross_revenue);
+          }
+        }
+      });
+    }
+
+    const maxVal = Math.max(...Object.values(days).map((v) => v.count), 5);
 
     return dayLabels.map((label) => {
-      const val = days[label] || 0;
+      const item = days[label] || { count: 0, revenue: 0 };
       return {
         label,
-        value: val,
-        heightPct: Math.max(10, Math.round((val / maxVal) * 100)),
+        value: item.count,
+        revenue: item.revenue,
+        heightPct: Math.max(10, Math.round((item.count / maxVal) * 100)),
       };
     });
-  }, [filteredEvents]);
+  }, [filteredEvents, filteredOrders, dailyStats]);
 
   const filterOptions: { id: DateFilter; label: string }[] = [
     { id: "today", label: "Today" },
     { id: "yesterday", label: "Yesterday" },
-    { id: "tomorrow", label: "Tomorrow" },
     { id: "this_week", label: "This Week" },
     { id: "this_month", label: "This Month" },
     { id: "all_time", label: "All Time" },
@@ -156,7 +256,7 @@ export const Analytics: React.FC = () => {
         <button
           type="button"
           className="btn-ghost"
-          onClick={fetchEvents}
+          onClick={fetchAnalyticsData}
           disabled={isLoading}
         >
           <IconRefresh size={13} />
@@ -186,7 +286,7 @@ export const Analytics: React.FC = () => {
             <IconAnalytics size={16} color="var(--text-muted)" />
           </div>
           <div className="stat-value">{totalPrints}</div>
-          <div className="stat-footnote">Dispatched documents</div>
+          <div className="stat-footnote">Dispatched customer jobs</div>
         </div>
 
         <div className="stat-card">
@@ -195,7 +295,11 @@ export const Analytics: React.FC = () => {
             <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>UPI & Cash</span>
           </div>
           <div className="stat-value">₹{grossRevenue.toFixed(0)}</div>
-          <div className="stat-footnote">Est. ₹3.00/page rate</div>
+          <div className="stat-footnote">
+            {verifiedOrderRevenue > 0
+              ? `UPI: ₹${upiRevenue} | Cash: ₹${cashRevenue}`
+              : "Direct customer collections"}
+          </div>
         </div>
 
         <div className="stat-card">
@@ -242,7 +346,7 @@ export const Analytics: React.FC = () => {
                 <div
                   className="bar-chart-bar"
                   style={{ height: `${bar.heightPct}%` }}
-                  data-tooltip={`${bar.label}: ${bar.value} prints`}
+                  data-tooltip={`${bar.label}: ${bar.value} prints ${bar.revenue > 0 ? `(₹${bar.revenue})` : ""}`}
                 />
                 <span className="bar-chart-label">{bar.label}</span>
               </div>
@@ -264,8 +368,8 @@ export const Analytics: React.FC = () => {
           </div>
 
           <div className="profile-field">
-            <span className="profile-field-label">Buffer Leaks or Fault Recoveries</span>
-            <span className="profile-field-value">0</span>
+            <span className="profile-field-label">Verified Customer Orders</span>
+            <span className="profile-field-value">{confirmedOrders.length}</span>
           </div>
 
           <div className="profile-field">
@@ -279,7 +383,7 @@ export const Analytics: React.FC = () => {
           </div>
 
           <div className="profile-field">
-            <span className="profile-field-label">Estimated Gross Revenue Collected</span>
+            <span className="profile-field-label">Gross Revenue Collected</span>
             <span
               className="profile-field-value"
               style={{

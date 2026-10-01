@@ -3,43 +3,41 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   getSupabase,
-  getCustomerPrintUrl,
-  getShopCustomerUrl,
-  ROOT_DOMAIN,
-  SHOP_ADMIN_URL,
-  sanitizeSubdomain,
-  type ShopInfo,
+  DEFAULT_PLATFORM_SETTINGS,
 } from "@printap/shared";
-
-interface ExtendedShop extends ShopInfo {
-  printCount?: number;
-}
-
-interface GlobalPrintEvent {
-  id: string;
-  shop_id: string;
-  session_id: string;
-  fee_amount: number;
-  created_at: string;
-  shop_name?: string;
-  shop_slug?: string;
-}
+import { AdminSidebar, type AdminTab } from "./components/AdminSidebar";
+import { AdminHeader } from "./components/AdminHeader";
+import { BentoOverview, type ExtendedShop, type GlobalPrintEvent } from "./components/BentoOverview";
+import { AnalyticsView } from "./components/AnalyticsView";
+import { ShopsDirectoryView } from "./components/ShopsDirectoryView";
+import { GlobalLedgerView } from "./components/GlobalLedgerView";
+import { PricingEngineView } from "./components/PricingEngineView";
+import { SystemHealthView } from "./components/SystemHealthView";
+import { CreateShopModal } from "./components/CreateShopModal";
+import { EditShopModal } from "./components/EditShopModal";
 
 export default function PlatformAdminPage() {
   const [shops, setShops] = useState<ExtendedShop[]>([]);
   const [events, setEvents] = useState<GlobalPrintEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"shops" | "events" | "pricing" | "health">("shops");
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Global Platform Fee & GST State (stored in database)
   const [globalPlatformFee, setGlobalPlatformFee] = useState<number>(0.82);
   const [globalGstPercentage, setGlobalGstPercentage] = useState<number>(18);
   const [globalGstAmount, setGlobalGstAmount] = useState<number>(0.18);
-  const [globalTotalCharge, setGlobalTotalCharge] = useState<number>(1.00);
+  const [globalTotalCharge, setGlobalTotalCharge] = useState<number>(1.0);
   const [isSavingGlobalPricing, setIsSavingGlobalPricing] = useState(false);
   const [globalPricingMsg, setGlobalPricingMsg] = useState("");
 
+  // Modals
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingShop, setEditingShop] = useState<ExtendedShop | null>(null);
+
+  // Fee calculation helpers
   const handleGlobalFeeChange = (val: number) => {
     const fee = Math.max(0, Number(val) || 0);
     setGlobalPlatformFee(fee);
@@ -56,47 +54,13 @@ export default function PlatformAdminPage() {
     setGlobalTotalCharge(Math.round((globalPlatformFee + gst) * 100) / 100);
   };
 
-  // Create Shop Modal
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newSlug, setNewSlug] = useState("");
-  const [newUpi, setNewUpi] = useState("");
-  const [createError, setCreateError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Edit Shop Modal
-  const [editingShop, setEditingShop] = useState<ExtendedShop | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editSlug, setEditSlug] = useState("");
-  const [editUpi, setEditUpi] = useState("");
-  const [editPlatformFee, setEditPlatformFee] = useState<number>(0.82);
-  const [editGstPercentage, setEditGstPercentage] = useState<number>(18);
-  const [editGstAmount, setEditGstAmount] = useState<number>(0.18);
-  const [editTotalCharge, setEditTotalCharge] = useState<number>(1.00);
-  const [editError, setEditError] = useState("");
-
-  const handleEditFeeChange = (val: number) => {
-    const fee = Math.max(0, Number(val) || 0);
-    setEditPlatformFee(fee);
-    const gst = Math.round(fee * (editGstPercentage / 100) * 100) / 100;
-    setEditGstAmount(gst);
-    setEditTotalCharge(Math.round((fee + gst) * 100) / 100);
-  };
-
-  const handleEditGstChange = (val: number) => {
-    const pct = Math.max(0, Math.min(100, Number(val) || 0));
-    setEditGstPercentage(pct);
-    const gst = Math.round(editPlatformFee * (pct / 100) * 100) / 100;
-    setEditGstAmount(gst);
-    setEditTotalCharge(Math.round((editPlatformFee + gst) * 100) / 100);
-  };
-
-  const loadPlatformData = useCallback(async () => {
-    setLoading(true);
+  // Fetch Platform Data from Supabase
+  const loadPlatformData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsRefreshing(true);
     try {
       const supabase = getSupabase();
 
-      // Fetch global platform settings
+      // 1. Fetch global platform settings
       try {
         const { data: psData } = await supabase
           .from("platform_settings")
@@ -107,8 +71,14 @@ export default function PlatformAdminPage() {
         if (psData) {
           const pf = Number(psData.platform_fee) || 0.82;
           const gp = Number(psData.gst_percentage) || 18;
-          const ga = psData.gst_amount !== undefined ? Number(psData.gst_amount) : Math.round(pf * (gp / 100) * 100) / 100;
-          const tc = psData.total_charge !== undefined ? Number(psData.total_charge) : Math.round((pf + ga) * 100) / 100;
+          const ga =
+            psData.gst_amount !== undefined
+              ? Number(psData.gst_amount)
+              : Math.round(pf * (gp / 100) * 100) / 100;
+          const tc =
+            psData.total_charge !== undefined
+              ? Number(psData.total_charge)
+              : Math.round((pf + ga) * 100) / 100;
           setGlobalPlatformFee(pf);
           setGlobalGstPercentage(gp);
           setGlobalGstAmount(ga);
@@ -118,7 +88,7 @@ export default function PlatformAdminPage() {
         console.warn("Could not load platform_settings:", psErr);
       }
 
-      // Fetch all shops
+      // 2. Fetch all shops
       const { data: shopsData, error: shopsErr } = await supabase
         .from("shops")
         .select("*")
@@ -128,12 +98,12 @@ export default function PlatformAdminPage() {
         console.error("Failed to load shops:", shopsErr);
       }
 
-      // Fetch recent global print events
+      // 3. Fetch recent global print events (increased limit to 250 for richer analytics)
       const { data: eventsData, error: eventsErr } = await supabase
         .from("print_events")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(250);
 
       if (eventsErr) {
         console.error("Failed to load print events:", eventsErr);
@@ -172,6 +142,7 @@ export default function PlatformAdminPage() {
       console.error("Platform data error:", err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -184,8 +155,8 @@ export default function PlatformAdminPage() {
     const newStatus = shop.status === "active" ? "suspended" : "active";
     const confirmMsg =
       newStatus === "suspended"
-        ? `Are you sure you want to SUSPEND "${shop.name}"? Customer print access will be immediately blocked.`
-        : `Activate "${shop.name}"? Customer print page will resume accepting jobs.`;
+        ? `Are you sure you want to SUSPEND "${shop.name}"?\nCustomer print access will be immediately blocked via kill-switch.`
+        : `Reactivate "${shop.name}"?\nCustomer print page will resume accepting jobs immediately.`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -202,116 +173,6 @@ export default function PlatformAdminPage() {
       );
     } catch (err) {
       alert(`Failed to update status: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
-
-  // Auto slug generator when creating shop
-  const handleNameChange = (val: string) => {
-    setNewName(val);
-    if (!newSlug || newSlug === sanitizeSubdomain(newName)) {
-      setNewSlug(sanitizeSubdomain(val));
-    }
-  };
-
-  // Submit Create Shop
-  const handleCreateShop = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateError("");
-    if (!newName.trim() || !newUpi.trim()) {
-      setCreateError("Name and UPI VPA are required.");
-      return;
-    }
-
-    const cleanSlug = sanitizeSubdomain(newSlug || newName);
-    setIsSubmitting(true);
-
-    try {
-      const supabase = getSupabase();
-
-      // Check if slug taken
-      const { data: existing } = await supabase
-        .from("shops")
-        .select("id")
-        .eq("slug", cleanSlug)
-        .maybeSingle();
-
-      if (existing) {
-        setCreateError(`Subdomain slug "${cleanSlug}.${ROOT_DOMAIN}" is already taken.`);
-        setIsSubmitting(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("shops")
-        .insert({
-          name: newName.trim(),
-          slug: cleanSlug,
-          upi_vpa: newUpi.trim(),
-          status: "active",
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setShowCreateModal(false);
-      setNewName("");
-      setNewSlug("");
-      setNewUpi("");
-      loadPlatformData();
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Open Edit Modal
-  const openEditModal = (shop: ExtendedShop) => {
-    setEditingShop(shop);
-    setEditName(shop.name);
-    setEditSlug(shop.slug || sanitizeSubdomain(shop.name));
-    setEditUpi(shop.upi_vpa);
-    const pf = shop.platform_fee !== undefined && shop.platform_fee !== null ? Number(shop.platform_fee) : globalPlatformFee;
-    const gp = shop.gst_percentage !== undefined && shop.gst_percentage !== null ? Number(shop.gst_percentage) : globalGstPercentage;
-    const ga = shop.gst_amount !== undefined && shop.gst_amount !== null ? Number(shop.gst_amount) : Math.round(pf * (gp / 100) * 100) / 100;
-    const tc = shop.total_charge !== undefined && shop.total_charge !== null ? Number(shop.total_charge) : Math.round((pf + ga) * 100) / 100;
-    setEditPlatformFee(pf);
-    setEditGstPercentage(gp);
-    setEditGstAmount(ga);
-    setEditTotalCharge(tc);
-    setEditError("");
-  };
-
-  // Save Edit
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingShop) return;
-    setEditError("");
-
-    const cleanSlug = sanitizeSubdomain(editSlug);
-
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from("shops")
-        .update({
-          name: editName.trim(),
-          slug: cleanSlug,
-          upi_vpa: editUpi.trim(),
-          platform_fee: editPlatformFee,
-          gst_percentage: editGstPercentage,
-          gst_amount: editGstAmount,
-          total_charge: editTotalCharge,
-        })
-        .eq("id", editingShop.id);
-
-      if (error) throw error;
-
-      setEditingShop(null);
-      loadPlatformData();
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -345,11 +206,11 @@ export default function PlatformAdminPage() {
 
       setGlobalPricingMsg(
         applyToAllShops
-          ? "Global fee & GST saved to database and propagated to all shops!"
-          : "Global fee & GST settings saved to database successfully!"
+          ? "Global rates saved & propagated to all shops!"
+          : "Global fee settings saved to database successfully!"
       );
       setTimeout(() => setGlobalPricingMsg(""), 4000);
-      loadPlatformData();
+      loadPlatformData(true);
     } catch (err) {
       alert("Failed to save global pricing: " + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -357,661 +218,134 @@ export default function PlatformAdminPage() {
     }
   };
 
-  // Filtered shops
-  const filteredShops = shops.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.slug && s.slug.toLowerCase().includes(search.toLowerCase())) ||
-      s.upi_vpa.toLowerCase().includes(search.toLowerCase()) ||
-      s.id.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const activeCount = shops.filter((s) => s.status === "active").length;
-  const suspendedCount = shops.filter((s) => s.status === "suspended").length;
-  const totalRevenue = events.reduce((acc, ev) => acc + (Number(ev.fee_amount) || 1), 0);
-
   return (
-    <div className="min-h-screen flex flex-col px-6 py-6 max-w-7xl mx-auto w-full">
-      {/* Header */}
-      <header className="flex items-center justify-between py-4 border-b border-[--color-border]/60 mb-6 flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="Printap"
-            className="w-11 h-11 rounded-2xl object-cover shadow-lg border border-black/10"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-[--color-foreground]">
-                Printap Platform Console
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
-                admin.{ROOT_DOMAIN}
-              </span>
-            </div>
-            <p className="text-xs text-[--color-muted]">
-              Global Infrastructure, Shop Management & Kill-Switch Controls
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn-primary px-4 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-2"
-          >
-            <span>+</span> Register New Shop
-          </button>
-          <button
-            onClick={loadPlatformData}
-            className="glass px-3.5 py-2.5 rounded-xl text-xs text-[--color-muted] hover:text-[--color-foreground] transition"
-            title="Refresh network data"
-          >
-            ↻ Refresh
-          </button>
-        </div>
-      </header>
-
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="glass rounded-2xl p-5 glow-sm">
-          <div className="text-xs text-[--color-muted] mb-1">Total Shops</div>
-          <div className="text-2xl font-bold text-[--color-foreground]">{shops.length}</div>
-          <div className="text-[11px] text-[--color-muted] mt-1">
-            Registered terminals on platform
-          </div>
-        </div>
-
-        <div className="glass rounded-2xl p-5 glow-sm">
-          <div className="text-xs text-[--color-muted] mb-1">Active Counters</div>
-          <div className="text-2xl font-bold text-emerald-400">{activeCount}</div>
-          <div className="text-[11px] text-emerald-500/70 mt-1">Accepting customer prints</div>
-        </div>
-
-        <div className="glass rounded-2xl p-5 glow-sm">
-          <div className="text-xs text-[--color-muted] mb-1">Suspended Counters</div>
-          <div className="text-2xl font-bold text-amber-400">{suspendedCount}</div>
-          <div className="text-[11px] text-amber-500/70 mt-1">Kill-switched (inaccessible)</div>
-        </div>
-
-        <div className="glass rounded-2xl p-5 glow-sm">
-          <div className="text-xs text-[--color-muted] mb-1">Total Network Prints</div>
-          <div className="text-2xl font-bold text-indigo-400">{events.length}</div>
-          <div className="text-[11px] text-[--color-muted] mt-1">
-            Platform Fee: ₹{totalRevenue.toFixed(2)}
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#f8fafc] text-[--color-foreground] relative overflow-x-hidden">
+      {/* ─── Ambient Luminous Backdrop (Refracted by frosted glass) ─── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-[128px]" />
+        <div className="absolute top-1/3 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-[128px]" />
+        <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-purple-500/10 rounded-full blur-[128px]" />
       </div>
 
-      {/* Nav Tabs */}
-      <nav className="flex items-center gap-2 mb-6">
-        <button
-          onClick={() => setActiveTab("shops")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-            activeTab === "shops"
-              ? "bg-[--color-accent] text-white"
-              : "glass text-[--color-muted] hover:text-[--color-foreground]"
-          }`}
-        >
-          Shops Directory & Controls ({shops.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("events")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-            activeTab === "events"
-              ? "bg-[--color-accent] text-white"
-              : "glass text-[--color-muted] hover:text-[--color-foreground]"
-          }`}
-        >
-          Global Print Ledger ({events.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("pricing")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-            activeTab === "pricing"
-              ? "bg-[--color-accent] text-white"
-              : "glass text-[--color-muted] hover:text-[--color-foreground]"
-          }`}
-        >
-          💰 Platform Fee & GST ({`₹${globalTotalCharge.toFixed(2)}`})
-        </button>
-        <button
-          onClick={() => setActiveTab("health")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-            activeTab === "health"
-              ? "bg-[--color-accent] text-white"
-              : "glass text-[--color-muted] hover:text-[--color-foreground]"
-          }`}
-        >
-          Routing & System Health
-        </button>
-      </nav>
+      {/* ─── Main Shell Layout ─── */}
+      <div className="relative z-10 flex min-h-screen p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto gap-6">
+        {/* Sleek Frosted Glass Sidebar */}
+        <AdminSidebar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          shopsCount={shops.length}
+          eventsCount={events.length}
+          globalTotalCharge={globalTotalCharge}
+          onOpenCreateModal={() => setShowCreateModal(true)}
+          onRefresh={() => loadPlatformData()}
+          isRefreshing={isRefreshing}
+          isOpenMobile={isMobileNavOpen}
+          onCloseMobile={() => setIsMobileNavOpen(false)}
+        />
 
-      {/* TAB 1: SHOPS DIRECTORY & KILL-SWITCH */}
-      {activeTab === "shops" && (
-        <div className="space-y-4 animate-fade-in-up">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <input
-              type="text"
-              placeholder="Search shop by name, slug, UPI, or UUID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="max-w-md w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground] placeholder-[--color-muted]"
-            />
-            <span className="text-xs text-[--color-muted]">
-              Showing {filteredShops.length} of {shops.length} shops
-            </span>
-          </div>
+        {/* Content View Area */}
+        <main className="flex-1 min-w-0 flex flex-col">
+          <AdminHeader
+            activeTab={activeTab}
+            onOpenMobileNav={() => setIsMobileNavOpen(true)}
+            onOpenCreateModal={() => setShowCreateModal(true)}
+            onRefresh={() => loadPlatformData()}
+            isRefreshing={isRefreshing}
+            totalShops={shops.length}
+          />
 
-          <div className="glass rounded-2xl overflow-hidden border border-[--color-border]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[--color-border] bg-[--color-surface-light]/40 text-[--color-muted]">
-                    <th className="py-3 px-4 font-semibold">Shop Name</th>
-                    <th className="py-3 px-4 font-semibold">Subdomain</th>
-                    <th className="py-3 px-4 font-semibold">Settlement UPI</th>
-                    <th className="py-3 px-4 font-semibold">Status / Kill-Switch</th>
-                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[--color-border]/40">
-                  {filteredShops.map((s) => {
-                    const shopUrl = getShopCustomerUrl(s);
-                    const isSuspended = s.status === "suspended";
-
-                    return (
-                      <tr key={s.id} className="hover:bg-[--color-surface-light]/20 transition">
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-[--color-foreground]">{s.name}</div>
-                          <div className="font-mono text-[10px] text-[--color-muted]">{s.id}</div>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <a
-                            href={shopUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-mono text-indigo-400 hover:underline flex items-center gap-1"
-                          >
-                            <span>{s.slug || s.id.slice(0, 8)}.{ROOT_DOMAIN}</span>
-                            <span className="text-[10px]">↗</span>
-                          </a>
-                        </td>
-
-                        <td className="py-3 px-4 font-mono text-[--color-foreground]/90">
-                          {s.upi_vpa}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => handleToggleStatus(s)}
-                            className={`px-3 py-1 rounded-full text-[11px] font-semibold transition ${
-                              isSuspended
-                                ? "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
-                                : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
-                            }`}
-                            title="Click to toggle kill-switch"
-                          >
-                            {isSuspended ? "⛔ Suspended (Click to activate)" : "● Active (Click to suspend)"}
-                          </button>
-                        </td>
-
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openEditModal(s)}
-                              className="px-2.5 py-1 rounded-lg text-xs glass hover:bg-[--color-surface-light] transition"
-                            >
-                              Edit
-                            </button>
-                            <a
-                              href={shopUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2.5 py-1 rounded-lg text-xs glass text-indigo-400 hover:bg-[--color-surface-light] transition"
-                            >
-                              Open Counter
-                            </a>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: GLOBAL PRINT LEDGER */}
-      {activeTab === "events" && (
-        <div className="space-y-4 animate-fade-in-up">
-          <div className="glass rounded-2xl p-6">
-            <h2 className="text-sm font-semibold mb-4 text-[--color-foreground]">
-              Real-time Print Events Stream (All Shops)
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[--color-border] text-[--color-muted]">
-                    <th className="pb-3 font-medium">Session ID</th>
-                    <th className="pb-3 font-medium">Shop Name</th>
-                    <th className="pb-3 font-medium">Subdomain</th>
-                    <th className="pb-3 font-medium">Platform Fee</th>
-                    <th className="pb-3 font-medium">Timestamp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[--color-border]/40">
-                  {events.map((ev) => (
-                    <tr key={ev.id}>
-                      <td className="py-3 font-mono text-[--color-foreground]">
-                        #{ev.session_id.slice(0, 8)}
-                      </td>
-                      <td className="py-3 font-medium text-[--color-foreground]">
-                        {ev.shop_name}
-                      </td>
-                      <td className="py-3 font-mono text-indigo-400">
-                        {ev.shop_slug}.{ROOT_DOMAIN}
-                      </td>
-                      <td className="py-3 font-mono text-emerald-400">
-                        ₹{Number(ev.fee_amount || 1).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-[--color-muted]">
-                        {new Date(ev.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: SYSTEM & ROUTING HEALTH */}
-      {activeTab === "health" && (
-        <div className="space-y-6 animate-fade-in-up">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="glass rounded-2xl p-6 glow-sm">
-              <h3 className="text-sm font-bold text-[--color-foreground] mb-4">
-                Subdomain Architecture ({ROOT_DOMAIN})
-              </h3>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Landing & Marketing</span>
-                  <span className="font-mono text-indigo-400">www.{ROOT_DOMAIN}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Shop Owner Portal</span>
-                  <span className="font-mono text-indigo-400">shop.{ROOT_DOMAIN}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Platform Admin Console</span>
-                  <span className="font-mono text-indigo-400">admin.{ROOT_DOMAIN}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Dynamic Shop Counters</span>
-                  <span className="font-mono text-emerald-400">*.{ROOT_DOMAIN}</span>
-                </div>
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-24 glass-panel rounded-3xl">
+              <div className="w-10 h-10 border-4 border-black/10 border-t-black rounded-full animate-spin mb-4" />
+              <div className="text-xs font-semibold text-[--color-muted]">
+                Synchronizing decentralized mesh telemetry...
               </div>
             </div>
-
-            <div className="glass rounded-2xl p-6 glow-sm">
-              <h3 className="text-sm font-bold text-[--color-foreground] mb-4">
-                Platform Services Status
-              </h3>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Supabase Database & Auth</span>
-                  <span className="text-emerald-400 font-semibold">● Connected</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Supabase Realtime Signaling</span>
-                  <span className="text-emerald-400 font-semibold">● Operational</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-[--color-border]">
-                  <span className="text-[--color-muted]">Peer-to-Peer WebRTC Pipeline</span>
-                  <span className="text-emerald-400 font-semibold">● Active (Zero Cloud Storage)</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-[--color-muted]">Localhost Strict Ban</span>
-                  <span className="text-emerald-400 font-semibold">✓ Enforced ({ROOT_DOMAIN} Only)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: GLOBAL PLATFORM FEE & GST SETTINGS */}
-      {activeTab === "pricing" && (
-        <div className="space-y-6 animate-fade-in-up">
-          <div className="glass rounded-2xl p-6 glow-sm border border-[--color-border]/60">
-            <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-              <div>
-                <h3 className="text-base font-bold text-[--color-foreground]">
-                  Global Platform Convenience Fee & GST Surcharge
-                </h3>
-                <p className="text-xs text-[--color-muted] mt-1 max-w-xl">
-                  Configure the global base fee and tax rate charged to customers per print session. Values are stored in the database (`platform_settings`) and applied across all customer touchpoints.
-                </p>
-              </div>
-
-              {globalPricingMsg && (
-                <span className="text-xs font-semibold text-emerald-400 animate-fade-in-up">
-                  ✓ {globalPricingMsg}
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {/* Input 1: Platform Fee */}
-              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
-                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
-                  Base Platform Fee (₹)
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-[--color-muted]">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={globalPlatformFee}
-                    onChange={(e) => handleGlobalFeeChange(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
-                  Net platform convenience fee
-                </span>
-              </div>
-
-              {/* Input 2: GST Percentage */}
-              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
-                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
-                  GST Percentage (%)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="100"
-                    value={globalGstPercentage}
-                    onChange={(e) => handleGlobalGstChange(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500 text-center"
-                  />
-                  <span className="text-sm font-bold text-[--color-muted]">%</span>
-                </div>
-                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
-                  Tax rate percentage
-                </span>
-              </div>
-
-              {/* Auto-calc Box 1: Calculated GST */}
-              <div className="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/20 flex flex-col justify-between">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
-                  Auto-Calculated GST
-                </div>
-                <div className="text-2xl font-black font-mono text-[--color-foreground] my-1">
-                  ₹{globalGstAmount.toFixed(2)}
-                </div>
-                <div className="text-[10px] text-[--color-muted]">
-                  {globalGstPercentage}% on ₹{globalPlatformFee.toFixed(2)}
-                </div>
-              </div>
-
-              {/* Auto-calc Box 2: Total Customer Fee */}
-              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/30 flex flex-col justify-between">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                  Total Customer Surcharge
-                </div>
-                <div className="text-2xl font-black font-mono text-emerald-400 my-1">
-                  ₹{globalTotalCharge.toFixed(2)}
-                </div>
-                <div className="text-[10px] text-emerald-500/80">
-                  ₹{globalPlatformFee.toFixed(2)} fee + ₹{globalGstAmount.toFixed(2)} GST
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between flex-wrap gap-4 pt-4 border-t border-[--color-border]/50">
-              <div className="text-xs text-[--color-muted]">
-                Customer display: <strong className="text-[--color-foreground]">₹{globalTotalCharge.toFixed(2)}</strong> (₹{globalPlatformFee.toFixed(2)} + ₹{globalGstAmount.toFixed(2)} GST)
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleSaveGlobalPricing(false)}
-                  disabled={isSavingGlobalPricing}
-                  className="btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-lg"
-                >
-                  {isSavingGlobalPricing ? "Saving..." : "Save Global Settings"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveGlobalPricing(true)}
-                  disabled={isSavingGlobalPricing}
-                  className="glass px-4 py-2.5 rounded-xl text-xs font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-500/30"
-                  title="Update platform_settings and update all active shops to these values"
-                >
-                  Save & Apply to All Shops
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE SHOP MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-strong rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-[--color-border]">
-            <h2 className="text-lg font-bold text-[--color-foreground] mb-2">
-              Register New Shop
-            </h2>
-            <p className="text-xs text-[--color-muted] mb-5">
-              Creates a dedicated subdomain under {ROOT_DOMAIN} with instant WebRTC signaling.
-            </p>
-
-            <form onSubmit={handleCreateShop} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
-                  Shop Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Rahul Xerox & Printing"
-                  value={newName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
-                  required
+          ) : (
+            <div className="flex-1">
+              {/* Tab 1: Bento Overview */}
+              {activeTab === "overview" && (
+                <BentoOverview
+                  shops={shops}
+                  events={events}
+                  globalPlatformFee={globalPlatformFee}
+                  globalGstPercentage={globalGstPercentage}
+                  globalGstAmount={globalGstAmount}
+                  globalTotalCharge={globalTotalCharge}
+                  onNavigateTab={setActiveTab}
+                  onOpenCreateModal={() => setShowCreateModal(true)}
+                  onToggleShopStatus={handleToggleStatus}
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
-                  Subdomain Slug
-                </label>
-                <div className="flex items-center rounded-xl bg-[--color-surface-light] border border-[--color-border] px-3">
-                  <input
-                    type="text"
-                    placeholder="rahul-xerox"
-                    value={newSlug}
-                    onChange={(e) => setNewSlug(sanitizeSubdomain(e.target.value))}
-                    className="flex-1 py-2.5 bg-transparent text-xs text-[--color-foreground] font-mono outline-none"
-                    required
-                  />
-                  <span className="text-xs text-[--color-muted] font-mono">.{ROOT_DOMAIN}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
-                  UPI VPA (Settlement Account)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. rahul@okaxis or 9876543210@paytm"
-                  value={newUpi}
-                  onChange={(e) => setNewUpi(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
-                  required
-                />
-              </div>
-
-              {createError && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-                  {createError}
-                </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs text-[--color-muted] hover:text-[--color-foreground]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn-primary px-5 py-2 rounded-xl text-xs font-semibold text-white"
-                >
-                  {isSubmitting ? "Deploying..." : "Create & Deploy Subdomain"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* EDIT SHOP MODAL */}
-      {editingShop && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-strong rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-[--color-border]">
-            <h2 className="text-lg font-bold text-[--color-foreground] mb-2">
-              Edit Shop Details
-            </h2>
-            <p className="text-xs text-[--color-muted] mb-5">
-              Terminal UUID: {editingShop.id}
-            </p>
-
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
-                  Shop Name
-                </label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
-                  required
+              {/* Tab 2: Analytics & Trends (Requested by user!) */}
+              {activeTab === "analytics" && (
+                <AnalyticsView
+                  shops={shops}
+                  events={events}
+                  globalPlatformFee={globalPlatformFee}
+                  globalGstPercentage={globalGstPercentage}
+                  globalGstAmount={globalGstAmount}
+                  globalTotalCharge={globalTotalCharge}
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
-                  Subdomain Slug
-                </label>
-                <div className="flex items-center rounded-xl bg-[--color-surface-light] border border-[--color-border] px-3">
-                  <input
-                    type="text"
-                    value={editSlug}
-                    onChange={(e) => setEditSlug(sanitizeSubdomain(e.target.value))}
-                    className="flex-1 py-2.5 bg-transparent text-xs text-[--color-foreground] font-mono outline-none"
-                    required
-                  />
-                  <span className="text-xs text-[--color-muted] font-mono">.{ROOT_DOMAIN}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
-                  UPI VPA
-                </label>
-                <input
-                  type="text"
-                  value={editUpi}
-                  onChange={(e) => setEditUpi(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
-                  required
-                />
-              </div>
-
-              {/* Shop Platform Fee & GST Configuration */}
-              <div className="p-3.5 rounded-2xl bg-[--color-surface-light] border border-[--color-border]/60 space-y-3">
-                <div className="text-xs font-bold text-[--color-foreground] flex items-center justify-between">
-                  <span>Platform Fee & GST Surcharge</span>
-                  <span className="text-[10px] text-emerald-400 font-mono font-semibold">
-                    Total: ₹{editTotalCharge.toFixed(2)}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] text-[--color-muted] mb-1">
-                      Base Platform Fee (₹)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={editPlatformFee}
-                      onChange={(e) => handleEditFeeChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[--color-surface] border border-[--color-border] text-xs font-mono font-bold text-[--color-foreground]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-[--color-muted] mb-1">
-                      GST (%)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="100"
-                      value={editGstPercentage}
-                      onChange={(e) => handleEditGstChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[--color-surface] border border-[--color-border] text-xs font-mono font-bold text-[--color-foreground] text-center"
-                    />
-                  </div>
-                </div>
-                <div className="text-[10px] text-[--color-muted] flex justify-between pt-1 border-t border-[--color-border]/40">
-                  <span>Auto-Tax: ₹{editGstAmount.toFixed(2)}</span>
-                  <span>Customer Pays: ₹{editTotalCharge.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {editError && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-                  {editError}
-                </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setEditingShop(null)}
-                  className="px-4 py-2 rounded-xl text-xs text-[--color-muted] hover:text-[--color-foreground]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary px-5 py-2 rounded-xl text-xs font-semibold text-white"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              {/* Tab 3: Shops Directory & Kill-Switch */}
+              {activeTab === "shops" && (
+                <ShopsDirectoryView
+                  shops={shops}
+                  search={search}
+                  onSearchChange={setSearch}
+                  onOpenCreateModal={() => setShowCreateModal(true)}
+                  onOpenEditModal={(shop) => setEditingShop(shop)}
+                  onToggleStatus={handleToggleStatus}
+                />
+              )}
+
+              {/* Tab 4: Global Print Ledger */}
+              {activeTab === "ledger" && (
+                <GlobalLedgerView
+                  events={events}
+                  globalTotalCharge={globalTotalCharge}
+                />
+              )}
+
+              {/* Tab 5: Fee & GST Engine */}
+              {activeTab === "pricing" && (
+                <PricingEngineView
+                  globalPlatformFee={globalPlatformFee}
+                  globalGstPercentage={globalGstPercentage}
+                  globalGstAmount={globalGstAmount}
+                  globalTotalCharge={globalTotalCharge}
+                  onFeeChange={handleGlobalFeeChange}
+                  onGstChange={handleGlobalGstChange}
+                  onSavePricing={handleSaveGlobalPricing}
+                  isSaving={isSavingGlobalPricing}
+                  saveMsg={globalPricingMsg}
+                />
+              )}
+
+              {/* Tab 6: System & Routing Health */}
+              {activeTab === "health" && <SystemHealthView />}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ─── Modals ─── */}
+      <CreateShopModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onShopCreated={() => loadPlatformData(true)}
+      />
+
+      <EditShopModal
+        shop={editingShop}
+        onClose={() => setEditingShop(null)}
+        onShopUpdated={() => loadPlatformData(true)}
+        globalPlatformFee={globalPlatformFee}
+        globalGstPercentage={globalGstPercentage}
+      />
     </div>
   );
 }

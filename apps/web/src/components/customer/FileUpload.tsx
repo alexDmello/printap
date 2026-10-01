@@ -4,14 +4,8 @@ import React, { useState, useCallback, useRef } from "react";
 import type { UploadedDocument, DocumentType, PrintSettings } from "@printap/shared";
 import { DEFAULT_PRINT_SETTINGS } from "@printap/shared";
 
-const ACCEPTED_TYPES: Record<string, DocumentType> = {
-  "application/pdf": "pdf",
-  "image/png": "image",
-  "image/jpeg": "image",
-  "image/webp": "image",
-};
-
-const ACCEPTED_EXTENSIONS = ".pdf,.jpg,.jpeg,.png,.webp";
+const ACCEPTED_EXTENSIONS =
+  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.jpg,.jpeg,.png,.webp,.gif,.bmp,.svg,.tiff,image/*,text/*,application/*";
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 function formatBytes(bytes: number): string {
@@ -20,31 +14,197 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(type: DocumentType): React.ReactNode {
-  if (type === "pdf") {
-    return (
-      <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-      </svg>
-    );
+export function detectDocumentType(file: File): DocumentType {
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+
+  // 1. PDF
+  if (mime === "application/pdf" || name.endsWith(".pdf")) {
+    return "pdf";
   }
-  return (
-    <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-    </svg>
-  );
+
+  // 2. Images
+  if (
+    mime.startsWith("image/") ||
+    /\.(jpe?g|png|webp|gif|bmp|svg|tiff?|ico|heic|avif)$/i.test(name)
+  ) {
+    return "image";
+  }
+
+  // 3. Word / Documents
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/msword" ||
+    mime === "application/vnd.oasis.opendocument.text" ||
+    mime === "application/rtf" ||
+    /\.(docx?|rtf|odt|pages|wps)$/i.test(name)
+  ) {
+    return "doc";
+  }
+
+  // 4. Spreadsheets
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mime === "application/vnd.ms-excel" ||
+    mime === "application/vnd.oasis.opendocument.spreadsheet" ||
+    mime === "text/csv" ||
+    /\.(xlsx?|csv|ods|numbers|tsv)$/i.test(name)
+  ) {
+    return "sheet";
+  }
+
+  // 5. Presentations
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    mime === "application/vnd.ms-powerpoint" ||
+    mime === "application/vnd.oasis.opendocument.presentation" ||
+    /\.(pptx?|odp|key)$/i.test(name)
+  ) {
+    return "presentation";
+  }
+
+  // 6. Text / Code / Notes
+  if (
+    mime.startsWith("text/") ||
+    /\.(txt|md|log|json|xml|html?|yaml|yml)$/i.test(name)
+  ) {
+    return "text";
+  }
+
+  return "other";
+}
+
+function getFileIcon(type: DocumentType): React.ReactNode {
+  switch (type) {
+    case "pdf":
+      return (
+        <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+        </svg>
+      );
+    case "doc":
+      return (
+        <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+          <path fill="#fff" d="M7 8h6v1.5H7V8zm0 3h6v1.5H7V11zm0 3h4v1.5H7V14z" />
+        </svg>
+      );
+    case "sheet":
+      return (
+        <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+          <path fill="#fff" d="M6 8h3v2H6V8zm5 0h3v2h-3V8zm-5 4h3v2H6v-2zm5 0h3v2h-3v-2z" />
+        </svg>
+      );
+    case "presentation":
+      return (
+        <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 2v6h10V6H5zm3 9h4v2H8v-2z" clipRule="evenodd" />
+        </svg>
+      );
+    case "image":
+      return (
+        <svg className="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+        </svg>
+      );
+    case "text":
+      return (
+        <svg className="w-5 h-5 text-zinc-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+          <path stroke="#fff" strokeLinecap="round" strokeWidth="1.5" d="M7 8h6M7 11h6M7 14h4" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+        </svg>
+      );
+  }
 }
 
 /**
  * Parses PDF page count from the file's binary header.
- * Uses a lightweight regex approach on the first/last chunks.
  */
 async function parsePdfPageCount(file: File): Promise<number> {
   try {
     const text = await file.text();
-    // Match /Type /Page (not /Pages) entries
     const matches = text.match(/\/Type\s*\/Page[^s]/g);
-    return matches ? matches.length : 1;
+    return matches && matches.length > 0 ? matches.length : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * Parses Word (.docx) page count from internal XML metadata or size.
+ */
+async function parseDocxPageCount(file: File): Promise<number> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const text = decoder.decode(buffer);
+    const match = text.match(/<Pages>(\d+)<\/Pages>/);
+    if (match && match[1]) {
+      const p = parseInt(match[1], 10);
+      if (p > 0) return p;
+    }
+    return Math.max(1, Math.ceil(file.size / (35 * 1024)));
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * Parses PowerPoint (.pptx) slide count from internal XML metadata.
+ */
+async function parsePptxSlideCount(file: File): Promise<number> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const text = decoder.decode(buffer);
+    const match = text.match(/<Slides>(\d+)<\/Slides>/);
+    if (match && match[1]) {
+      const p = parseInt(match[1], 10);
+      if (p > 0) return p;
+    }
+    const slideMatches = text.match(/ppt\/slides\/slide\d+\.xml/g);
+    if (slideMatches && slideMatches.length > 0) {
+      return new Set(slideMatches).size;
+    }
+    return Math.max(1, Math.ceil(file.size / (150 * 1024)));
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * Parses text file page count based on ~55 lines per A4 page.
+ */
+async function parseTextPageCount(file: File): Promise<number> {
+  try {
+    const text = await file.text();
+    const lines = text.split("\n").length;
+    return Math.max(1, Math.ceil(lines / 55));
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * Parses spreadsheet sheet count.
+ */
+async function parseSheetCount(file: File): Promise<number> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const text = decoder.decode(buffer);
+    const sheetMatches = text.match(/<sheet\s+name=/g);
+    if (sheetMatches && sheetMatches.length > 0) {
+      return sheetMatches.length;
+    }
+    return 1;
   } catch {
     return 1;
   }
@@ -78,21 +238,27 @@ export default function FileUpload({
       setIsProcessing(true);
 
       for (const file of files) {
-        const docType = ACCEPTED_TYPES[file.type];
-        if (!docType) {
-          onError(`"${file.name}" is not a supported file type (PDF, JPG, PNG, WEBP)`);
-          hasError = true;
-          continue;
-        }
         if (file.size > MAX_FILE_SIZE) {
           onError(`"${file.name}" exceeds the 50 MB limit`);
           hasError = true;
           continue;
         }
 
+        const docType = detectDocumentType(file);
+
         let pageCount = 1;
         if (docType === "pdf") {
           pageCount = await parsePdfPageCount(file);
+        } else if (docType === "doc") {
+          pageCount = await parseDocxPageCount(file);
+        } else if (docType === "presentation") {
+          pageCount = await parsePptxSlideCount(file);
+        } else if (docType === "sheet") {
+          pageCount = await parseSheetCount(file);
+        } else if (docType === "text") {
+          pageCount = await parseTextPageCount(file);
+        } else {
+          pageCount = 1;
         }
 
         // Generate thumbnail for images
@@ -156,7 +322,7 @@ export default function FileUpload({
       <div className="glass rounded-2xl p-6 glow-sm">
         <h2 className="text-base font-semibold mb-1">Upload your documents</h2>
         <p className="text-xs text-[--color-muted] mb-5">
-          PDFs & images up to 50 MB each · Multiple files supported
+          PDFs, Word docs, Excel sheets, images & all document types · Multiple files supported
         </p>
 
         {/* Drop zone */}
@@ -267,7 +433,11 @@ export default function FileUpload({
                 <p className="text-sm font-medium truncate">{doc.file.name}</p>
                 <p className="text-[11px] text-[--color-muted]">
                   {formatBytes(doc.file.size)}
-                  {doc.type === "pdf" && ` · ${doc.pageCount} ${doc.pageCount === 1 ? "page" : "pages"}`}
+                  {doc.type === "presentation"
+                    ? ` · ${doc.pageCount} ${doc.pageCount === 1 ? "slide" : "slides"}`
+                    : doc.type === "sheet"
+                    ? ` · ${doc.pageCount} ${doc.pageCount === 1 ? "sheet" : "sheets"}`
+                    : ` · ${doc.pageCount} ${doc.pageCount === 1 ? "page" : "pages"}`}
                 </p>
               </div>
               <button

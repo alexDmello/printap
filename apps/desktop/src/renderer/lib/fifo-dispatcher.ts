@@ -11,7 +11,7 @@
  */
 
 import type { PrintSettings } from "@printap/shared";
-import type { PrinterAssignment } from "../types";
+import type { PrinterAssignment } from "../components/PrintersControl";
 
 export interface ReceivedJobFile {
   fileId?: string;

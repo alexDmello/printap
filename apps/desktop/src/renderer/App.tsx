@@ -776,10 +776,10 @@ function ShopAdminShell(): React.ReactElement {
                 settings: {
                   copies: 1,
                   colorMode: "bw",
-                  orientation: "portrait",
+                  duplex: "single",
+                  pagesPerSheet: 1,
                   pageFit: "fit",
-                  paperSize: "a4",
-                  pagesToPrint: "all",
+                  orientation: "portrait",
                 },
                 buffer,
               },

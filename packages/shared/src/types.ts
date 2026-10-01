@@ -31,9 +31,14 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   orientation: "portrait",
 };
 
-// ─── Uploaded Document ───
-
-export type DocumentType = "pdf" | "image";
+export type DocumentType =
+  | "pdf"
+  | "image"
+  | "doc"
+  | "sheet"
+  | "presentation"
+  | "text"
+  | "other";
 
 export interface UploadedDocument {
   /** Client-side unique ID for this document in the batch */

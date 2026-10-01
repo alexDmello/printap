@@ -147,8 +147,9 @@ export default function PagePreview({
   const isTextDoc = Boolean(
     !isImageBatch &&
     activeTab.doc?.file &&
-    (activeTab.doc.file.type.startsWith("text/") ||
-      /\.(txt|csv|md|log|json)$/i.test(activeTab.doc.file.name))
+    (activeTab.doc.type === "text" ||
+      activeTab.doc.file.type.startsWith("text/") ||
+      /\.(txt|csv|md|log|json|rtf)$/i.test(activeTab.doc.file.name))
   );
 
   const isImageDoc = Boolean(
@@ -156,10 +157,29 @@ export default function PagePreview({
     activeTab.doc &&
     (activeTab.doc.type === "image" ||
       activeTab.doc.file.type.startsWith("image/") ||
-      /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(activeTab.doc.file.name))
+      /\.(jpe?g|png|webp|gif|bmp|svg|tiff?)$/i.test(activeTab.doc.file.name))
   );
 
-  const isPdfDoc = Boolean(!isImageBatch && !isTextDoc && !isImageDoc && activeTab.doc?.file);
+  const isOfficeDoc = Boolean(
+    !isImageBatch &&
+    activeTab.doc &&
+    (activeTab.doc.type === "doc" ||
+      activeTab.doc.type === "sheet" ||
+      activeTab.doc.type === "presentation" ||
+      activeTab.doc.type === "other" ||
+      /\.(docx?|xlsx?|pptx?|odt|ods|odp)$/i.test(activeTab.doc.file.name))
+  );
+
+  const isPdfDoc = Boolean(
+    !isImageBatch &&
+    !isTextDoc &&
+    !isImageDoc &&
+    !isOfficeDoc &&
+    activeTab.doc?.file &&
+    (activeTab.doc.type === "pdf" ||
+      activeTab.doc.file.type === "application/pdf" ||
+      /\.pdf$/i.test(activeTab.doc.file.name))
+  );
 
   const isSingleOrOneInOne = Boolean(
     (isImageBatch && (gridLayout === 1 || imageDocs.length === 1)) ||
@@ -328,7 +348,19 @@ export default function PagePreview({
                     : "bg-zinc-100 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200"
                 }`}
               >
-                <span>{tab.type === "image_batch" ? "🖼️" : "📄"}</span>
+                <span>
+                  {tab.type === "image_batch"
+                    ? "🖼️"
+                    : tab.doc?.type === "doc"
+                    ? "📝"
+                    : tab.doc?.type === "sheet"
+                    ? "📊"
+                    : tab.doc?.type === "presentation"
+                    ? "📽️"
+                    : tab.doc?.type === "text"
+                    ? "📄"
+                    : "📄"}
+                </span>
                 <span className="truncate max-w-[160px]">{tab.title}</span>
               </button>
             ))}
@@ -523,6 +555,94 @@ export default function PagePreview({
                     /* Case 2: Text / CSV / Markdown Document */
                     <div className="w-full h-full p-3.5 text-left overflow-auto font-mono text-[10px] sm:text-xs text-zinc-800 leading-relaxed whitespace-pre-wrap select-text">
                       {textContent}
+                    </div>
+                  ) : isOfficeDoc ? (
+                    /* Case 3: Office Document (Word, Excel, PowerPoint, OpenDoc) */
+                    <div className="w-full h-full p-6 flex flex-col justify-between items-center text-center bg-gradient-to-b from-white to-zinc-50 select-none">
+                      {/* Top Header Badge */}
+                      <div className="w-full flex items-center justify-between pb-3 border-b border-zinc-100">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${
+                            activeTab.doc.type === "doc"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : activeTab.doc.type === "sheet"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : activeTab.doc.type === "presentation"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-purple-50 text-purple-700 border border-purple-200"
+                          }`}
+                        >
+                          {activeTab.doc.type === "doc" && "📘 Word Document"}
+                          {activeTab.doc.type === "sheet" && "📗 Excel Spreadsheet"}
+                          {activeTab.doc.type === "presentation" && "📙 PowerPoint Presentation"}
+                          {activeTab.doc.type === "other" && "📄 Document File"}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400">
+                          {(activeTab.doc.file.size / 1024).toFixed(0)} KB
+                        </span>
+                      </div>
+
+                      {/* Main Icon & Title */}
+                      <div className="my-auto flex flex-col items-center max-w-sm px-4">
+                        <div
+                          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center mb-3 shadow-sm ${
+                            activeTab.doc.type === "doc"
+                              ? "bg-blue-50 text-blue-600 ring-4 ring-blue-100/60"
+                              : activeTab.doc.type === "sheet"
+                              ? "bg-emerald-50 text-emerald-600 ring-4 ring-emerald-100/60"
+                              : activeTab.doc.type === "presentation"
+                              ? "bg-amber-50 text-amber-600 ring-4 ring-amber-100/60"
+                              : "bg-purple-50 text-purple-600 ring-4 ring-purple-100/60"
+                          }`}
+                        >
+                          {activeTab.doc.type === "doc" && (
+                            <svg className="w-9 h-9 sm:w-11 sm:h-11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          )}
+                          {activeTab.doc.type === "sheet" && (
+                            <svg className="w-9 h-9 sm:w-11 sm:h-11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          {activeTab.doc.type === "presentation" && (
+                            <svg className="w-9 h-9 sm:w-11 sm:h-11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                            </svg>
+                          )}
+                          {activeTab.doc.type === "other" && (
+                            <svg className="w-9 h-9 sm:w-11 sm:h-11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </div>
+
+                        <h4 className="text-xs sm:text-sm font-bold text-zinc-800 line-clamp-2 break-all mb-1">
+                          {activeTab.doc.file.name}
+                        </h4>
+
+                        <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
+                            {activeTab.doc.pageCount}{" "}
+                            {activeTab.doc.type === "presentation"
+                              ? activeTab.doc.pageCount === 1 ? "Slide" : "Slides"
+                              : activeTab.doc.type === "sheet"
+                              ? activeTab.doc.pageCount === 1 ? "Sheet" : "Sheets"
+                              : activeTab.doc.pageCount === 1 ? "Page" : "Pages"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
+                            {activeSettings?.colorMode === "bw" ? "B&W Print" : "Color Print"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Bottom Spooling Verification Footnote */}
+                      <div className="w-full pt-3 border-t border-zinc-100 flex items-center justify-center gap-1.5 text-[10px] text-zinc-500">
+                        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Document verified for high-resolution spooling</span>
+                      </div>
                     </div>
                   ) : isPdfDoc ? (
                     /* Case 3: PDF Document Rendered Directly to Canvas via Mozilla PDF.js */

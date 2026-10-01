@@ -128,6 +128,10 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   // 2. Merge currentJob if present
   if (currentJob && currentJob.sessionId) {
     const existing = allJobsMap.get(currentJob.sessionId);
+    const isConfirmed =
+      currentJob.paymentStatus === "confirmed" ||
+      existing?.paymentStatus === "confirmed";
+
     allJobsMap.set(currentJob.sessionId, {
       ...existing,
       ...currentJob,
@@ -137,8 +141,11 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
           ? currentJob.totalAmount
           : existing?.totalAmount,
       paymentMethod: currentJob.paymentMethod || existing?.paymentMethod || "upi",
-      paymentStatus:
-        currentJob.paymentStatus || existing?.paymentStatus || "pending",
+      paymentStatus: isConfirmed
+        ? "confirmed"
+        : currentJob.paymentStatus || existing?.paymentStatus || "pending",
+      paymentConfirmedAt:
+        currentJob.paymentConfirmedAt || existing?.paymentConfirmedAt,
       files: currentJob.files || existing?.files,
       fileCount: currentJob.fileCount || existing?.fileCount,
     });

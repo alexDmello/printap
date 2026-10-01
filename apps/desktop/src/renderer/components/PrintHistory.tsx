@@ -81,7 +81,10 @@ export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) =
           ...existing,
           token_code: j.tokenCode || existing.token_code,
           total_amount: j.totalAmount !== undefined && j.totalAmount > 0 ? j.totalAmount : existing.total_amount,
-          payment_status: j.paymentStatus || existing.payment_status,
+          payment_status:
+            j.paymentStatus === "confirmed" || existing.payment_status === "confirmed"
+              ? "confirmed"
+              : j.paymentStatus || existing.payment_status,
           file_count: j.files?.length || j.fileCount || existing.file_count,
         });
       } else {

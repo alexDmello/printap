@@ -38,19 +38,33 @@ body {
 
 /* ─── Glass card ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.07), 0 4px 10px -2px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.05), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
+}
+
+.glass-bento {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-bento:hover {
+  border-color: rgba(203, 213, 225, 0.9);
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.02), inset 0 1px 1px 0 rgba(255, 255, 255, 1);
 }
 
 /* ─── Gradient text ─── */
@@ -202,230 +216,3 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
-
-/* ═════════════════════════════════════════════════════════════════════════ */
-/* ─── CYBERCORE & BENTO GRID SYSTEM (Admin Terminal & Control Panels) ─── */
-/* ═════════════════════════════════════════════════════════════════════════ */
-
-.cyber-bg {
-  background-color: #06080e;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(0, 240, 255, 0.07) 0px, transparent 45%),
-    radial-gradient(at 100% 0%, rgba(147, 51, 234, 0.07) 0px, transparent 45%),
-    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
-    linear-gradient(to right, rgba(0, 240, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 240, 255, 0.025) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
-}
-
-/* ─── Cyber Bento Card ─── */
-.cyber-card {
-  position: relative;
-  background: rgba(11, 15, 26, 0.78);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  border: 1px solid rgba(0, 240, 255, 0.14);
-  border-radius: 1.25rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-}
-
-.cyber-card-interactive:hover {
-  border-color: rgba(0, 240, 255, 0.38);
-  box-shadow: 0 14px 40px -4px rgba(0, 240, 255, 0.12), 0 0 20px -2px rgba(0, 240, 255, 0.08), inset 0 1px 0 rgba(0, 240, 255, 0.22);
-  transform: translateY(-2px);
-}
-
-.cyber-card-emerald {
-  border-color: rgba(16, 185, 129, 0.2);
-}
-.cyber-card-emerald:hover {
-  border-color: rgba(16, 185, 129, 0.45);
-  box-shadow: 0 14px 40px -4px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(16, 185, 129, 0.25);
-  transform: translateY(-2px);
-}
-
-.cyber-card-purple {
-  border-color: rgba(168, 85, 247, 0.2);
-}
-.cyber-card-purple:hover {
-  border-color: rgba(168, 85, 247, 0.45);
-  box-shadow: 0 14px 40px -4px rgba(168, 85, 247, 0.15), inset 0 1px 0 rgba(168, 85, 247, 0.25);
-  transform: translateY(-2px);
-}
-
-/* ─── Cyber HUD Corner Accents ─── */
-.cyber-hud-corner {
-  position: relative;
-}
-
-.cyber-hud-corner::before {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 7px;
-  width: 8px;
-  height: 8px;
-  border-top: 1.5px solid rgba(0, 240, 255, 0.5);
-  border-left: 1.5px solid rgba(0, 240, 255, 0.5);
-  pointer-events: none;
-}
-
-.cyber-hud-corner::after {
-  content: "";
-  position: absolute;
-  bottom: 7px;
-  right: 7px;
-  width: 8px;
-  height: 8px;
-  border-bottom: 1.5px solid rgba(0, 240, 255, 0.5);
-  border-right: 1.5px solid rgba(0, 240, 255, 0.5);
-  pointer-events: none;
-}
-
-/* ─── Cyber Gradient Text ─── */
-.cyber-text-cyan {
-  background: linear-gradient(135deg, #ffffff 0%, #38bdf8 50%, #00f0ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.cyber-text-emerald {
-  background: linear-gradient(135deg, #ffffff 0%, #34d399 50%, #00ff9d 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.cyber-text-purple {
-  background: linear-gradient(135deg, #ffffff 0%, #c084fc 50%, #8b5cf6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.cyber-text-amber {
-  background: linear-gradient(135deg, #ffffff 0%, #fcd34d 50%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ─── Cyber Glowing Badges / Telemetry Chips ─── */
-.cyber-chip-cyan {
-  background: rgba(0, 240, 255, 0.08);
-  color: #38bdf8;
-  border: 1px solid rgba(0, 240, 255, 0.28);
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
-}
-
-.cyber-chip-emerald {
-  background: rgba(16, 185, 129, 0.08);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.28);
-  text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
-}
-
-.cyber-chip-purple {
-  background: rgba(168, 85, 247, 0.08);
-  color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.28);
-  text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
-}
-
-.cyber-chip-amber {
-  background: rgba(245, 158, 11, 0.08);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
-}
-
-.cyber-chip-rose {
-  background: rgba(244, 63, 94, 0.08);
-  color: #fb7185;
-  border: 1px solid rgba(244, 63, 94, 0.28);
-  text-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
-}
-
-/* ─── Cyber Buttons ─── */
-.cyber-btn-cyan {
-  background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%);
-  color: #040814;
-  font-weight: 700;
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.cyber-btn-cyan:hover {
-  background: linear-gradient(135deg, #38bdf8 0%, #0369a1 100%);
-  box-shadow: 0 0 30px rgba(0, 240, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transform: translateY(-1px);
-}
-.cyber-btn-cyan:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.cyber-btn-secondary {
-  background: rgba(15, 22, 38, 0.7);
-  border: 1px solid rgba(0, 240, 255, 0.18);
-  color: #e2e8f0;
-  backdrop-filter: blur(12px);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.cyber-btn-secondary:hover {
-  background: rgba(20, 30, 50, 0.85);
-  border-color: rgba(0, 240, 255, 0.45);
-  color: #00f0ff;
-  box-shadow: 0 0 18px rgba(0, 240, 255, 0.15);
-  transform: translateY(-1px);
-}
-
-/* ─── Cyber Form Inputs ─── */
-.cyber-input {
-  background: rgba(8, 12, 22, 0.8);
-  border: 1px solid rgba(0, 240, 255, 0.2);
-  color: #f1f5f9;
-  border-radius: 0.75rem;
-  transition: all 0.2s ease;
-}
-.cyber-input:focus {
-  outline: none;
-  border-color: #00f0ff;
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-  background: rgba(10, 15, 28, 0.95);
-}
-
-/* ─── Radar Pulse & Hologram Animations ─── */
-@keyframes cyber-radar-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
-}
-
-.animate-radar-pulse {
-  animation: cyber-radar-pulse 2s infinite;
-}
-
-@keyframes cyber-scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(1000%); }
-}
-
-.cyber-scanline {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.4), transparent);
-  animation: cyber-scanline 6s linear infinite;
-  pointer-events: none;
-}
-

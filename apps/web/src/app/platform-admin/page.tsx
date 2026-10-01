@@ -371,675 +371,647 @@ export default function PlatformAdminPage() {
   const totalRevenue = events.reduce((acc, ev) => acc + (Number(ev.fee_amount) || 1), 0);
 
   return (
-    <div className="min-h-screen cyber-bg text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      <div className="px-4 sm:px-6 py-5 max-w-7xl mx-auto w-full flex-1 flex flex-col">
-        {/* ─── TOP PLATFORM HUD HEADER ─── */}
-        <header className="cyber-card p-4 sm:p-5 mb-6 cyber-hud-corner flex items-center justify-between flex-wrap gap-4 border-cyan-500/20">
-          <div className="cyber-scanline" />
-
-          <div className="flex items-center gap-3.5">
-            <div className="relative">
-              <img
-                src="/logo.png"
-                alt="Printap"
-                className="w-11 h-11 rounded-xl object-cover shadow-[0_0_15px_rgba(0,240,255,0.3)] border border-cyan-400/40"
-              />
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-[#090d18] animate-radar-pulse" />
+    <div className="min-h-screen flex flex-col px-6 py-6 max-w-7xl mx-auto w-full">
+      {/* Header */}
+      <header className="flex items-center justify-between py-4 border-b border-[--color-border]/60 mb-6 flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="Printap"
+            className="w-11 h-11 rounded-2xl object-cover shadow-lg border border-black/10"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-[--color-foreground]">
+                Printap Platform Console
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
+                admin.{ROOT_DOMAIN}
+              </span>
             </div>
-
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-lg font-black tracking-tight text-white">
-                  Printap Platform Console
-                </h1>
-                <span className="cyber-chip-cyan px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider">
-                  admin.{ROOT_DOMAIN}
-                </span>
-                <span className="cyber-chip-emerald px-2 py-0.5 rounded-full text-[10px] font-mono">
-                  NETWORK_READY
-                </span>
-              </div>
-              <p className="text-xs font-mono text-slate-400 mt-1">
-                Global Infrastructure, Subdomain Router & Kill-Switch Controls
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="cyber-btn-cyan px-4 py-2.5 rounded-xl text-xs font-mono font-bold tracking-wider uppercase flex items-center gap-1.5"
-            >
-              <span>+</span>
-              <span>REGISTER NEW SHOP</span>
-            </button>
-
-            <button
-              onClick={loadPlatformData}
-              className="cyber-btn-secondary px-3.5 py-2.5 rounded-xl text-xs font-mono font-semibold"
-              title="Refresh network telemetry"
-            >
-              ↻ REFRESH
-            </button>
-          </div>
-        </header>
-
-        {/* ─── KPI BENTO STATS MATRIX ─── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="cyber-card p-5 border-slate-800 hover:border-cyan-500/30 flex flex-col justify-between">
-            <div className="font-mono text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-              // TOTAL_REGISTERED_NODES
-            </div>
-            <div className="text-3xl font-black font-mono text-white my-1">
-              {shops.length}
-            </div>
-            <div className="text-[10px] font-mono text-slate-500">
-              Active physical shop terminals
-            </div>
-          </div>
-
-          <div className="cyber-card p-5 border-slate-800 hover:border-emerald-500/30 flex flex-col justify-between">
-            <div className="font-mono text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-              // ACTIVE_COUNTERS
-            </div>
-            <div className="text-3xl font-black font-mono cyber-text-emerald my-1">
-              {activeCount}
-            </div>
-            <div className="text-[10px] font-mono text-emerald-400/80">
-              Accepting customer prints
-            </div>
-          </div>
-
-          <div className="cyber-card p-5 border-slate-800 hover:border-amber-500/30 flex flex-col justify-between">
-            <div className="font-mono text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-              // SUSPENDED_COUNTERS
-            </div>
-            <div className="text-3xl font-black font-mono cyber-text-amber my-1">
-              {suspendedCount}
-            </div>
-            <div className="text-[10px] font-mono text-amber-400/80">
-              Kill-switched (inaccessible)
-            </div>
-          </div>
-
-          <div className="cyber-card p-5 border-slate-800 hover:border-cyan-500/30 flex flex-col justify-between">
-            <div className="font-mono text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-              // NETWORK_PRINTS_VOLUME
-            </div>
-            <div className="text-3xl font-black font-mono cyber-text-cyan my-1">
-              {events.length}
-            </div>
-            <div className="text-[10px] font-mono text-cyan-300">
-              Platform Fee: ₹{totalRevenue.toFixed(2)}
-            </div>
+            <p className="text-xs text-[--color-muted]">
+              Global Infrastructure, Shop Management & Kill-Switch Controls
+            </p>
           </div>
         </div>
 
-        {/* ─── CYBER BENTO TABS NAVIGATION ─── */}
-        <nav className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-none">
-          {[
-            { key: "shops", label: `// 01. SHOPS_DIRECTORY (${shops.length})` },
-            { key: "events", label: `// 02. GLOBAL_LEDGER (${events.length})` },
-            { key: "pricing", label: `// 03. PLATFORM_TAX (₹${globalTotalCharge.toFixed(2)})` },
-            { key: "health", label: `// 04. MESH_ROUTING_HEALTH` },
-          ].map((t) => {
-            const isActive = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key as any)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-2 ${
-                  isActive
-                    ? "cyber-card cyber-hud-corner text-cyan-300 border-cyan-400/50 shadow-[0_0_20px_rgba(0,240,255,0.2)] bg-cyan-950/40"
-                    : "cyber-card text-slate-400 hover:text-slate-200 border-slate-800 hover:border-slate-700 bg-slate-900/40"
-                }`}
-              >
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary px-4 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-2"
+          >
+            <span>+</span> Register New Shop
+          </button>
+          <button
+            onClick={loadPlatformData}
+            className="glass px-3.5 py-2.5 rounded-xl text-xs text-[--color-muted] hover:text-[--color-foreground] transition"
+            title="Refresh network data"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+      </header>
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 1: SHOPS DIRECTORY & KILL-SWITCH CONTROLS ───────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "shops" && (
-          <div className="space-y-4 animate-fade-in-up">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <input
-                type="text"
-                placeholder="Search shop by name, slug, UPI VPA, or UUID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-md w-full px-4 py-2.5 cyber-input text-xs font-mono text-white placeholder-slate-500"
-              />
-              <span className="text-xs font-mono text-slate-400">
-                Displaying {filteredShops.length} of {shops.length} network nodes
-              </span>
-            </div>
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="glass rounded-2xl p-5 glow-sm">
+          <div className="text-xs text-[--color-muted] mb-1">Total Shops</div>
+          <div className="text-2xl font-bold text-[--color-foreground]">{shops.length}</div>
+          <div className="text-[11px] text-[--color-muted] mt-1">
+            Registered terminals on platform
+          </div>
+        </div>
 
-            <div className="cyber-card overflow-hidden border-slate-800">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px] bg-slate-950/40">
-                      <th className="py-3.5 px-4">Shop Node</th>
-                      <th className="py-3.5 px-4">Subdomain</th>
-                      <th className="py-3.5 px-4">Settlement UPI</th>
-                      <th className="py-3.5 px-4">Kill-Switch State</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {filteredShops.map((s) => {
-                      const shopUrl = getShopCustomerUrl(s);
-                      const isSuspended = s.status === "suspended";
+        <div className="glass rounded-2xl p-5 glow-sm">
+          <div className="text-xs text-[--color-muted] mb-1">Active Counters</div>
+          <div className="text-2xl font-bold text-emerald-400">{activeCount}</div>
+          <div className="text-[11px] text-emerald-500/70 mt-1">Accepting customer prints</div>
+        </div>
 
-                      return (
-                        <tr key={s.id} className="hover:bg-cyan-500/5 transition">
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-white">{s.name}</div>
-                            <div className="font-mono text-[10px] text-slate-500">{s.id}</div>
-                          </td>
+        <div className="glass rounded-2xl p-5 glow-sm">
+          <div className="text-xs text-[--color-muted] mb-1">Suspended Counters</div>
+          <div className="text-2xl font-bold text-amber-400">{suspendedCount}</div>
+          <div className="text-[11px] text-amber-500/70 mt-1">Kill-switched (inaccessible)</div>
+        </div>
 
-                          <td className="py-3.5 px-4">
+        <div className="glass rounded-2xl p-5 glow-sm">
+          <div className="text-xs text-[--color-muted] mb-1">Total Network Prints</div>
+          <div className="text-2xl font-bold text-indigo-400">{events.length}</div>
+          <div className="text-[11px] text-[--color-muted] mt-1">
+            Platform Fee: ₹{totalRevenue.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      {/* Nav Tabs */}
+      <nav className="flex items-center gap-2 mb-6">
+        <button
+          onClick={() => setActiveTab("shops")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === "shops"
+              ? "bg-[--color-accent] text-white"
+              : "glass text-[--color-muted] hover:text-[--color-foreground]"
+          }`}
+        >
+          Shops Directory & Controls ({shops.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("events")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === "events"
+              ? "bg-[--color-accent] text-white"
+              : "glass text-[--color-muted] hover:text-[--color-foreground]"
+          }`}
+        >
+          Global Print Ledger ({events.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("pricing")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === "pricing"
+              ? "bg-[--color-accent] text-white"
+              : "glass text-[--color-muted] hover:text-[--color-foreground]"
+          }`}
+        >
+          💰 Platform Fee & GST ({`₹${globalTotalCharge.toFixed(2)}`})
+        </button>
+        <button
+          onClick={() => setActiveTab("health")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === "health"
+              ? "bg-[--color-accent] text-white"
+              : "glass text-[--color-muted] hover:text-[--color-foreground]"
+          }`}
+        >
+          Routing & System Health
+        </button>
+      </nav>
+
+      {/* TAB 1: SHOPS DIRECTORY & KILL-SWITCH */}
+      {activeTab === "shops" && (
+        <div className="space-y-4 animate-fade-in-up">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search shop by name, slug, UPI, or UUID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="max-w-md w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground] placeholder-[--color-muted]"
+            />
+            <span className="text-xs text-[--color-muted]">
+              Showing {filteredShops.length} of {shops.length} shops
+            </span>
+          </div>
+
+          <div className="glass rounded-2xl overflow-hidden border border-[--color-border]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[--color-border] bg-[--color-surface-light]/40 text-[--color-muted]">
+                    <th className="py-3 px-4 font-semibold">Shop Name</th>
+                    <th className="py-3 px-4 font-semibold">Subdomain</th>
+                    <th className="py-3 px-4 font-semibold">Settlement UPI</th>
+                    <th className="py-3 px-4 font-semibold">Status / Kill-Switch</th>
+                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[--color-border]/40">
+                  {filteredShops.map((s) => {
+                    const shopUrl = getShopCustomerUrl(s);
+                    const isSuspended = s.status === "suspended";
+
+                    return (
+                      <tr key={s.id} className="hover:bg-[--color-surface-light]/20 transition">
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-[--color-foreground]">{s.name}</div>
+                          <div className="font-mono text-[10px] text-[--color-muted]">{s.id}</div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <a
+                            href={shopUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-indigo-400 hover:underline flex items-center gap-1"
+                          >
+                            <span>{s.slug || s.id.slice(0, 8)}.{ROOT_DOMAIN}</span>
+                            <span className="text-[10px]">↗</span>
+                          </a>
+                        </td>
+
+                        <td className="py-3 px-4 font-mono text-[--color-foreground]/90">
+                          {s.upi_vpa}
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => handleToggleStatus(s)}
+                            className={`px-3 py-1 rounded-full text-[11px] font-semibold transition ${
+                              isSuspended
+                                ? "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
+                                : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                            }`}
+                            title="Click to toggle kill-switch"
+                          >
+                            {isSuspended ? "⛔ Suspended (Click to activate)" : "● Active (Click to suspend)"}
+                          </button>
+                        </td>
+
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditModal(s)}
+                              className="px-2.5 py-1 rounded-lg text-xs glass hover:bg-[--color-surface-light] transition"
+                            >
+                              Edit
+                            </button>
                             <a
                               href={shopUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="font-mono text-cyan-300 hover:text-cyan-200 hover:underline flex items-center gap-1 font-bold"
+                              className="px-2.5 py-1 rounded-lg text-xs glass text-indigo-400 hover:bg-[--color-surface-light] transition"
                             >
-                              <span>{s.slug || s.id.slice(0, 8)}.{ROOT_DOMAIN}</span>
-                              <span className="text-[10px]">↗</span>
+                              Open Counter
                             </a>
-                          </td>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
-                          <td className="py-3.5 px-4 font-mono text-slate-300">
-                            {s.upi_vpa}
-                          </td>
+      {/* TAB 2: GLOBAL PRINT LEDGER */}
+      {activeTab === "events" && (
+        <div className="space-y-4 animate-fade-in-up">
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-sm font-semibold mb-4 text-[--color-foreground]">
+              Real-time Print Events Stream (All Shops)
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[--color-border] text-[--color-muted]">
+                    <th className="pb-3 font-medium">Session ID</th>
+                    <th className="pb-3 font-medium">Shop Name</th>
+                    <th className="pb-3 font-medium">Subdomain</th>
+                    <th className="pb-3 font-medium">Platform Fee</th>
+                    <th className="pb-3 font-medium">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[--color-border]/40">
+                  {events.map((ev) => (
+                    <tr key={ev.id}>
+                      <td className="py-3 font-mono text-[--color-foreground]">
+                        #{ev.session_id.slice(0, 8)}
+                      </td>
+                      <td className="py-3 font-medium text-[--color-foreground]">
+                        {ev.shop_name}
+                      </td>
+                      <td className="py-3 font-mono text-indigo-400">
+                        {ev.shop_slug}.{ROOT_DOMAIN}
+                      </td>
+                      <td className="py-3 font-mono text-emerald-400">
+                        ₹{Number(ev.fee_amount || 1).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-[--color-muted]">
+                        {new Date(ev.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
-                          <td className="py-3.5 px-4">
-                            <button
-                              onClick={() => handleToggleStatus(s)}
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase transition ${
-                                isSuspended
-                                  ? "cyber-chip-rose hover:bg-rose-500/20"
-                                  : "cyber-chip-emerald hover:bg-emerald-500/20"
-                              }`}
-                              title="Click to toggle kill-switch"
-                            >
-                              {isSuspended ? "⛔ SUSPENDED (ACTIVATE)" : "● ACTIVE (SUSPEND)"}
-                            </button>
-                          </td>
+      {/* TAB 3: SYSTEM & ROUTING HEALTH */}
+      {activeTab === "health" && (
+        <div className="space-y-6 animate-fade-in-up">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="glass rounded-2xl p-6 glow-sm">
+              <h3 className="text-sm font-bold text-[--color-foreground] mb-4">
+                Subdomain Architecture ({ROOT_DOMAIN})
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Landing & Marketing</span>
+                  <span className="font-mono text-indigo-400">www.{ROOT_DOMAIN}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Shop Owner Portal</span>
+                  <span className="font-mono text-indigo-400">shop.{ROOT_DOMAIN}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Platform Admin Console</span>
+                  <span className="font-mono text-indigo-400">admin.{ROOT_DOMAIN}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Dynamic Shop Counters</span>
+                  <span className="font-mono text-emerald-400">*.{ROOT_DOMAIN}</span>
+                </div>
+              </div>
+            </div>
 
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => openEditModal(s)}
-                                className="px-2.5 py-1 rounded-lg text-xs font-mono cyber-btn-secondary"
-                              >
-                                EDIT
-                              </button>
-                              <a
-                                href={shopUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2.5 py-1 rounded-lg text-xs font-mono cyber-btn-cyan"
-                              >
-                                VISIT ↗
-                              </a>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <div className="glass rounded-2xl p-6 glow-sm">
+              <h3 className="text-sm font-bold text-[--color-foreground] mb-4">
+                Platform Services Status
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between items-center py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Supabase Database & Auth</span>
+                  <span className="text-emerald-400 font-semibold">● Connected</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Supabase Realtime Signaling</span>
+                  <span className="text-emerald-400 font-semibold">● Operational</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-[--color-border]">
+                  <span className="text-[--color-muted]">Peer-to-Peer WebRTC Pipeline</span>
+                  <span className="text-emerald-400 font-semibold">● Active (Zero Cloud Storage)</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-[--color-muted]">Localhost Strict Ban</span>
+                  <span className="text-emerald-400 font-semibold">✓ Enforced ({ROOT_DOMAIN} Only)</span>
+                </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 2: GLOBAL PRINT LEDGER STREAM ───────────────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "events" && (
-          <div className="space-y-4 animate-fade-in-up">
-            <div className="cyber-card p-6 border-slate-800">
-              <div className="flex items-center gap-2 mb-4 font-mono text-xs font-bold text-slate-200 uppercase tracking-wider">
-                <span>// GLOBAL_NETWORK_TRANSMISSION_STREAM</span>
-                <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px]">
-                  ALL SHOPS
+      {/* TAB 4: GLOBAL PLATFORM FEE & GST SETTINGS */}
+      {activeTab === "pricing" && (
+        <div className="space-y-6 animate-fade-in-up">
+          <div className="glass rounded-2xl p-6 glow-sm border border-[--color-border]/60">
+            <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-[--color-foreground]">
+                  Global Platform Convenience Fee & GST Surcharge
+                </h3>
+                <p className="text-xs text-[--color-muted] mt-1 max-w-xl">
+                  Configure the global base fee and tax rate charged to customers per print session. Values are stored in the database (`platform_settings`) and applied across all customer touchpoints.
+                </p>
+              </div>
+
+              {globalPricingMsg && (
+                <span className="text-xs font-semibold text-emerald-400 animate-fade-in-up">
+                  ✓ {globalPricingMsg}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Input 1: Platform Fee */}
+              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
+                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
+                  Base Platform Fee (₹)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-[--color-muted]">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={globalPlatformFee}
+                    onChange={(e) => handleGlobalFeeChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
+                  Net platform convenience fee
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px] bg-slate-950/40">
-                      <th className="pb-3 px-3">Session Hash</th>
-                      <th className="pb-3 px-3">Shop Node</th>
-                      <th className="pb-3 px-3">Endpoint</th>
-                      <th className="pb-3 px-3">Convenience Fee</th>
-                      <th className="pb-3 px-3">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {events.map((ev) => (
-                      <tr key={ev.id} className="hover:bg-cyan-500/5 transition">
-                        <td className="py-3 px-3 text-cyan-300 font-bold">
-                          #{ev.session_id.slice(0, 10)}
-                        </td>
-                        <td className="py-3 px-3 text-white font-bold">
-                          {ev.shop_name}
-                        </td>
-                        <td className="py-3 px-3 text-slate-400">
-                          {ev.shop_slug}.{ROOT_DOMAIN}
-                        </td>
-                        <td className="py-3 px-3 text-emerald-400 font-bold">
-                          ₹{Number(ev.fee_amount || 1).toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3 text-slate-500">
-                          {new Date(ev.created_at).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* Input 2: GST Percentage */}
+              <div className="bg-[--color-surface-light] p-4 rounded-xl border border-[--color-border]/50">
+                <label className="block text-xs font-semibold text-[--color-foreground] mb-2">
+                  GST Percentage (%)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={globalGstPercentage}
+                    onChange={(e) => handleGlobalGstChange(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg bg-[--color-surface] border border-[--color-border] text-sm text-[--color-foreground] font-mono font-bold focus:outline-none focus:border-indigo-500 text-center"
+                  />
+                  <span className="text-sm font-bold text-[--color-muted]">%</span>
+                </div>
+                <span className="text-[10px] text-[--color-muted] mt-1.5 block">
+                  Tax rate percentage
+                </span>
+              </div>
+
+              {/* Auto-calc Box 1: Calculated GST */}
+              <div className="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/20 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                  Auto-Calculated GST
+                </div>
+                <div className="text-2xl font-black font-mono text-[--color-foreground] my-1">
+                  ₹{globalGstAmount.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-[--color-muted]">
+                  {globalGstPercentage}% on ₹{globalPlatformFee.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Auto-calc Box 2: Total Customer Fee */}
+              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/30 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Total Customer Surcharge
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-400 my-1">
+                  ₹{globalTotalCharge.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-emerald-500/80">
+                  ₹{globalPlatformFee.toFixed(2)} fee + ₹{globalGstAmount.toFixed(2)} GST
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-4 pt-4 border-t border-[--color-border]/50">
+              <div className="text-xs text-[--color-muted]">
+                Customer display: <strong className="text-[--color-foreground]">₹{globalTotalCharge.toFixed(2)}</strong> (₹{globalPlatformFee.toFixed(2)} + ₹{globalGstAmount.toFixed(2)} GST)
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSaveGlobalPricing(false)}
+                  disabled={isSavingGlobalPricing}
+                  className="btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-lg"
+                >
+                  {isSavingGlobalPricing ? "Saving..." : "Save Global Settings"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveGlobalPricing(true)}
+                  disabled={isSavingGlobalPricing}
+                  className="glass px-4 py-2.5 rounded-xl text-xs font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-500/30"
+                  title="Update platform_settings and update all active shops to these values"
+                >
+                  Save & Apply to All Shops
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 3: GLOBAL PLATFORM FEE & GST SETTINGS ───────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "pricing" && (
-          <div className="space-y-6 animate-fade-in-up">
-            <div className="cyber-card p-6 cyber-hud-corner border-cyan-500/30">
-              <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-2 font-mono text-[10px] text-cyan-400 uppercase tracking-widest mb-1">
-                    // GLOBAL_CONVENIENCE_FEE_AND_GST_CONFIG
-                  </div>
-                  <h3 className="text-lg font-black text-white">
-                    Platform Revenue & Tax Compliance Engine
-                  </h3>
-                  <p className="text-xs text-slate-400 max-w-xl mt-1">
-                    Configure the platform base convenience fee and GST rate applied to every print job across all shops. Values are stored in `platform_settings` and synchronized network-wide.
-                  </p>
-                </div>
+      {/* CREATE SHOP MODAL */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="glass-strong rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-[--color-border]">
+            <h2 className="text-lg font-bold text-[--color-foreground] mb-2">
+              Register New Shop
+            </h2>
+            <p className="text-xs text-[--color-muted] mb-5">
+              Creates a dedicated subdomain under {ROOT_DOMAIN} with instant WebRTC signaling.
+            </p>
 
-                {globalPricingMsg && (
-                  <span className="cyber-chip-emerald px-3 py-1 rounded-xl text-xs font-mono font-bold animate-fade-in-up">
-                    ✓ {globalPricingMsg}
-                  </span>
-                )}
+            <form onSubmit={handleCreateShop} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
+                  Shop Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rahul Xerox & Printing"
+                  value={newName}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
+                  required
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <label className="block text-[11px] font-mono font-bold text-slate-300 uppercase mb-2">
-                    Base Platform Fee (₹)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-400">₹</span>
+              <div>
+                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
+                  Subdomain Slug
+                </label>
+                <div className="flex items-center rounded-xl bg-[--color-surface-light] border border-[--color-border] px-3">
+                  <input
+                    type="text"
+                    placeholder="rahul-xerox"
+                    value={newSlug}
+                    onChange={(e) => setNewSlug(sanitizeSubdomain(e.target.value))}
+                    className="flex-1 py-2.5 bg-transparent text-xs text-[--color-foreground] font-mono outline-none"
+                    required
+                  />
+                  <span className="text-xs text-[--color-muted] font-mono">.{ROOT_DOMAIN}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
+                  UPI VPA (Settlement Account)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. rahul@okaxis or 9876543210@paytm"
+                  value={newUpi}
+                  onChange={(e) => setNewUpi(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
+                  required
+                />
+              </div>
+
+              {createError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                  {createError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs text-[--color-muted] hover:text-[--color-foreground]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary px-5 py-2 rounded-xl text-xs font-semibold text-white"
+                >
+                  {isSubmitting ? "Deploying..." : "Create & Deploy Subdomain"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT SHOP MODAL */}
+      {editingShop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="glass-strong rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-[--color-border]">
+            <h2 className="text-lg font-bold text-[--color-foreground] mb-2">
+              Edit Shop Details
+            </h2>
+            <p className="text-xs text-[--color-muted] mb-5">
+              Terminal UUID: {editingShop.id}
+            </p>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
+                  Shop Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
+                  Subdomain Slug
+                </label>
+                <div className="flex items-center rounded-xl bg-[--color-surface-light] border border-[--color-border] px-3">
+                  <input
+                    type="text"
+                    value={editSlug}
+                    onChange={(e) => setEditSlug(sanitizeSubdomain(e.target.value))}
+                    className="flex-1 py-2.5 bg-transparent text-xs text-[--color-foreground] font-mono outline-none"
+                    required
+                  />
+                  <span className="text-xs text-[--color-muted] font-mono">.{ROOT_DOMAIN}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[--color-foreground]/80 mb-1">
+                  UPI VPA
+                </label>
+                <input
+                  type="text"
+                  value={editUpi}
+                  onChange={(e) => setEditUpi(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[--color-surface-light] border border-[--color-border] text-xs text-[--color-foreground]"
+                  required
+                />
+              </div>
+
+              {/* Shop Platform Fee & GST Configuration */}
+              <div className="p-3.5 rounded-2xl bg-[--color-surface-light] border border-[--color-border]/60 space-y-3">
+                <div className="text-xs font-bold text-[--color-foreground] flex items-center justify-between">
+                  <span>Platform Fee & GST Surcharge</span>
+                  <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+                    Total: ₹{editTotalCharge.toFixed(2)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      Base Platform Fee (₹)
+                    </label>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={globalPlatformFee}
-                      onChange={(e) => handleGlobalFeeChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 cyber-input text-sm font-mono font-bold text-cyan-300"
+                      value={editPlatformFee}
+                      onChange={(e) => handleEditFeeChange(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[--color-surface] border border-[--color-border] text-xs font-mono font-bold text-[--color-foreground]"
                     />
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500 mt-1.5 block">
-                    Net platform fee before tax
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <label className="block text-[11px] font-mono font-bold text-slate-300 uppercase mb-2">
-                    GST Rate (%)
-                  </label>
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-[11px] text-[--color-muted] mb-1">
+                      GST (%)
+                    </label>
                     <input
                       type="number"
                       step="0.5"
                       min="0"
                       max="100"
-                      value={globalGstPercentage}
-                      onChange={(e) => handleGlobalGstChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 cyber-input text-sm font-mono font-bold text-center text-white"
+                      value={editGstPercentage}
+                      onChange={(e) => handleEditGstChange(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[--color-surface] border border-[--color-border] text-xs font-mono font-bold text-[--color-foreground] text-center"
                     />
-                    <span className="font-mono font-bold text-slate-400">%</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-500 mt-1.5 block">
-                    Statutory GST rate
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/30 flex flex-col justify-between">
-                  <div className="text-[10px] font-mono font-bold text-purple-300 uppercase tracking-widest">
-                    Auto-Calculated GST
-                  </div>
-                  <div className="text-2xl font-black font-mono cyber-text-purple my-1">
-                    ₹{globalGstAmount.toFixed(2)}
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400">
-                    {globalGstPercentage}% on ₹{globalPlatformFee.toFixed(2)}
                   </div>
                 </div>
-
-                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex flex-col justify-between">
-                  <div className="text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-widest">
-                    Customer Surcharge
-                  </div>
-                  <div className="text-2xl font-black font-mono cyber-text-emerald my-1">
-                    ₹{globalTotalCharge.toFixed(2)}
-                  </div>
-                  <div className="text-[10px] font-mono text-emerald-400/80">
-                    ₹{globalPlatformFee.toFixed(2)} fee + ₹{globalGstAmount.toFixed(2)} tax
-                  </div>
+                <div className="text-[10px] text-[--color-muted] flex justify-between pt-1 border-t border-[--color-border]/40">
+                  <span>Auto-Tax: ₹{editGstAmount.toFixed(2)}</span>
+                  <span>Customer Pays: ₹{editTotalCharge.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between flex-wrap gap-4 pt-4 border-t border-slate-800">
-                <div className="text-xs font-mono text-slate-400">
-                  Customer surcharge: <strong className="text-emerald-300">₹{globalTotalCharge.toFixed(2)}</strong> (₹{globalPlatformFee.toFixed(2)} + ₹{globalGstAmount.toFixed(2)} GST)
+              {editError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                  {editError}
                 </div>
+              )}
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveGlobalPricing(false)}
-                    disabled={isSavingGlobalPricing}
-                    className="cyber-btn-cyan px-5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider"
-                  >
-                    {isSavingGlobalPricing ? "SAVING..." : "SAVE GLOBAL SETTINGS"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveGlobalPricing(true)}
-                    disabled={isSavingGlobalPricing}
-                    className="cyber-btn-secondary px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase"
-                    title="Update platform_settings and cascade to all existing shops"
-                  >
-                    SAVE & APPLY TO ALL SHOPS
-                  </button>
-                </div>
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingShop(null)}
+                  className="px-4 py-2 rounded-xl text-xs text-[--color-muted] hover:text-[--color-foreground]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary px-5 py-2 rounded-xl text-xs font-semibold text-white"
+                >
+                  Save Changes
+                </button>
               </div>
-            </div>
+            </form>
           </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 4: ROUTING ARCHITECTURE & SYSTEM HEALTH ─────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "health" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
-            <div className="cyber-card p-6 cyber-hud-corner border-slate-800">
-              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest mb-1">
-                // SUBDOMAIN_ROUTER_TOPOLOGY
-              </div>
-              <h3 className="text-base font-bold text-white mb-4">
-                Subdomain Mesh Topology ({ROOT_DOMAIN})
-              </h3>
-              <div className="space-y-3 font-mono text-xs">
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Landing & Marketing:</span>
-                  <span className="text-cyan-300 font-bold">www.{ROOT_DOMAIN}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Shop Owner Admin Portal:</span>
-                  <span className="text-cyan-300 font-bold">shop.{ROOT_DOMAIN}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Platform Admin Console:</span>
-                  <span className="text-cyan-300 font-bold">admin.{ROOT_DOMAIN}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-slate-400">Dynamic Customer Counters:</span>
-                  <span className="text-emerald-400 font-bold">*.{ROOT_DOMAIN}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="cyber-card p-6 cyber-hud-corner border-slate-800">
-              <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest mb-1">
-                // TELEMETRY_HEALTH_MONITOR
-              </div>
-              <h3 className="text-base font-bold text-white mb-4">
-                Platform Services Live Health
-              </h3>
-              <div className="space-y-3 font-mono text-xs">
-                <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Supabase DB & Auth:</span>
-                  <span className="text-emerald-400 font-bold">● CONNECTED</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Realtime WebRTC Signaling:</span>
-                  <span className="text-emerald-400 font-bold">● OPERATIONAL</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Peer-to-Peer RAM Channel:</span>
-                  <span className="text-emerald-400 font-bold">● 100% ZERO STORAGE</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-slate-400">Localhost Strict Ban:</span>
-                  <span className="text-emerald-400 font-bold">✓ ENFORCED</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ─── CREATE SHOP MODAL ─── */}
-        {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="cyber-card p-7 max-w-md w-full border-cyan-500/40 cyber-hud-corner shadow-[0_0_50px_rgba(0,240,255,0.25)] space-y-4 animate-fade-in-up">
-              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest">
-                [REGISTER_NEW_SHOP_NODE]
-              </div>
-              <h2 className="text-lg font-black text-white">
-                Deploy Shop Subdomain
-              </h2>
-              <p className="text-xs text-slate-400 font-mono">
-                Provisions instant WebRTC signaling and a dedicated subdomain under {ROOT_DOMAIN}.
-              </p>
-
-              <form onSubmit={handleCreateShop} className="space-y-4 font-mono text-xs">
-                <div>
-                  <label className="block text-slate-300 mb-1 font-bold">
-                    SHOP NAME:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Rahul Xerox & Printing"
-                    value={newName}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    className="w-full px-4 py-2.5 cyber-input text-xs text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 mb-1 font-bold">
-                    SUBDOMAIN SLUG:
-                  </label>
-                  <div className="flex items-center rounded-xl cyber-input px-3">
-                    <input
-                      type="text"
-                      placeholder="rahul-xerox"
-                      value={newSlug}
-                      onChange={(e) => setNewSlug(sanitizeSubdomain(e.target.value))}
-                      className="flex-1 py-2.5 bg-transparent text-xs text-cyan-300 font-mono outline-none"
-                      required
-                    />
-                    <span className="text-xs text-slate-500 font-mono">.{ROOT_DOMAIN}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 mb-1 font-bold">
-                    SETTLEMENT UPI VPA:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. rahul@okaxis or 9876543210@paytm"
-                    value={newUpi}
-                    onChange={(e) => setNewUpi(e.target.value)}
-                    className="w-full px-4 py-2.5 cyber-input text-xs text-emerald-300"
-                    required
-                  />
-                </div>
-
-                {createError && (
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
-                    {createError}
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
-                  >
-                    CANCEL
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="cyber-btn-cyan px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider"
-                  >
-                    {isSubmitting ? "DEPLOYING..." : "DEPLOY SUBDOMAIN"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ─── EDIT SHOP MODAL ─── */}
-        {editingShop && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="cyber-card p-7 max-w-md w-full border-cyan-500/40 cyber-hud-corner shadow-[0_0_50px_rgba(0,240,255,0.25)] space-y-4 animate-fade-in-up">
-              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest">
-                [UPDATE_SHOP_NODE_CONFIG]
-              </div>
-              <h2 className="text-lg font-black text-white">
-                Edit Shop Node: {editingShop.name}
-              </h2>
-              <p className="text-xs font-mono text-slate-400">
-                UUID: {editingShop.id}
-              </p>
-
-              <form onSubmit={handleSaveEdit} className="space-y-4 font-mono text-xs">
-                <div>
-                  <label className="block text-slate-300 mb-1 font-bold">
-                    SHOP NAME:
-                  </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-4 py-2.5 cyber-input text-xs text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 mb-1 font-bold">
-                    SUBDOMAIN SLUG:
-                  </label>
-                  <div className="flex items-center rounded-xl cyber-input px-3">
-                    <input
-                      type="text"
-                      value={editSlug}
-                      onChange={(e) => setEditSlug(sanitizeSubdomain(e.target.value))}
-                      className="flex-1 py-2.5 bg-transparent text-xs text-cyan-300 font-mono outline-none"
-                      required
-                    />
-                    <span className="text-xs text-slate-500 font-mono">.{ROOT_DOMAIN}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 mb-1 font-bold">
-                    SETTLEMENT UPI VPA:
-                  </label>
-                  <input
-                    type="text"
-                    value={editUpi}
-                    onChange={(e) => setEditUpi(e.target.value)}
-                    className="w-full px-4 py-2.5 cyber-input text-xs text-emerald-300"
-                    required
-                  />
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
-                  <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
-                    <span>SURCHARGE & TAX</span>
-                    <span className="text-emerald-400">Total: ₹{editTotalCharge.toFixed(2)}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div>
-                      <label className="block text-[10px] text-slate-400 mb-1">
-                        BASE FEE (₹)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={editPlatformFee}
-                        onChange={(e) => handleEditFeeChange(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-1.5 cyber-input text-xs font-bold text-cyan-300"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 mb-1">
-                        GST (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="100"
-                        value={editGstPercentage}
-                        onChange={(e) => handleEditGstChange(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-1.5 cyber-input text-xs font-bold text-center text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {editError && (
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
-                    {editError}
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingShop(null)}
-                    className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
-                  >
-                    CANCEL
-                  </button>
-                  <button
-                    type="submit"
-                    className="cyber-btn-cyan px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider"
-                  >
-                    COMMIT EDITS
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

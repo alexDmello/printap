@@ -12,8 +12,21 @@ import {
   type ServiceUnit,
 } from "@printap/shared";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
+import { AdminSidebar, type AdminTab } from "@/components/admin/AdminSidebar";
+import { AdminAnalytics, type PrintEvent } from "@/components/admin/AdminAnalytics";
+import {
+  IconMenu,
+  IconCopy,
+  IconCheck,
+  IconExternal,
+  IconPrinter,
+  IconAnalytics,
+  IconServices,
+  IconQr,
+  IconShieldCheck,
+} from "@/components/admin/AdminIcons";
 
-type Tab = "overview" | "services" | "qr" | "printers" | "analytics" | "profile";
+type Tab = AdminTab;
 
 interface PrinterAssignment {
   id: string;
@@ -25,13 +38,6 @@ interface PrinterAssignment {
   created_at: string;
 }
 
-interface PrintEvent {
-  id: string;
-  session_id: string;
-  fee_amount: number;
-  created_at: string;
-}
-
 export default function ShopAdminPage() {
   const [shopId, setShopId] = useState<string | null>(null);
   const [shop, setShop] = useState<ShopInfo | null>(null);
@@ -39,6 +45,7 @@ export default function ShopAdminPage() {
   const [loginInput, setLoginInput] = useState("");
   const [loginError, setLoginError] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // QR / Standee State
   const [copiedLink, setCopiedLink] = useState(false);
@@ -422,7 +429,7 @@ export default function ShopAdminPage() {
       .select("*")
       .eq("shop_id", shopId)
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(50);
     if (eventsData) setPrintEvents(eventsData as PrintEvent[]);
   }, [shopId]);
 
@@ -649,1407 +656,1156 @@ export default function ShopAdminPage() {
     loadShopData();
   };
 
-  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen cyber-bg flex items-center justify-center p-6 select-none">
-        <div className="cyber-card p-8 text-center max-w-sm w-full cyber-hud-corner">
-          <div className="relative w-16 h-16 mx-auto mb-5 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full border-2 border-cyan-500/20 animate-ping" />
-            <div className="w-12 h-12 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-            <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 absolute shadow-[0_0_12px_#00f0ff]" />
-          </div>
-          <div className="font-mono text-xs tracking-widest text-cyan-400 uppercase mb-1">
-            [SYS_INIT // PROTOCOL]
-          </div>
-          <p className="text-sm font-semibold text-slate-200">
-            Connecting to Terminal Node...
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-[10px] text-slate-500">
-            <span>SIG_FREQ: 99.8%</span>
-            <span>•</span>
-            <span>P2P MESH READY</span>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-mesh px-4">
+        <div className="glass-bento rounded-3xl p-8 text-center max-w-xs w-full shadow-lg">
+          <div className="w-10 h-10 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-xs font-semibold text-slate-800">Connecting Terminal...</p>
+          <p className="text-[11px] text-slate-400 mt-1">Verifying encrypted counter session</p>
         </div>
       </div>
     );
   }
 
-  // Not logged in -> Cyber Access Terminal Card
+  // Not logged in -> Show Glassmorphic Sign In Card
   if (!shop) {
     return (
-      <div className="min-h-screen cyber-bg flex flex-col items-center justify-center px-6 py-10">
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-mesh">
         <div className="w-full max-w-md animate-fade-in-up">
-          {/* Brand header */}
-          <div className="text-center mb-8">
-            <div className="relative inline-block mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 via-sky-600 to-indigo-700 flex items-center justify-center text-3xl shadow-[0_0_30px_rgba(0,240,255,0.35)] mx-auto border border-cyan-400/40">
-                🖨️
-              </div>
-              <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[#06080e] flex items-center justify-center animate-radar-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" />
-              </div>
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-indigo-500/20 mx-auto mb-3">
+              🏪
             </div>
-
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full cyber-chip-cyan text-[10px] font-mono font-bold tracking-widest uppercase mb-3">
-              <span>● NODE_GATEWAY</span>
-              <span>•</span>
-              <span>VER 2.4.0</span>
-            </div>
-
-            <h1 className="text-3xl font-black tracking-tight cyber-text-cyan">
-              Shop Admin Terminal
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Shop Admin Portal
             </h1>
-            <p className="text-xs font-mono text-slate-400 mt-1.5">
-              shop.{ROOT_DOMAIN} • Decentralized Counter Hub
+            <p className="text-xs text-slate-500 mt-1 font-mono">
+              shop.{ROOT_DOMAIN} • Counter Management & Signage
             </p>
           </div>
 
-          {/* Holographic Input Card */}
-          <form
-            onSubmit={handleLogin}
-            className="cyber-card p-8 cyber-hud-corner space-y-5"
-          >
-            <div className="cyber-scanline" />
-
+          <form onSubmit={handleLogin} className="glass-bento rounded-3xl p-7 glow-sm space-y-4">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase">
-                  Terminal Shop ID (UUID)
-                </label>
-                <span className="text-[10px] font-mono text-cyan-400/80">
-                  [AUTH_REQUIRED]
-                </span>
-              </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                  value={loginInput}
-                  onChange={(e) => setLoginInput(e.target.value)}
-                  className="w-full px-4 py-3.5 cyber-input text-xs font-mono text-slate-100 placeholder-slate-600"
-                  autoFocus
-                />
-                <span className="absolute right-3.5 top-3.5 text-xs text-cyan-400/50 font-mono">
-                  #
-                </span>
-              </div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Terminal Shop ID (UUID)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                value={loginInput}
+                onChange={(e) => setLoginInput(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition font-mono"
+              />
             </div>
 
             {loginError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 font-mono flex items-center gap-2">
-                <span>⚠️</span>
-                <span>{loginError}</span>
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 font-medium">
+                {loginError}
               </div>
             )}
 
             <button
               type="submit"
-              className="cyber-btn-cyan w-full py-3.5 rounded-xl font-bold text-xs tracking-wider uppercase flex items-center justify-center gap-2"
+              className="btn-primary w-full py-3 rounded-xl font-semibold text-white text-xs shadow-md shadow-slate-900/10"
             >
-              <span>Initialize Terminal Console</span>
-              <span>→</span>
+              Sign In to Counter Terminal →
             </button>
-
-            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                Zero Cloud Storage
-              </span>
-              <span>Peer-to-Peer WebRTC</span>
-            </div>
           </form>
 
-          <p className="text-center text-xs font-mono text-slate-500 mt-6">
-            Register new shop nodes via{" "}
-            <a
-              href={`https://admin.${ROOT_DOMAIN}`}
-              className="text-cyan-400 hover:underline"
-            >
-              admin.{ROOT_DOMAIN}
-            </a>
+          <p className="text-center text-xs text-slate-400 mt-6">
+            Need a shop account? Contact platform operations at admin.{ROOT_DOMAIN}
           </p>
         </div>
       </div>
     );
   }
 
-  // Logged In -> Full Cybercore Bento Grid Interface
+  const activePrintersCount = printers.filter((p) => p.is_active).length;
+
   return (
-    <div className="min-h-screen cyber-bg text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      <div className="px-4 sm:px-6 py-5 max-w-7xl mx-auto w-full flex-1 flex flex-col">
-        {/* ─── TOP HUD HEADER BAR ─── */}
-        <header className="cyber-card p-4 sm:p-5 mb-6 cyber-hud-corner flex items-center justify-between flex-wrap gap-4 border-cyan-500/20">
-          <div className="cyber-scanline" />
+    <div className="min-h-screen bg-mesh text-slate-900 flex">
+      {/* ─── Glassmorphic Sidebar Navigation ─── */}
+      <AdminSidebar
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        shop={shop}
+        customerUrl={customerUrl}
+        activePrintersCount={activePrintersCount}
+        totalPrintsCount={printEvents.length}
+        isOpenMobile={isMobileNavOpen}
+        onCloseMobile={() => setIsMobileNavOpen(false)}
+        onLogoutRequest={handleLogoutRequest}
+        copiedLink={copiedLink}
+        onCopyLink={handleCopy}
+      />
 
-          <div className="flex items-center gap-3.5">
-            <div className="relative">
-              <img
-                src="/logo.png"
-                alt="Printap"
-                className="w-11 h-11 rounded-xl object-cover shadow-[0_0_15px_rgba(0,240,255,0.3)] border border-cyan-400/40"
-              />
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#090d18] animate-radar-pulse" />
-            </div>
-
+      {/* ─── Main Content Wrapper ─── */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
+        {/* Top Mobile Bar */}
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(true)}
+              className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition"
+              aria-label="Open navigation menu"
+            >
+              <IconMenu size={20} />
+            </button>
             <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-lg font-black tracking-tight text-white">
-                  {shop.name}
-                </h1>
-                <span className="cyber-chip-emerald px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  TERMINAL // ONLINE
-                </span>
-                <span className="cyber-chip-cyan px-2 py-0.5 rounded-full text-[10px] font-mono">
-                  P2P MESH
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 font-mono">
-                <span className="text-slate-500">ENDPOINT:</span>
-                <a
-                  href={customerUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 font-bold"
-                >
-                  <span>{customerUrl}</span>
-                  <span className="text-[10px]">↗</span>
-                </a>
-              </div>
+              <h1 className="text-sm font-bold text-slate-900 truncate max-w-[180px]">
+                {shop.name}
+              </h1>
+              <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Terminal Live
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold glass border border-slate-200 text-slate-700"
+          >
+            {copiedLink ? "✓ Copied" : "Copy Link"}
+          </button>
+        </header>
+
+        {/* Desktop Top Header Bar inside Main Area */}
+        <header className="hidden lg:flex items-center justify-between px-8 py-5 border-b border-slate-200/60 bg-white/40 backdrop-blur-sm sticky top-0 z-20">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-900">
+                {activeTab === "overview" && "Counter Overview"}
+                {activeTab === "analytics" && "Revenue & Printing Analytics"}
+                {activeTab === "services" && "Services & Rates Configuration"}
+                {activeTab === "qr" && "Counter Standee & Signage"}
+                {activeTab === "printers" && "Hardware Printer Assignments"}
+                {activeTab === "profile" && "Shop Terminal Profile"}
+              </h1>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                ● Live Terminal
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {activeTab === "overview" && "Live terminal status, customer traffic and quick counter controls."}
+              {activeTab === "analytics" && "Detailed volume trends, net profit margins, rush hours and ledger."}
+              {activeTab === "services" && "Manage Xerox rates, color printing, GST and custom finishing services."}
+              {activeTab === "qr" && "Downloadable high-res standees and counter print signage."}
+              {activeTab === "printers" && "Assign local network and USB printers for customer spools."}
+              {activeTab === "profile" && "Shop registration, subdomain routing, and direct settlement UPI."}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={handleCopy}
-              className="cyber-btn-secondary px-3.5 py-2 rounded-xl text-xs font-mono font-semibold flex items-center gap-1.5"
-              title="Copy customer print link"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold glass hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/80 transition flex items-center gap-1.5 shadow-sm"
             >
               {copiedLink ? (
-                <span className="text-emerald-400 font-bold">✓ LINK COPIED!</span>
+                <>
+                  <IconCheck size={14} className="text-emerald-600" />
+                  <span className="text-emerald-600 font-bold">Print Link Copied!</span>
+                </>
               ) : (
                 <>
-                  <span>📋</span>
-                  <span>COPY PRINT LINK</span>
+                  <IconCopy size={14} />
+                  <span>Copy Customer Link</span>
                 </>
               )}
             </button>
 
-            <button
-              onClick={() => handleSelectTab("qr")}
-              className="cyber-btn-secondary px-3.5 py-2 rounded-xl text-xs font-mono font-semibold flex items-center gap-1.5"
-              title="Open QR standee export"
+            <a
+              href={customerUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold btn-primary text-white flex items-center gap-1.5"
             >
-              <span>📐</span>
-              <span className="hidden sm:inline">COUNTER STANDEE</span>
-            </button>
-
-            <button
-              onClick={handleLogoutRequest}
-              className="px-3.5 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-slate-700/60 hover:border-rose-500/30 transition"
-              title="Sign out of this terminal"
-            >
-              LOGOUT ⏻
-            </button>
+              <span>Test Customer View</span>
+              <IconExternal size={13} />
+            </a>
           </div>
         </header>
 
-        {/* ─── CYBER HUD BENTO TAB NAVIGATION ─── */}
-        <nav className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-none">
-          {[
-            { key: "overview", label: "// 01. OVERVIEW_HUD" },
-            { key: "services", label: "// 02. SERVICES_MATRIX", badge: isServicesDirty() ? "MODIFIED" : null },
-            { key: "qr", label: "// 03. QR_STANDEE" },
-            { key: "printers", label: "// 04. PRINTER_FLEET" },
-            { key: "analytics", label: "// 05. TELEMETRY_LEDGER" },
-            { key: "profile", label: "// 06. NODE_PROFILE" },
-          ].map((t) => {
-            const isActive = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => handleSelectTab(t.key as Tab)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-2 ${
-                  isActive
-                    ? "cyber-card cyber-hud-corner text-cyan-300 border-cyan-400/50 shadow-[0_0_20px_rgba(0,240,255,0.2)] bg-cyan-950/40"
-                    : "cyber-card text-slate-400 hover:text-slate-200 border-slate-800 hover:border-slate-700 bg-slate-900/40"
-                }`}
-              >
-                <span>{t.label}</span>
-                {t.badge && (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                    {t.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 1: OVERVIEW HUD (BENTO GRID MASTER DASHBOARD) ───────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "overview" && (
-          <div className="grid grid-cols-12 gap-4 animate-fade-in-up">
-            {/* HERO BENTO CELL: Live Counter Standee & WebRTC Station (Spans 8 cols on desktop) */}
-            <div className="col-span-12 lg:col-span-8 cyber-card cyber-hud-corner p-6 flex flex-col justify-between border-cyan-500/30">
-              <div className="cyber-scanline" />
-
-              <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-2 font-mono text-[10px] text-cyan-400 uppercase tracking-widest">
-                    <span>[TERMINAL_HUD // NODE: 0x{shop.id.slice(0, 6)}]</span>
-                    <span>•</span>
-                    <span className="text-emerald-400 font-bold">READY TO SPOOL</span>
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                    {shop.name}
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
-                    Counter QR is broadcasting. Customers scan with any smartphone camera to beam PDFs directly to your Windows printer without WhatsApp, emails, or cloud storage.
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className="cyber-chip-emerald px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-radar-pulse" />
-                    P2P WebRTC Active
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    LATENCY &lt; 15MS • AES-256-GCM
-                  </span>
-                </div>
-              </div>
-
-              {/* Bento Inner Module: QR Beamer & Quick Action Deck */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center pt-4 border-t border-slate-800/80">
-                {/* QR Canvas Display */}
-                <div className="sm:col-span-4 flex items-center justify-center p-3 rounded-2xl bg-white/95 border border-cyan-400/40 shadow-[0_0_25px_rgba(0,240,255,0.2)]">
-                  <QRCodeCanvas value={customerUrl} size={130} level="H" />
-                </div>
-
-                {/* Live Link & Action Buttons */}
-                <div className="sm:col-span-8 space-y-3">
-                  <div className="p-3 rounded-xl bg-slate-950/70 border border-cyan-500/20">
-                    <div className="text-[10px] font-mono text-slate-400 uppercase mb-1">
-                      Target Subdomain
+        {/* ─── Scrollable Page Body ─── */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+          {/* TAB 1: OVERVIEW (BENTO GRID DESIGN) */}
+          {activeTab === "overview" && (
+            <div className="space-y-6 animate-fade-in-up">
+              {/* Bento Grid Top Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Bento Card 1 (Span 2): Live Customer Print Domain */}
+                <div className="md:col-span-2 glass-bento rounded-3xl p-6 glow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Customer Print Endpoint
+                      </span>
+                      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200">
+                        ⚡ Direct P2P Link
+                      </span>
                     </div>
-                    <div className="text-sm font-mono font-bold text-cyan-300 truncate">
+
+                    <div className="text-xl sm:text-2xl font-bold font-mono text-indigo-600 truncate mb-2">
                       {shop.slug || shop.id}.{ROOT_DOMAIN}
                     </div>
+                    <p className="text-xs text-slate-500 leading-relaxed max-w-md">
+                      Customers scan the counter acrylic standee or open this link directly to beam PDF files securely into your spool.
+                    </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2.5">
-                    <button
-                      onClick={() => handleSelectTab("qr")}
-                      className="cyber-btn-cyan px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider flex items-center gap-2"
-                    >
-                      <span>📥</span>
-                      <span>GENERATE STANDEE (300 DPI)</span>
-                    </button>
-
-                    <a
-                      href={customerUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="cyber-btn-secondary px-4 py-2.5 rounded-xl text-xs font-mono font-semibold flex items-center gap-1.5"
-                    >
-                      <span>TEST PRINT LOOP</span>
-                      <span className="text-[10px]">↗</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* BENTO CELL 2: Core B&W Rate (Spans 4 cols) */}
-            <div className="col-span-6 lg:col-span-4 cyber-card p-5 flex flex-col justify-between border-slate-800 hover:border-cyan-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">
-                  // CORE_BW_RATE
-                </span>
-                <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px] font-mono">
-                  MONOCHROME
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-1.5 my-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono cyber-text-cyan">
-                    ₹{priceBw.toFixed(2)}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">/ PAGE</span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Standard A4/Legal document printing rate
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[10px] font-mono text-slate-500">QUICK STEP</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      const next = Math.max(0.5, priceBw - 0.5);
-                      handleUpdateServicePrice("core_bw", next);
-                    }}
-                    className="w-7 h-7 rounded-lg cyber-btn-secondary font-mono font-bold text-xs flex items-center justify-center"
-                    title="Decrease price by ₹0.5"
-                  >
-                    -
-                  </button>
-                  <button
-                    onClick={() => {
-                      const next = priceBw + 0.5;
-                      handleUpdateServicePrice("core_bw", next);
-                    }}
-                    className="w-7 h-7 rounded-lg cyber-btn-secondary font-mono font-bold text-xs flex items-center justify-center text-cyan-400"
-                    title="Increase price by ₹0.5"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* BENTO CELL 3: Core Color Rate (Spans 4 cols) */}
-            <div className="col-span-6 lg:col-span-4 cyber-card p-5 flex flex-col justify-between border-slate-800 hover:border-purple-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">
-                  // CORE_COLOR_RATE
-                </span>
-                <span className="cyber-chip-purple px-2 py-0.5 rounded text-[10px] font-mono">
-                  FULL COLOR
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-1.5 my-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono cyber-text-purple">
-                    ₹{priceColor.toFixed(2)}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">/ PAGE</span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  High-res CMYK color reproduction
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[10px] font-mono text-slate-500">HARDWARE STATUS</span>
-                <button
-                  onClick={() => handleToggleService("core_color")}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase transition flex items-center gap-1.5 ${
-                    colorEnabled
-                      ? "cyber-chip-emerald"
-                      : "bg-slate-800/80 text-slate-400 border border-slate-700"
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${colorEnabled ? "bg-emerald-400" : "bg-slate-500"}`} />
-                  {colorEnabled ? "ONLINE" : "OFFLINE"}
-                </button>
-              </div>
-            </div>
-
-            {/* BENTO CELL 4: Surcharge & GST Gauge (Spans 4 cols) */}
-            <div className="col-span-6 lg:col-span-4 cyber-card p-5 flex flex-col justify-between border-slate-800 hover:border-emerald-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">
-                  // SURCHARGE_GAUGE
-                </span>
-                <span className="cyber-chip-emerald px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                  AUTO-TAX
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-1.5 my-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono cyber-text-emerald">
-                    ₹{totalCharge.toFixed(2)}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">TOTAL</span>
-                </div>
-                <div className="text-[11px] font-mono text-slate-400 space-y-0.5">
-                  <div>BASE FEE: ₹{platformFee.toFixed(2)}</div>
-                  <div className="text-slate-500">GST ({gstPercentage}%): ₹{gstAmount.toFixed(2)}</div>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                <span>DATABASE SYNCED</span>
-                <button
-                  onClick={() => handleSelectTab("services")}
-                  className="text-cyan-400 hover:underline"
-                >
-                  CONFIGURE →
-                </button>
-              </div>
-            </div>
-
-            {/* BENTO CELL 5: Hardware Printer Cluster (Spans 4 cols) */}
-            <div className="col-span-6 lg:col-span-4 cyber-card p-5 flex flex-col justify-between border-slate-800 hover:border-cyan-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">
-                  // PRINTER_HARDWARE
-                </span>
-                <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px] font-mono">
-                  SPOOL_QUEUE
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-2 my-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono text-white">
-                    {printers.filter((p) => p.is_active).length}
-                  </span>
-                  <span className="text-xs font-mono text-emerald-400">
-                    / {printers.length} ONLINE
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {printers.find((p) => p.is_default)?.printer_name || "No default printer set"}
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                <span>DESKTOP SPOOLER</span>
-                <button
-                  onClick={() => handleSelectTab("printers")}
-                  className="text-cyan-400 hover:underline"
-                >
-                  MANAGE FLEET →
-                </button>
-              </div>
-            </div>
-
-            {/* BENTO CELL 6: Direct Merchant UPI Settlement Vault (Spans 6 cols) */}
-            <div className="col-span-12 md:col-span-6 cyber-card p-5 flex flex-col justify-between border-slate-800 hover:border-emerald-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">
-                  // DIRECT_SETTLEMENT_VAULT
-                </span>
-                <span className="cyber-chip-emerald px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                  100% TO SHOP
-                </span>
-              </div>
-
-              <div>
-                <div className="text-xs text-slate-400 mb-1">
-                  Customer payments flow instantly to your UPI account:
-                </div>
-                <div className="text-lg sm:text-xl font-mono font-black text-emerald-400 truncate bg-slate-950/80 p-3 rounded-xl border border-emerald-500/20">
-                  {shop.upi_vpa}
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                <span>ZERO PLATFORM CUT ON PRINTS</span>
-                <span className="text-emerald-400">VERIFIED VPA</span>
-              </div>
-            </div>
-
-            {/* BENTO CELL 7: Lifetime Print Volume & Privacy Certificate (Spans 6 cols) */}
-            <div className="col-span-12 md:col-span-6 cyber-card p-5 flex flex-col justify-between border-slate-800 hover:border-cyan-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">
-                  // P2P_VOLUME_COUNTER
-                </span>
-                <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px] font-mono">
-                  SHRED_PROTOCOL
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-2 my-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono text-cyan-300">
-                    {printEvents.length}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">JOBS COMPLETED</span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  All documents transferred memory-only via encrypted WebRTC. Auto-shredded upon spooling.
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                <span className="text-emerald-400">ZERO CLOUD STORAGE</span>
-                <span>AUDITED P2P</span>
-              </div>
-            </div>
-
-            {/* BENTO CELL 8: Transmission Stream / Realtime Session Stream (Spans 12 cols) */}
-            <div className="col-span-12 cyber-card p-6 border-slate-800">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-slate-200 uppercase tracking-wider">
-                    // REALTIME_TRANSMISSION_STREAM
-                  </span>
-                  <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px] font-mono">
-                    LIVE_LOGS
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-slate-500">
-                  Showing latest {printEvents.length} telemetry records
-                </span>
-              </div>
-
-              {printEvents.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-slate-800 rounded-xl font-mono text-xs text-slate-500">
-                  [STREAM_IDLE] Awaiting customer document uploads at counter. Session tokens will stream here in real time.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs font-mono">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                        <th className="pb-3 px-3">Session Hash</th>
-                        <th className="pb-3 px-3">Timestamp</th>
-                        <th className="pb-3 px-3">Protocol</th>
-                        <th className="pb-3 px-3 text-right">Spool State</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60">
-                      {printEvents.map((ev) => (
-                        <tr key={ev.id} className="hover:bg-cyan-500/5 transition">
-                          <td className="py-3 px-3 text-cyan-300 font-bold">
-                            #{ev.session_id.slice(0, 10)}
-                          </td>
-                          <td className="py-3 px-3 text-slate-400">
-                            {new Date(ev.created_at).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-3 text-slate-500">
-                            WEBRTC_DATA_CHANNEL
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <span className="cyber-chip-emerald px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                              ✓ SPOOLED & SHREDDED
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 2: SERVICES & RATES MATRIX (BENTO GRID) ─────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "services" && (
-          <div className="space-y-6 animate-fade-in-up">
-            {/* Top Action & Save Bento Card */}
-            <div className="cyber-card p-6 cyber-hud-corner border-cyan-500/30 flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <div className="flex items-center gap-2 font-mono text-[10px] text-cyan-400 uppercase tracking-widest mb-1">
-                  <span>// RATE_MANAGEMENT_STATION</span>
-                  {isServicesDirty() && (
-                    <span className="text-amber-400 font-bold animate-pulse">
-                      ● UNSAVED EDITS DETECTED
+                  <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-mono text-[11px] truncate max-w-[240px]">
+                      {customerUrl}
                     </span>
-                  )}
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5"
+                    >
+                      {copiedLink ? <IconCheck size={13} className="text-emerald-600" /> : <IconCopy size={13} />}
+                      <span>{copiedLink ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
                 </div>
-                <h2 className="text-xl font-black text-white tracking-tight">
-                  Pricing & Customer Services Matrix
-                </h2>
-                <p className="text-xs text-slate-400 max-w-xl mt-1">
-                  Adjust per-page document print rates, configure convenience surcharge and GST tax percentages, and offer customized print finishing add-ons.
-                </p>
-              </div>
 
-              <div className="flex items-center gap-3">
-                {saveServicesMsg && (
-                  <span className="cyber-chip-emerald px-3 py-1 rounded-xl text-xs font-mono font-bold animate-fade-in-up">
-                    ✓ {saveServicesMsg}
-                  </span>
-                )}
-
-                {isServicesDirty() && (
-                  <button
-                    type="button"
-                    onClick={handleDiscardServices}
-                    className="px-3.5 py-2.5 rounded-xl text-xs font-mono font-semibold text-rose-300 hover:bg-rose-500/10 border border-rose-500/30 transition"
-                  >
-                    DISCARD
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleSaveServices}
-                  disabled={isSavingServices}
-                  className="cyber-btn-cyan px-5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2"
-                >
-                  {isSavingServices ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                      <span>COMMITTING...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>💾 SAVE SERVICES & RATES</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Core Document Printing Bento Deck */}
-            <div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="font-mono text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  // CORE_DOCUMENT_PRINTING (STANDARD TIERS)
-                </span>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  ● ALWAYS ACCESSIBLE AT COUNTER
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Core 1: Black & White */}
-                <div className="cyber-card p-6 border-slate-800 hover:border-cyan-500/30">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-lg shadow">
-                        📄
+                {/* Bento Card 2: Total Prints with Jump to Analytics */}
+                <div className="glass-bento rounded-3xl p-6 glow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Dispatched Prints
+                      </span>
+                      <div className="p-1.5 rounded-xl bg-indigo-50 text-indigo-600">
+                        <IconAnalytics size={16} />
                       </div>
-                      <div>
-                        <div className="text-sm font-bold text-white">
-                          Black & White Printing
+                    </div>
+
+                    <div className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">
+                      {printEvents.length}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Direct P2P print completions
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTab("analytics")}
+                      className="w-full text-left text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition flex items-center justify-between"
+                    >
+                      <span>View Revenue & Trends</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bento Card 3: Active Printers with Jump to Printers */}
+                <div className="glass-bento rounded-3xl p-6 glow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Hardware Printers
+                      </span>
+                      <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600">
+                        <IconPrinter size={16} />
+                      </div>
+                    </div>
+
+                    <div className="text-3xl font-extrabold text-emerald-600 tracking-tight mb-1">
+                      {activePrintersCount}{" "}
+                      <span className="text-sm font-semibold text-slate-400">/ {printers.length}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Active spool destinations
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTab("printers")}
+                      className="w-full text-left text-xs font-semibold text-emerald-600 hover:text-emerald-800 transition flex items-center justify-between"
+                    >
+                      <span>Configure Printers</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bento Card 4 (Span 2): Counter Acrylic Stand Ready */}
+                <div className="md:col-span-2 glass-bento rounded-3xl p-6 glow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="space-y-3 max-w-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        📱 Acrylic Standee
+                      </span>
+                      <span className="text-xs font-bold text-slate-900">300 DPI Ready</span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Counter QR Signage Stand
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Place this QR code at your shop counter. Customers scan with their phone camera to beam documents without sending WhatsApp messages or emails.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={downloadStandeePoster}
+                        disabled={isExporting}
+                        className="btn-primary px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-sm flex items-center gap-1.5"
+                      >
+                        <span>📥 Download Standee</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTab("qr")}
+                        className="px-3 py-2 rounded-xl text-xs font-semibold glass hover:bg-slate-100 text-slate-700 border border-slate-200"
+                      >
+                        All Assets →
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200/80 flex-shrink-0">
+                    <QRCodeCanvas value={customerUrl} size={110} level="H" />
+                  </div>
+                </div>
+
+                {/* Bento Card 5 (Span 2): Active Rates & Platform Fee Snapshot */}
+                <div className="md:col-span-2 glass-bento rounded-3xl p-6 glow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Counter Rates Snapshot
+                      </span>
+                      <span className="text-xs font-semibold text-slate-600">Current Menu</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60">
+                        <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                          B&W Standard
+                        </span>
+                        <div className="text-xl font-bold text-slate-900 mt-0.5">
+                          ₹{priceBw} <span className="text-xs font-normal text-slate-500">/page</span>
                         </div>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          Monochrome Standard (A4 / Legal)
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+                        <span className="text-[10px] text-indigo-500 font-semibold block uppercase">
+                          Full Color
+                        </span>
+                        <div className="text-xl font-bold text-indigo-900 mt-0.5">
+                          ₹{priceColor} <span className="text-xs font-normal text-indigo-500">/page</span>
                         </div>
                       </div>
                     </div>
-                    <span className="cyber-chip-cyan px-2.5 py-0.5 rounded text-[10px] font-mono font-bold">
-                      CORE • DEFAULT
+
+                    <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/50">
+                      <span>Total Customer Surcharge</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{totalCharge.toFixed(2)} (Fee ₹{platformFee.toFixed(2)} + GST {gstPercentage}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTab("services")}
+                      className="w-full text-left text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition flex items-center justify-between"
+                    >
+                      <span>Update Rates & Services</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bento Card 6: Recent Events Stream Table */}
+              <div className="glass-bento rounded-3xl p-6 glow-sm border border-slate-200/80">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Recent Print Sessions Feed
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Latest document prints completed over peer-to-peer WebRTC.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab("analytics")}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
+                  >
+                    View Full Ledger ({printEvents.length}) →
+                  </button>
+                </div>
+
+                {printEvents.length === 0 ? (
+                  <div className="text-center py-10 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
+                    <p className="text-xs text-slate-500 font-medium">
+                      No print jobs recorded yet. When a customer beams a file, sessions will show here in real time.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200/80 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                          <th className="pb-3 px-3">Session Hash</th>
+                          <th className="pb-3 px-3">Timestamp</th>
+                          <th className="pb-3 px-3">Channel</th>
+                          <th className="pb-3 px-3 text-right">Spool Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {printEvents.slice(0, 6).map((ev) => (
+                          <tr key={ev.id} className="hover:bg-slate-50/60 transition">
+                            <td className="py-3 px-3 font-mono text-slate-900">
+                              #{ev.session_id.slice(0, 10)}
+                            </td>
+                            <td className="py-3 px-3 text-slate-500">
+                              {new Date(ev.created_at).toLocaleString([], {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/50">
+                                P2P Encrypted
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                Spooled & Shredded
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ANALYTICS & LEDGER (COMPREHENSIVE BENTO SUITE) */}
+          {activeTab === "analytics" && (
+            <AdminAnalytics
+              shop={shop}
+              printEvents={printEvents}
+              priceBw={priceBw}
+              priceColor={priceColor}
+              onRefresh={loadShopData}
+            />
+          )}
+
+          {/* TAB 3: SERVICES & RATES */}
+          {activeTab === "services" && (
+            <div className="space-y-6 animate-fade-in-up">
+              {/* Header Card & Save Action */}
+              <div className="flex items-center justify-between flex-wrap gap-4 glass-bento rounded-3xl p-6 glow-sm">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Services & Custom Pricing Management
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5 max-w-lg">
+                    Configure your shop's per-page printing rates, toggle color printing availability, and manage additional finishing services offered to customers.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {saveServicesMsg && (
+                    <span className="text-xs font-semibold text-emerald-600 animate-fade-in-up">
+                      ✓ {saveServicesMsg}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveServices}
+                    disabled={isSavingServices}
+                    className="btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-slate-900/10"
+                  >
+                    {isSavingServices ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>💾 Save All Pricing & Services</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Core Document Printing Services */}
+              <div>
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Core Printing Services (Standard Document Xerox)
+                  </h3>
+                  <span className="text-[11px] text-emerald-600 font-semibold">
+                    ● Always accessible to customer phone scans
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Core 1: Black & White */}
+                  <div className="glass-bento rounded-2xl p-5 glow-sm border border-slate-200/80">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-sm shadow">
+                          📄
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-slate-900">
+                            Black & White Printing
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Monochrome standard A4/Legal
+                          </div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        Active • Core
+                      </span>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-600">
+                        Price per Page (₹)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-700">₹</span>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.5"
+                          value={priceBw}
+                          onChange={(e) => handleUpdateServicePrice("core_bw", Math.max(0.5, Number(e.target.value)))}
+                          className="w-24 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-bold text-center focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <span className="text-xs text-slate-400">/ page</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Core 2: Color Printing */}
+                  <div className="glass-bento rounded-2xl p-5 glow-sm border border-slate-200/80">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 text-white flex items-center justify-center text-sm shadow">
+                          🎨
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-slate-900">
+                            Color Printing
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Full color A4/Photo reproduction
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleService("core_color")}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1.5 ${
+                          colorEnabled
+                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                            : "bg-slate-100 text-slate-500 border border-slate-200"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${colorEnabled ? "bg-emerald-500" : "bg-slate-400"}`} />
+                        {colorEnabled ? "Enabled" : "Disabled (Out of Ink)"}
+                      </button>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-600">
+                        Price per Page (₹)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-700">₹</span>
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          value={priceColor}
+                          onChange={(e) => handleUpdateServicePrice("core_color", Math.max(1, Number(e.target.value)))}
+                          className="w-24 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-bold text-center focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <span className="text-xs text-slate-400">/ page</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Platform Fee & GST Surcharge Configuration */}
+              <div className="glass-bento rounded-3xl p-6 glow-sm border border-slate-200/80">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-900">
+                      Platform Fee & GST Surcharge Configuration
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200">
+                      Auto-Calculates
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    Stored in Database • Live Customer Breakdown
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mb-5 max-w-xl">
+                  Enter your base platform convenience fee and GST percentage. The tax breakdown and total surcharge are automatically calculated in real time and saved to the database.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  {/* Input 1: Platform Fee */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      Base Platform Fee (₹)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={platformFee}
+                        onChange={(e) => handlePlatformFeeChange(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-1.5 block">
+                      Net fee before tax
                     </span>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
-                    <label className="text-xs font-mono text-slate-400">
-                      RATE PER PAGE:
+                  {/* Input 2: GST Percentage */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      GST Percentage (%)
                     </label>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-cyan-400 font-mono">₹</span>
                       <input
                         type="number"
                         step="0.5"
-                        min="0.5"
-                        value={priceBw}
-                        onChange={(e) => handleUpdateServicePrice("core_bw", Math.max(0.5, Number(e.target.value)))}
-                        className="w-24 px-3 py-1.5 rounded-lg cyber-input font-mono font-bold text-sm text-center text-white"
+                        min="0"
+                        max="100"
+                        value={gstPercentage}
+                        onChange={(e) => handleGstPercentageChange(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:border-indigo-500 text-center"
                       />
-                      <span className="text-xs font-mono text-slate-500">/ pg</span>
+                      <span className="text-sm font-bold text-slate-400">%</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-1.5 block">
+                      Tax percentage rate
+                    </span>
+                  </div>
+
+                  {/* Auto-calc Box 1: Calculated GST */}
+                  <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-200/60 flex flex-col justify-between">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                      Calculated GST
+                    </div>
+                    <div className="text-2xl font-black font-mono text-indigo-900 my-1">
+                      ₹{gstAmount.toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-indigo-600/70">
+                      {gstPercentage}% on ₹{platformFee.toFixed(2)}
+                    </div>
+                  </div>
+
+                  {/* Auto-calc Box 2: Total Customer Fee */}
+                  <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200/80 flex flex-col justify-between">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      Total Customer Surcharge
+                    </div>
+                    <div className="text-2xl font-black font-mono text-emerald-700 my-1">
+                      ₹{totalCharge.toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-emerald-600">
+                      ₹{platformFee.toFixed(2)} fee + ₹{gstAmount.toFixed(2)} GST
                     </div>
                   </div>
                 </div>
 
-                {/* Core 2: Color Printing */}
-                <div className="cyber-card p-6 border-slate-800 hover:border-purple-500/30">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-lg shadow border border-purple-400/30">
-                        🎨
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-center gap-2.5">
+                  <span>👁️</span>
+                  <span>
+                    Customer price drawer displays:{" "}
+                    <strong className="text-slate-900">GST and other charges: ₹{totalCharge.toFixed(2)}</strong>{" "}
+                    (expands into <code className="text-indigo-600 font-mono">Platform fee: ₹{platformFee.toFixed(2)}</code> +{" "}
+                    <code className="text-indigo-600 font-mono">GST ({gstPercentage}%): ₹{gstAmount.toFixed(2)}</code>)
+                  </span>
+                </div>
+              </div>
+
+              {/* Additional Finishing Services */}
+              <div>
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Additional & Finishing Services (Customer Add-ons)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustom((p) => !p)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition"
+                  >
+                    {showAddCustom ? "− Hide Add Form" : "+ Add New Custom Service"}
+                  </button>
+                </div>
+
+                {showAddCustom && (
+                  <form
+                    onSubmit={handleAddCustomService}
+                    className="glass-bento rounded-3xl p-5 mb-4 glow-sm border border-indigo-200/80 space-y-3 animate-fade-in-up"
+                  >
+                    <div className="font-semibold text-xs text-slate-900">
+                      Create Custom Service Offering
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Service Title
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Spiral Binding"
+                          value={newServiceName}
+                          onChange={(e) => setNewServiceName(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                        />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-white">
-                          Color Printing
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          Full Color Reproduction (CMYK)
-                        </div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Category
+                        </label>
+                        <select
+                          value={newServiceCategory}
+                          onChange={(e) => setNewServiceCategory(e.target.value as any)}
+                          className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="finishing">Finishing / Post-Press</option>
+                          <option value="print">Speciality Print / Paper</option>
+                          <option value="addon">Packaging / Add-on</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="0"
+                          value={newServicePrice}
+                          onChange={(e) => setNewServicePrice(Math.max(0, Number(e.target.value)))}
+                          className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Unit Model
+                        </label>
+                        <select
+                          value={newServiceUnit}
+                          onChange={(e) => setNewServiceUnit(e.target.value as any)}
+                          className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="per_copy">Per Copy / Document</option>
+                          <option value="per_page">Per Page</option>
+                          <option value="flat">Flat Fee</option>
+                        </select>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleService("core_color")}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-mono font-bold uppercase transition flex items-center gap-1.5 ${
-                        colorEnabled
-                          ? "cyber-chip-emerald"
-                          : "bg-slate-800/80 text-slate-400 border border-slate-700"
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${colorEnabled ? "bg-emerald-400" : "bg-slate-500"}`} />
-                      {colorEnabled ? "ENABLED" : "OUT OF INK / OFFLINE"}
-                    </button>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
-                    <label className="text-xs font-mono text-slate-400">
-                      RATE PER PAGE:
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-purple-400 font-mono">₹</span>
-                      <input
-                        type="number"
-                        step="1"
-                        min="1"
-                        value={priceColor}
-                        onChange={(e) => handleUpdateServicePrice("core_color", Math.max(1, Number(e.target.value)))}
-                        className="w-24 px-3 py-1.5 rounded-lg cyber-input font-mono font-bold text-sm text-center text-white"
-                      />
-                      <span className="text-xs font-mono text-slate-500">/ pg</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Platform Convenience Fee & GST Surcharge Bento Console */}
-            <div className="cyber-card p-6 cyber-hud-corner border-emerald-500/20">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-xs font-bold text-slate-200 uppercase tracking-wider">
-                    // CONVENIENCE_FEE_AND_TAX_MATRIX
-                  </span>
-                  <span className="cyber-chip-emerald px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                    DATABASE SYNCED
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">
-                  REAL-TIME CUSTOMER ACCREDITATION
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mb-5 max-w-xl">
-                Set your base convenience charge and GST rate. Total surcharge is automatically computed and broken down in the customer price drawer.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Input 1: Base Platform Fee */}
-                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <label className="block text-[11px] font-mono font-bold text-slate-300 uppercase mb-2">
-                    Base Convenience Fee (₹)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-400">₹</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={platformFee}
-                      onChange={(e) => handlePlatformFeeChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 cyber-input text-sm font-mono font-bold text-cyan-300"
-                    />
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-500 mt-1.5 block">
-                    Platform fee before tax
-                  </span>
-                </div>
-
-                {/* Input 2: GST Percentage */}
-                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <label className="block text-[11px] font-mono font-bold text-slate-300 uppercase mb-2">
-                    GST Rate Percentage (%)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="100"
-                      value={gstPercentage}
-                      onChange={(e) => handleGstPercentageChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 cyber-input text-sm font-mono font-bold text-center text-white"
-                    />
-                    <span className="font-mono font-bold text-slate-400">%</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-500 mt-1.5 block">
-                    Statutory GST surcharge
-                  </span>
-                </div>
-
-                {/* Gauge 1: Auto-calculated GST */}
-                <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/30 flex flex-col justify-between">
-                  <div className="text-[10px] font-mono font-bold text-purple-300 uppercase tracking-widest">
-                    Auto-Calculated GST
-                  </div>
-                  <div className="text-2xl font-black font-mono cyber-text-purple my-1">
-                    ₹{gstAmount.toFixed(2)}
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400">
-                    {gstPercentage}% on ₹{platformFee.toFixed(2)}
-                  </div>
-                </div>
-
-                {/* Gauge 2: Total Customer Fee */}
-                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex flex-col justify-between">
-                  <div className="text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-widest">
-                    Customer Surcharge
-                  </div>
-                  <div className="text-2xl font-black font-mono cyber-text-emerald my-1">
-                    ₹{totalCharge.toFixed(2)}
-                  </div>
-                  <div className="text-[10px] font-mono text-emerald-400/80">
-                    ₹{platformFee.toFixed(2)} fee + ₹{gstAmount.toFixed(2)} tax
-                  </div>
-                </div>
-              </div>
-
-              {/* Callout Preview */}
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-cyan-500/20 text-xs font-mono text-slate-300 flex items-center gap-2.5">
-                <span>👁️</span>
-                <span>
-                  Customer price drawer displays:{" "}
-                  <strong className="text-emerald-300">GST and other charges: ₹{totalCharge.toFixed(2)}</strong>{" "}
-                  (breakdown: <code className="text-cyan-300">₹{platformFee.toFixed(2)}</code> +{" "}
-                  <code className="text-cyan-300">₹{gstAmount.toFixed(2)}</code> GST)
-                </span>
-              </div>
-            </div>
-
-            {/* Custom & Finishing Services Bento Section */}
-            <div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="font-mono text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  // ADDITIONAL_SERVICES_INVENTORY
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddCustom((p) => !p)}
-                  className="cyber-btn-secondary px-3 py-1.5 rounded-lg text-xs font-mono font-semibold"
-                >
-                  {showAddCustom ? "− CLOSE FORM" : "+ ADD CUSTOM SERVICE"}
-                </button>
-              </div>
-
-              {/* Add Custom Form */}
-              {showAddCustom && (
-                <form
-                  onSubmit={handleAddCustomService}
-                  className="cyber-card p-5 mb-4 border-cyan-500/40 space-y-4 animate-fade-in-up"
-                >
-                  <div className="text-xs font-mono font-bold text-cyan-300 uppercase">
-                    [REGISTER_NEW_SHOP_SERVICE]
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
-                    <div className="md:col-span-2">
-                      <label className="block text-[11px] text-slate-400 mb-1">
-                        SERVICE NAME
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Spiral Binding, Glossy Sticker, Thesis Hardcover"
-                        value={newServiceName}
-                        onChange={(e) => setNewServiceName(e.target.value)}
-                        className="w-full px-3 py-2 cyber-input text-xs"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">
-                        PRICE (₹)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="1"
-                        value={newServicePrice}
-                        onChange={(e) => setNewServicePrice(Number(e.target.value))}
-                        className="w-full px-3 py-2 cyber-input text-xs font-bold text-cyan-300"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">
-                        BILLING UNIT
-                      </label>
-                      <select
-                        value={newServiceUnit}
-                        onChange={(e) => setNewServiceUnit(e.target.value as ServiceUnit)}
-                        className="w-full px-3 py-2 cyber-input text-xs"
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCustom(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-800"
                       >
-                        <option value="per_copy">Per Copy / Document</option>
-                        <option value="per_sheet">Per Printed Sheet</option>
-                        <option value="per_document">Per Entire Job</option>
-                        <option value="flat">Flat Rate</option>
-                      </select>
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="btn-primary px-4 py-1.5 rounded-lg text-xs font-semibold text-white"
+                      >
+                        Add Service to Menu
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCustom(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-white"
-                    >
-                      CANCEL
-                    </button>
-                    <button
-                      type="submit"
-                      className="cyber-btn-cyan px-4 py-1.5 rounded-lg text-xs font-mono font-bold"
-                    >
-                      ADD SERVICE TO MENU
-                    </button>
-                  </div>
-                </form>
-              )}
+                  </form>
+                )}
 
-              {/* Table of Custom Services */}
-              <div className="cyber-card overflow-hidden border-slate-800">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px] bg-slate-950/40">
-                      <th className="py-3 px-4">Service</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Price (₹)</th>
-                      <th className="py-3 px-4">Unit</th>
-                      <th className="py-3 px-4">Toggle</th>
-                      <th className="py-3 px-4 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {servicesList
-                      .filter((s) => !s.isCore)
-                      .map((item) => (
-                        <tr
-                          key={item.id}
-                          className={`hover:bg-cyan-500/5 transition ${
-                            !item.enabled ? "opacity-50" : ""
-                          }`}
-                        >
-                          <td className="py-3 px-4 font-bold text-white">
-                            {item.name}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px] uppercase">
-                              {item.category}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-cyan-400 font-bold">₹</span>
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.price}
-                                onChange={(e) =>
-                                  handleUpdateServicePrice(item.id, Number(e.target.value))
-                                }
-                                className="w-20 px-2 py-1 cyber-input text-xs font-bold text-white"
-                              />
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-400 capitalize">
-                            {item.unit.replace("_", " ")}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleService(item.id)}
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1.5 ${
-                                item.enabled
-                                  ? "cyber-chip-emerald"
-                                  : "bg-slate-800 text-slate-400 border border-slate-700"
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  item.enabled ? "bg-emerald-400" : "bg-slate-500"
-                                }`}
-                              />
-                              {item.enabled ? "ENABLED" : "DISABLED"}
-                            </button>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            {item.id.startsWith("custom_") ? (
+                <div className="glass-bento rounded-3xl overflow-hidden glow-sm border border-slate-200/80">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-500 bg-slate-50/60 text-[11px]">
+                        <th className="py-3 px-4 font-semibold">Service Name</th>
+                        <th className="py-3 px-4 font-semibold">Category</th>
+                        <th className="py-3 px-4 font-semibold">Price (₹)</th>
+                        <th className="py-3 px-4 font-semibold">Billing Unit</th>
+                        <th className="py-3 px-4 font-semibold">Status / Toggle</th>
+                        <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {servicesList
+                        .filter((s) => !s.isCore)
+                        .map((item) => (
+                          <tr
+                            key={item.id}
+                            className={`hover:bg-slate-50/50 transition ${
+                              !item.enabled ? "opacity-60" : ""
+                            }`}
+                          >
+                            <td className="py-3.5 px-4 font-semibold text-slate-900">
+                              {item.name}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 capitalize">
+                                {item.category}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-400">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.price}
+                                  onChange={(e) =>
+                                    handleUpdateServicePrice(item.id, Number(e.target.value))
+                                  }
+                                  className="w-20 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-xs font-semibold font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-500 capitalize">
+                              {item.unit.replace("_", " ")}
+                            </td>
+                            <td className="py-3.5 px-4">
                               <button
                                 type="button"
-                                onClick={() => handleDeleteService(item.id)}
-                                className="text-rose-400 hover:text-rose-300 text-xs font-semibold"
+                                onClick={() => handleToggleService(item.id)}
+                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1.5 ${
+                                  item.enabled
+                                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
+                                }`}
                               >
-                                DELETE
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    item.enabled ? "bg-emerald-500" : "bg-slate-400"
+                                  }`}
+                                />
+                                {item.enabled ? "Enabled" : "Disabled"}
                               </button>
-                            ) : (
-                              <span className="text-[10px] text-slate-500">PRESET</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 3: COUNTER QR & STANDEE (BENTO GRID) ────────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "qr" && (
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-fade-in-up">
-            {/* Left: Standee Acrylic Physical Simulation Preview (5 cols) */}
-            <div className="md:col-span-5 cyber-card p-6 cyber-hud-corner border-cyan-500/30 flex flex-col items-center text-center">
-              <div className="text-[10px] font-mono tracking-widest text-cyan-400 uppercase mb-4">
-                // COUNTER_ACRYLIC_HOLOGRAPHIC_PREVIEW
-              </div>
-
-              {/* Physical Acrylic Card Mockup */}
-              <div className="bg-white rounded-2xl p-6 text-slate-900 shadow-[0_0_50px_rgba(0,240,255,0.25)] border-4 border-slate-800 max-w-sm w-full">
-                <div className="flex justify-center mb-2">
-                  <img
-                    src="/logo.png"
-                    alt="Printap"
-                    className="w-9 h-9 rounded-xl object-cover shadow border border-slate-300"
-                  />
-                </div>
-                <div className="text-[9px] font-black tracking-widest uppercase text-slate-500 mb-1">
-                  PRINTAP SELF-SERVICE COUNTER
-                </div>
-                <h2 className="text-xl font-black tracking-tight text-slate-950 mb-1">
-                  {shop.name}
-                </h2>
-                <p className="text-[10px] text-slate-500 mb-4 font-medium">
-                  Scan with phone camera to beam files
-                </p>
-
-                <div
-                  ref={qrCanvasRef}
-                  className="inline-block p-3.5 bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner mb-4"
-                >
-                  <QRCodeCanvas value={customerUrl} size={180} level="H" />
-                </div>
-
-                {/* Hidden SVG reference for vector export */}
-                <div ref={qrSvgRef} className="hidden">
-                  <QRCodeSVG value={customerUrl} size={1024} level="H" />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 bg-slate-100 p-2.5 rounded-xl text-center text-[10px] font-bold text-slate-700 mb-3">
-                  <div>1. Scan</div>
-                  <div className="border-x border-slate-300">2. Upload</div>
-                  <div>3. Collect</div>
-                </div>
-
-                <div className="text-[11px] font-mono text-emerald-700 font-black">
-                  UPI: {shop.upi_vpa}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              {item.id.startsWith("custom_") ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteService(item.id)}
+                                  className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold"
+                                >
+                                  Delete
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">Preset</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Right: Export Deck & Signage Advice (7 cols) */}
-            <div className="md:col-span-7 space-y-4">
-              <div className="cyber-card p-6 cyber-hud-corner border-slate-800">
-                <div className="flex items-center gap-2 mb-2 font-mono text-[10px] text-cyan-400 uppercase tracking-widest">
-                  <span>// EXPORT_ENGINE</span>
-                  <span>•</span>
-                  <span>HIGH_RES_ASSETS</span>
+          {/* TAB 4: QR & STANDEE */}
+          {activeTab === "qr" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in-up">
+              {/* Standee Preview */}
+              <div className="glass-bento rounded-3xl p-6 text-center border border-slate-200/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
+                  Physical Counter Standee Preview
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  Download Counter Signage Assets
-                </h3>
-                <p className="text-xs text-slate-400 mb-6">
-                  Print the standee graphic on heavy cardstock (250+ GSM) and insert into an A5 or 5x7" clear acrylic L-stand on your front desk.
-                </p>
 
-                <div className="space-y-3">
-                  <button
-                    onClick={downloadStandeePoster}
-                    disabled={isExporting}
-                    className="cyber-btn-cyan w-full py-3.5 rounded-xl font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-                  >
-                    <span>📥</span>
-                    <span>DOWNLOAD PRINTABLE STANDEE (300 DPI PNG)</span>
-                  </button>
+                <div className="bg-white rounded-2xl p-6 text-[#09090b] shadow-xl mx-auto max-w-sm border border-slate-200/60">
+                  <div className="flex justify-center mb-2">
+                    <img
+                      src="/logo.png"
+                      alt="Printap"
+                      className="w-8 h-8 rounded-lg object-cover shadow-sm border border-slate-200"
+                    />
+                  </div>
+                  <div className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-1">
+                    PRINTAP SELF-SERVICE COUNTER
+                  </div>
+                  <h2 className="text-xl font-bold tracking-tight mb-1 text-slate-900">{shop.name}</h2>
+                  <p className="text-[11px] text-slate-500 mb-4">Scan with phone camera to beam files</p>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={downloadRawQrPng}
-                      className="cyber-btn-secondary py-3 rounded-xl font-mono font-semibold text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <span>SAVE SQUARE PNG</span>
-                      <span className="text-[10px] text-slate-400">(1024px)</span>
-                    </button>
-                    <button
-                      onClick={downloadRawQrSvg}
-                      className="cyber-btn-secondary py-3 rounded-xl font-mono font-semibold text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <span>SAVE VECTOR SVG</span>
-                      <span className="text-[10px] text-slate-400">(Infinite)</span>
-                    </button>
+                  <div ref={qrCanvasRef} className="inline-block p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+                    <QRCodeCanvas value={customerUrl} size={180} level="H" />
+                  </div>
+
+                  <div ref={qrSvgRef} className="hidden">
+                    <QRCodeSVG value={customerUrl} size={1024} level="H" />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 bg-slate-100 p-2.5 rounded-xl text-center text-[10px] font-semibold mb-3 text-slate-700">
+                    <div>1. Scan</div>
+                    <div className="border-x border-slate-300">2. Select PDF</div>
+                    <div>3. Collect</div>
+                  </div>
+
+                  <div className="text-[10px] font-mono text-emerald-600 font-bold">
+                    UPI: {shop.upi_vpa}
                   </div>
                 </div>
               </div>
 
-              {/* Placement & Lighting Guidelines Bento Cell */}
-              <div className="cyber-card p-6 border-slate-800 font-mono text-xs space-y-3">
-                <div className="text-cyan-400 font-bold uppercase tracking-wider text-[11px]">
-                  [HARDWARE_DEPLOYMENT_DIRECTIVES]
+              {/* Download Buttons & Advice */}
+              <div className="space-y-4">
+                <div className="glass-bento rounded-3xl p-6 border border-slate-200/80">
+                  <h3 className="text-sm font-bold text-slate-900 mb-2">
+                    Download Counter Display Assets
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-6">
+                    Print this card and place it inside a 5x7" or A5 acrylic standee at your counter.
+                  </p>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={downloadStandeePoster}
+                      disabled={isExporting}
+                      className="btn-primary w-full py-3 rounded-xl font-semibold text-white text-xs flex items-center justify-center gap-2"
+                    >
+                      📥 Download Printable Counter Standee (300 DPI PNG)
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={downloadRawQrPng}
+                        className="glass py-2.5 rounded-xl font-semibold text-xs hover:bg-white text-slate-700 transition border border-slate-200"
+                      >
+                        Save Square PNG (1024px)
+                      </button>
+                      <button
+                        onClick={downloadRawQrSvg}
+                        className="glass py-2.5 rounded-xl font-semibold text-xs hover:bg-white text-slate-700 transition border border-slate-200"
+                      >
+                        Save Vector SVG
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <ul className="space-y-2 text-slate-400 text-[11px]">
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">01.</span>
-                    <span><strong>Acrylic Stand:</strong> Standard A5 or 5x7" vertical clear acrylic standee placed facing the customer queue.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">02.</span>
-                    <span><strong>Cardstock Quality:</strong> Print at 300 DPI on 250+ GSM paper to prevent glare and paper curl under counter lighting.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">03.</span>
-                    <span><strong>Lighting Angle:</strong> Position slightly tilted away from direct ceiling spotlights for immediate phone camera focus.</span>
-                  </li>
-                </ul>
+
+                <div className="glass-bento rounded-3xl p-5 text-xs space-y-2 text-slate-500 border border-slate-200/80">
+                  <div className="font-semibold text-slate-800">Display Recommendations:</div>
+                  <p>• Acrylic Stand: A5 or 5×7" clear vertical acrylic L-stand.</p>
+                  <p>• Paper: 250+ GSM cardstock for sharp QR scanning under overhead lights.</p>
+                  <p>• Counter Position: Directly facing the customer waiting line.</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 4: PRINTER FLEET (BENTO GRID) ───────────────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "printers" && (
-          <div className="space-y-6 animate-fade-in-up">
-            {/* Add Printer Bento Card */}
-            <div className="cyber-card p-6 cyber-hud-corner border-cyan-500/30">
-              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest mb-1">
-                // HARDWARE_BRIDGE // ASSIGN_NEW_SPOOLER
+          {/* TAB 5: PRINTERS */}
+          {activeTab === "printers" && (
+            <div className="space-y-6 animate-fade-in-up">
+              <div className="glass-bento rounded-3xl p-6 border border-slate-200/80">
+                <h2 className="text-sm font-bold text-slate-900 mb-4">
+                  Add / Assign Hardware Printer
+                </h2>
+                <form onSubmit={handleAddPrinter} className="flex gap-3 flex-wrap items-center">
+                  <input
+                    type="text"
+                    placeholder="Printer name as shown in Windows (e.g. HP LaserJet 1020)"
+                    value={newPrinterName}
+                    onChange={(e) => setNewPrinterName(e.target.value)}
+                    className="flex-1 min-w-[260px] px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                  />
+                  <select
+                    value={newPrinterRole}
+                    onChange={(e) => setNewPrinterRole(e.target.value as any)}
+                    className="px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="bw">Black & White</option>
+                    <option value="color">Color Only</option>
+                    <option value="both">Both B&W + Color</option>
+                  </select>
+                  <button
+                    type="submit"
+                    className="btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold text-white"
+                  >
+                    Assign Printer
+                  </button>
+                </form>
               </div>
-              <h2 className="text-lg font-bold text-white mb-4">
-                Assign Hardware Printer Terminal
+
+              <div className="glass-bento rounded-3xl p-6 border border-slate-200/80">
+                <h2 className="text-sm font-bold text-slate-900 mb-4">
+                  Configured Hardware Printers ({printers.length})
+                </h2>
+
+                {printers.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">
+                    No printer assignments configured. Add a printer above or let the desktop app auto-detect.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {printers.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 flex-wrap gap-3"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {p.printer_name}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-50 text-indigo-600 font-mono font-bold border border-indigo-200/50">
+                              Printer #{p.printer_number || 1}
+                            </span>
+                            {p.is_default && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700 font-medium">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400 uppercase tracking-wider">
+                            Role: {p.role}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleTogglePrinter(p)}
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                              p.is_active
+                                ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                                : "bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}
+                          >
+                            {p.is_active ? "● Online" : "○ Disabled"}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePrinter(p.id)}
+                            className="px-2.5 py-1 rounded-lg text-xs text-rose-500 hover:bg-rose-50 transition"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: PROFILE */}
+          {activeTab === "profile" && (
+            <div className="glass-bento rounded-3xl p-6 space-y-4 max-w-2xl animate-fade-in-up border border-slate-200/80">
+              <h2 className="text-sm font-bold text-slate-900 mb-4">
+                Shop Registration & Terminal Metadata
               </h2>
 
-              <form onSubmit={handleAddPrinter} className="flex gap-3 flex-wrap items-center">
-                <input
-                  type="text"
-                  placeholder="Windows printer name (e.g. HP LaserJet 1020, Canon LBP2900)"
-                  value={newPrinterName}
-                  onChange={(e) => setNewPrinterName(e.target.value)}
-                  className="flex-1 min-w-[280px] px-4 py-2.5 cyber-input text-xs font-mono text-white placeholder-slate-500"
-                />
-                <select
-                  value={newPrinterRole}
-                  onChange={(e) => setNewPrinterRole(e.target.value as any)}
-                  className="px-3.5 py-2.5 cyber-input text-xs font-mono text-white"
-                >
-                  <option value="bw">ROLE: Black & White Only</option>
-                  <option value="color">ROLE: Color Only</option>
-                  <option value="both">ROLE: Both B&W + Color</option>
-                </select>
-                <button
-                  type="submit"
-                  className="cyber-btn-cyan px-5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider"
-                >
-                  + ASSIGN PRINTER
-                </button>
-              </form>
-            </div>
-
-            {/* Configured Hardware Node Matrix */}
-            <div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="font-mono text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  // ASSIGNED_HARDWARE_NODES ({printers.length})
-                </span>
-                <span className="text-[11px] font-mono text-slate-500">
-                  AUTO-SPOOLS VIA PRINTAP DESKTOP
-                </span>
-              </div>
-
-              {printers.length === 0 ? (
-                <div className="cyber-card p-8 text-center font-mono text-xs text-slate-500 border-dashed border-slate-800">
-                  [NO_PRINTERS_ASSIGNED] Add your Windows printer name above or connect via the Printap Desktop bridge.
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Shop Name</span>
+                  <span className="font-semibold text-slate-900">{shop.name}</span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {printers.map((p) => (
-                    <div
-                      key={p.id}
-                      className="cyber-card p-5 border-slate-800 hover:border-cyan-500/40 flex items-center justify-between flex-wrap gap-3"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-bold text-white">
-                            {p.printer_name}
-                          </span>
-                          <span className="cyber-chip-cyan px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                            #{p.printer_number || 1}
-                          </span>
-                          {p.is_default && (
-                            <span className="cyber-chip-purple px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                              DEFAULT
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-400 uppercase">
-                          ROLE: <strong className="text-cyan-300">{p.role}</strong>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleTogglePrinter(p)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1.5 ${
-                            p.is_active
-                              ? "cyber-chip-emerald"
-                              : "bg-slate-800 text-slate-400 border border-slate-700"
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              p.is_active ? "bg-emerald-400" : "bg-slate-500"
-                            }`}
-                          />
-                          {p.is_active ? "ONLINE" : "DISABLED"}
-                        </button>
-                        <button
-                          onClick={() => handleDeletePrinter(p.id)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-mono text-rose-400 hover:bg-rose-500/10 transition"
-                          title="Delete printer assignment"
-                        >
-                          DELETE
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Dedicated Subdomain</span>
+                  <span className="font-mono text-indigo-600 font-semibold">{shop.slug || shop.id}.{ROOT_DOMAIN}</span>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 5: ANALYTICS & TELEMETRY LEDGER ─────────────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "analytics" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
-            <div className="cyber-card p-6 cyber-hud-corner border-slate-800">
-              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest mb-1">
-                // TELEMETRY_THROUGHPUT
-              </div>
-              <h3 className="text-base font-bold text-white mb-4">
-                P2P Document Transmission Volume
-              </h3>
-              <div className="text-4xl font-black font-mono cyber-text-cyan mb-2">
-                {printEvents.length} Documents
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Files are streamed directly from customer browsers to your local PC RAM over peer-to-peer WebRTC data channels. Zero cloud database storage liability.
-              </p>
-            </div>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Settlement UPI</span>
+                  <span className="font-mono text-slate-900 font-semibold">{shop.upi_vpa}</span>
+                </div>
 
-            <div className="cyber-card p-6 cyber-hud-corner border-slate-800">
-              <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest mb-1">
-                // SETTLEMENT_ROUTING
-              </div>
-              <h3 className="text-base font-bold text-white mb-4">
-                Direct Merchant UPI Channel
-              </h3>
-              <div className="text-2xl font-black font-mono cyber-text-emerald mb-2 truncate">
-                {shop.upi_vpa}
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                100% of customer print payments go straight to your bank account via UPI QR. No escrow, no platform withdrawal limits.
-              </p>
-            </div>
-          </div>
-        )}
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Terminal UUID</span>
+                  <span className="font-mono text-slate-400 text-[10px]">{shop.id}</span>
+                </div>
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ─── TAB 6: SHOP PROFILE & NODE CREDENTIALS ──────────────────── */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === "profile" && (
-          <div className="cyber-card p-6 cyber-hud-corner max-w-2xl border-slate-800 space-y-4 animate-fade-in-up">
-            <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest mb-1">
-              // TERMINAL_NODE_MANIFEST
-            </div>
-            <h2 className="text-lg font-bold text-white mb-4">
-              Registered Shop Metadata
-            </h2>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Account Status</span>
+                  <span className="text-emerald-600 font-bold uppercase">{shop.status}</span>
+                </div>
 
-            <div className="space-y-3 font-mono text-xs">
-              <div className="flex justify-between py-2 border-b border-slate-800">
-                <span className="text-slate-400">SHOP NAME:</span>
-                <span className="font-bold text-white">{shop.name}</span>
-              </div>
-
-              <div className="flex justify-between py-2 border-b border-slate-800">
-                <span className="text-slate-400">DEDICATED SUBDOMAIN:</span>
-                <span className="font-bold text-cyan-300">
-                  {shop.slug || shop.id}.{ROOT_DOMAIN}
-                </span>
-              </div>
-
-              <div className="flex justify-between py-2 border-b border-slate-800">
-                <span className="text-slate-400">SETTLEMENT UPI:</span>
-                <span className="font-bold text-emerald-300">{shop.upi_vpa}</span>
-              </div>
-
-              <div className="flex justify-between py-2 border-b border-slate-800">
-                <span className="text-slate-400">TERMINAL UUID:</span>
-                <span className="text-slate-400 text-[11px]">{shop.id}</span>
-              </div>
-
-              <div className="flex justify-between py-2 border-b border-slate-800">
-                <span className="text-slate-400">STATUS:</span>
-                <span className="cyber-chip-emerald px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                  {shop.status}
-                </span>
-              </div>
-
-              <div className="flex justify-between py-2">
-                <span className="text-slate-400">CREATED AT:</span>
-                <span className="text-slate-300">
-                  {new Date(shop.created_at).toLocaleDateString()}
-                </span>
+                <div className="flex justify-between py-2">
+                  <span className="text-slate-500">Created Date</span>
+                  <span className="text-slate-500">{new Date(shop.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ─── UNSAVED CHANGES CONFIRMATION MODAL ─── */}
-        {unsavedModal?.isOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
-            onClick={handleCancelNavigation}
-          >
-            <div
-              className="w-full max-w-md p-6 rounded-2xl cyber-card border-amber-500/40 cyber-hud-corner shadow-[0_0_40px_rgba(245,158,11,0.2)] space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2 font-mono text-[10px] text-amber-400 uppercase tracking-widest">
-                <span>⚠️ [UNSAVED_CHANGES_WARNING]</span>
-              </div>
-              <h3 className="text-base font-bold text-white">
-                Unsaved Edits in Services & Rates
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed font-mono">
-                You have modified your pricing or surcharge matrix without committing changes to the database. How would you like to proceed?
-              </p>
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={handleCancelNavigation}
-                  disabled={isSavingServices}
-                  className="px-3.5 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white"
-                >
-                  CANCEL
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDiscardAndContinue}
-                  disabled={isSavingServices}
-                  className="px-3.5 py-2 rounded-xl text-xs font-mono font-bold text-rose-300 hover:bg-rose-500/10 border border-rose-500/30 transition"
-                >
-                  DISCARD
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAndContinue}
-                  disabled={isSavingServices}
-                  className="cyber-btn-cyan px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider"
-                >
-                  {isSavingServices ? "SAVING..." : "COMMIT & PROCEED"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </main>
       </div>
+
+      {/* Unsaved Changes Confirmation Modal */}
+      {unsavedModal?.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in"
+          onClick={handleCancelNavigation}
+        >
+          <div
+            className="w-full max-w-md p-6 rounded-3xl glass-bento glow-lg border border-slate-200/80 bg-white shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-slate-900">Unsaved Changes</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              You have unsaved changes in <strong className="text-slate-900">Services & Rates</strong>. Would you like to save your changes before leaving this section?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCancelNavigation}
+                disabled={isSavingServices}
+                className="px-4 py-2 rounded-xl text-xs font-semibold glass hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition border border-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndContinue}
+                disabled={isSavingServices}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndContinue}
+                disabled={isSavingServices}
+                className="btn-primary px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-md shadow-slate-900/10"
+              >
+                {isSavingServices ? "Saving..." : "Save & Continue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -93,7 +93,7 @@ export default function PlatformAdminPage() {
         console.error("Failed to load shops:", shopsErr);
       }
 
-      // 3. Fetch recent global print events (100 for comprehensive analytics)
+      // 3. Fetch recent global print events
       const { data: eventsData, error: eventsErr } = await supabase
         .from("print_events")
         .select("*")
@@ -225,8 +225,8 @@ export default function PlatformAdminPage() {
   );
 
   return (
-    <div className="wabi-root text-[#f4ede4] flex min-h-screen">
-      {/* Wabi-Sabi Tactile Left Sidebar Rail */}
+    <div className="wabi-root text-[#f4f4f5] flex min-h-screen">
+      {/* Monochrome Black & White Left Sidebar Rail */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -244,20 +244,20 @@ export default function PlatformAdminPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
         {/* Top Navbar */}
-        <header className="sticky top-0 z-30 h-16 bg-[#161411]/90 backdrop-blur-md border-b border-[#2d2922] px-6 flex items-center justify-between">
+        <header className="sticky top-0 z-30 h-16 bg-[#0c0c0e]/90 backdrop-blur-md border-b border-[#222226] px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Mobile Hamburger Button */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-xl bg-[#201d17] text-[#aba293] hover:text-[#f4ede4] border border-[#332e25]"
+              className="lg:hidden p-2 rounded-xl bg-[#18181b] text-zinc-300 hover:text-white border border-[#2a2a2e]"
             >
               <IconMenu size={18} />
             </button>
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-[#736a5c]">Console /</span>
-                <span className="text-xs font-bold font-mono uppercase tracking-wider text-[#f4ede4]">
+                <span className="text-xs font-mono text-zinc-400">Console /</span>
+                <span className="text-xs font-bold font-mono uppercase tracking-wider text-white">
                   {activeTab === "overview" && "Bento Overview"}
                   {activeTab === "analytics" && "Analytics Suite"}
                   {activeTab === "shops" && "Shops Directory"}
@@ -271,9 +271,9 @@ export default function PlatformAdminPage() {
 
           <div className="flex items-center gap-3">
             {/* Quick Surcharge Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#201d17] border border-[#2d2922] text-xs font-mono">
-              <span className="text-[#8a8174]">Active Surcharge:</span>
-              <span className="text-[#c59e5e] font-bold">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#18181b] border border-[#2a2a2e] text-xs font-mono">
+              <span className="text-zinc-400">Active Surcharge:</span>
+              <span className="text-white font-bold">
                 ₹{globalTotalCharge.toFixed(2)}
               </span>
             </div>
@@ -282,7 +282,7 @@ export default function PlatformAdminPage() {
             <button
               onClick={loadPlatformData}
               disabled={loading}
-              className="p-2 rounded-xl bg-[#201d17] hover:bg-[#2a261e] text-[#aba293] hover:text-[#f4ede4] border border-[#332e25] text-xs transition flex items-center gap-1.5"
+              className="p-2 rounded-xl bg-[#18181b] hover:bg-[#27272a] text-zinc-300 hover:text-white border border-[#2a2a2e] text-xs transition flex items-center gap-1.5"
               title="Refresh network data"
             >
               <span className={loading ? "animate-spin" : ""}>
@@ -294,7 +294,7 @@ export default function PlatformAdminPage() {
             {/* Quick Action: Register Shop */}
             <button
               onClick={() => setShowCreateModal(true)}
-              className="wabi-btn-primary px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-medium"
+              className="wabi-btn-primary px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-semibold"
             >
               <IconPlus size={13} />
               <span className="hidden sm:inline">New Shop</span>

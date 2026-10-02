@@ -13,6 +13,7 @@ export {
   PLATFORM_ADMIN_SUBDOMAIN,
   RESERVED_SUBDOMAINS,
   isReservedSubdomain,
+  isValidSubdomainLabel,
   MARKETING_URL,
   sanitizeSubdomain,
   getCustomerPrintUrl,

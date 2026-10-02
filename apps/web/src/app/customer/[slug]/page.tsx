@@ -7,15 +7,21 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Resolves a shop strictly by its unique slug or UUID.
+ * Never falls back to unrelated shops or loose name matches.
+ */
 async function fetchShopBySlugOrId(slugOrId: string) {
   const supabase = getSupabase();
   const clean = decodeURIComponent(slugOrId).toLowerCase().trim();
 
-  // 1. Try finding by slug first (resilient select *)
+  // 1. Primary: Exact match on unique `slug` (indexed B-tree lookup)
   try {
     const { data: shopBySlug, error: slugErr } = await supabase
       .from("shops")
-      .select("*")
+      .select(
+        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online"
+      )
       .eq("slug", clean)
       .maybeSingle();
 
@@ -26,7 +32,7 @@ async function fetchShopBySlugOrId(slugOrId: string) {
     console.warn("[Customer] Slug query exception:", err);
   }
 
-  // 2. If not found by slug, check if input is a valid UUID
+  // 2. Secondary: Match by UUID (if input is a valid UUID format)
   const isUuid =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       clean
@@ -36,7 +42,9 @@ async function fetchShopBySlugOrId(slugOrId: string) {
     try {
       const { data: shopById, error: idErr } = await supabase
         .from("shops")
-        .select("*")
+        .select(
+          "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online"
+        )
         .eq("id", clean)
         .maybeSingle();
 
@@ -48,30 +56,30 @@ async function fetchShopBySlugOrId(slugOrId: string) {
     }
   }
 
-  // 3. Fallback: match by sanitized shop name (e.g. "My Test Shop" -> "my-test-shop")
+  // 3. Fallback: ONLY for legacy shops where `slug` is null or empty
+  // Matches strictly if sanitizeSubdomain(shop.name) === clean
   try {
-    const { data: allShops } = await supabase
+    const { data: legacyShops, error: legacyErr } = await supabase
       .from("shops")
-      .select("*")
-      .eq("status", "active");
+      .select(
+        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online"
+      )
+      .or("slug.is.null,slug.eq.''");
 
-    if (allShops && allShops.length > 0) {
-      // Find shop whose sanitized name matches `clean`
-      const matched = allShops.find((s) => sanitizeSubdomain(s.name) === clean);
+    if (legacyShops && !legacyErr && legacyShops.length > 0) {
+      const matched = legacyShops.find(
+        (s) => sanitizeSubdomain(s.name) === clean
+      );
       if (matched) {
         return matched;
       }
-
-      // If there is only one active shop on the platform, fall back to it
-      // so customers scanning a counter QR never get stranded on a 404
-      if (allShops.length === 1) {
-        return allShops[0];
-      }
     }
   } catch (err) {
-    console.warn("[Customer] Fallback name query exception:", err);
+    console.warn("[Customer] Legacy name query exception:", err);
   }
 
+  // If no exact match is found, the shop does NOT exist.
+  // Never fall back to another shop!
   return null;
 }
 
@@ -82,13 +90,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const shop = await fetchShopBySlugOrId(slug);
 
+  if (!shop) {
+    return {
+      title: "Shop Not Found — Printap",
+      description: "This print shop was not found.",
+      robots: { index: false, follow: false },
+    };
+  }
+
   return {
-    title: shop
-      ? `Print at ${shop.name} — Printap`
-      : "Shop Not Found — Printap",
-    description: shop
-      ? `Upload a PDF and print instantly at ${shop.name}. No waiting, no cloud storage.`
-      : "This print shop was not found.",
+    title: `Print at ${shop.name} — Printap`,
+    description: `Upload a PDF and print instantly at ${shop.name}. No waiting, no cloud storage.`,
   };
 }
 

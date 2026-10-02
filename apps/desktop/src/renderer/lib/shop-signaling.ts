@@ -29,6 +29,9 @@ export interface ShopSession {
 /** Active sessions keyed by sessionId */
 const sessions = new Map<string, ShopSession>();
 
+/** Early remote ICE candidates buffered before remoteDescription is set */
+const earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
+
 /** STUN servers — free Google STUN for NAT traversal on LAN */
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
@@ -118,12 +121,22 @@ export function startShopSignaling(
     { event: "webrtc-ice" },
     async ({ payload }: { payload: Record<string, unknown> }) => {
       const { sessionId, data } = payload as unknown as SignalPayload;
+      const candidateInit = data as RTCIceCandidateInit;
       const session = sessions.get(sessionId);
-      if (!session) return;
+
+      // Buffer candidate if session doesn't exist yet or remote description isn't set
+      if (!session || !session.pc.remoteDescription) {
+        if (!earlyCandidates.has(sessionId)) {
+          earlyCandidates.set(sessionId, []);
+        }
+        earlyCandidates.get(sessionId)!.push(candidateInit);
+        console.log(`[shop] Buffered early ICE candidate for ${sessionId}`);
+        return;
+      }
 
       try {
         await session.pc.addIceCandidate(
-          new RTCIceCandidate(data as RTCIceCandidateInit)
+          new RTCIceCandidate(candidateInit)
         );
         console.log(`[shop] Added remote ICE candidate for ${sessionId}`);
       } catch (err) {
@@ -219,6 +232,21 @@ async function handleOffer(
   try {
     // Set remote offer and create answer
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+    // Drain any buffered early ICE candidates now that remote description is set
+    const buffered = earlyCandidates.get(sessionId);
+    if (buffered && buffered.length > 0) {
+      console.log(`[shop] Draining ${buffered.length} early ICE candidates for ${sessionId}`);
+      for (const cand of buffered) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (e) {
+          console.warn(`[shop] Failed to add early ICE candidate:`, e);
+        }
+      }
+      earlyCandidates.delete(sessionId);
+    }
+
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
@@ -466,6 +494,7 @@ function cleanup(sessionId: string): void {
     // Ignore close errors
   }
   sessions.delete(sessionId);
+  earlyCandidates.delete(sessionId);
   console.log(`[shop] Session ${sessionId} cleaned up`);
 }
 
@@ -491,6 +520,8 @@ export async function broadcastOrderStatus(
     queuePosition?: number;
     printerNumber?: number;
     paymentStatus?: string;
+    status?: string;
+    errorDetail?: string;
   }
 ): Promise<void> {
   await broadcast(channel, "order-status", payload);

@@ -44,6 +44,8 @@ interface LiveDashboardProps {
   isListening: boolean;
   connectedPrintersCount: number;
   onConfirmPayment: (sessionId: string) => void;
+  onRetryJob?: (sessionId: string) => void;
+  onDismissJob?: (sessionId: string) => void;
   onNavigateToHistory?: () => void;
 }
 
@@ -54,6 +56,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   isListening,
   connectedPrintersCount,
   onConfirmPayment,
+  onRetryJob,
+  onDismissJob,
   onNavigateToHistory,
 }) => {
   const { shop } = useAuth();
@@ -263,132 +267,191 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
 
           {/* Active Job in Progress (if any) */}
           {currentJob && (
-            <div className="queue-job-card active-job fade-in">
-              <div className="queue-job-header">
-                <div className="queue-badges">
-                  {currentJob.tokenCode && (
-                    <span className="token-pill">{currentJob.tokenCode}</span>
-                  )}
-                  <span className={getStatusBadge(currentJob.status).className} />
-                  <span className="status-badge active">
-                    {getStatusBadge(currentJob.status).label}
-                  </span>
-                </div>
-
-                {/* Dropdown toggle button for filenames */}
-                <button
-                  type="button"
-                  className={`queue-files-dropdown-btn ${expandedJobs[currentJob.sessionId] ? "open" : ""}`}
-                  onClick={() => toggleJobExpanded(currentJob.sessionId)}
-                  title="Click to view file details"
-                >
-                  <IconFileText size={14} />
-                  <span>
-                    {currentJob.files?.length || currentJob.fileCount || 1} file(s)
-                  </span>
-                  <span className="chevron">
-                    <IconChevronDown size={14} />
-                  </span>
-                </button>
-              </div>
-
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#09090b" }}>
-                {currentJob.fileName || "Customer Document.pdf"}
-              </div>
-
-              {/* Progress bar if receiving */}
-              {typeof currentJob.progressPct === "number" && currentJob.status === "receiving" && (
-                <div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${currentPct}%` }} />
-                  </div>
-                  <div className="progress-labels">
-                    <span>Direct WebRTC Transfer Stream</span>
-                    <span>{currentPct}%</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 4-Stage Hardware Spool Pipeline */}
+            currentJob.status === "error" ? (
               <div
+                className="queue-job-card fade-in"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: 8,
-                  padding: "10px 12px",
-                  background: "rgba(0, 0, 0, 0.03)",
-                  borderRadius: "var(--radius-md)",
+                  background: "#fff5f5",
+                  border: "1px solid #fecaca",
+                  borderRadius: "var(--radius-lg)",
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
-                {stages.map((st, idx) => {
-                  const isPassed = activeStageIdx > idx;
-                  const isCurrent = activeStageIdx === idx;
-                  return (
-                    <div
-                      key={st.id}
-                      style={{
-                        fontSize: 11,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        opacity: isCurrent ? 1 : isPassed ? 0.8 : 0.4,
-                        color: isCurrent ? "var(--accent-emerald)" : "var(--text-primary)",
-                      }}
-                    >
-                      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)" }}>
-                        Step {st.num}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {currentJob.tokenCode && (
+                      <span className="token-pill" style={{ background: "#fee2e2", color: "#b91c1c", borderColor: "#fca5a5" }}>
+                        {currentJob.tokenCode}
                       </span>
-                      <span style={{ fontWeight: isCurrent ? 700 : 500 }}>{st.label}</span>
-                      <span
+                    )}
+                    <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
+                      ● Hardware Print Failed
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#991b1b" }}>
+                    {currentJob.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#991b1b" }}>
+                  {currentJob.detail || "Printer error or paper jam detected."}
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="login-btn"
+                    style={{
+                      width: "auto",
+                      padding: "7px 16px",
+                      fontSize: 12,
+                      background: "#dc2626",
+                    }}
+                    onClick={() => onRetryJob?.(currentJob.sessionId)}
+                  >
+                    Retry Print
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ padding: "7px 14px", fontSize: 12 }}
+                    onClick={() => onDismissJob?.(currentJob.sessionId)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="queue-job-card active-job fade-in">
+                <div className="queue-job-header">
+                  <div className="queue-badges">
+                    {currentJob.tokenCode && (
+                      <span className="token-pill">{currentJob.tokenCode}</span>
+                    )}
+                    <span className={getStatusBadge(currentJob.status).className} />
+                    <span className="status-badge active">
+                      {getStatusBadge(currentJob.status).label}
+                    </span>
+                  </div>
+
+                  {/* Dropdown toggle button for filenames */}
+                  <button
+                    type="button"
+                    className={`queue-files-dropdown-btn ${expandedJobs[currentJob.sessionId] ? "open" : ""}`}
+                    onClick={() => toggleJobExpanded(currentJob.sessionId)}
+                    title="Click to view file details"
+                  >
+                    <IconFileText size={14} />
+                    <span>
+                      {currentJob.files?.length || currentJob.fileCount || 1} file(s)
+                    </span>
+                    <span className="chevron">
+                      <IconChevronDown size={14} />
+                    </span>
+                  </button>
+                </div>
+
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#09090b" }}>
+                  {currentJob.fileName || "Customer Document.pdf"}
+                </div>
+
+                {/* Progress bar if receiving */}
+                {typeof currentJob.progressPct === "number" && currentJob.status === "receiving" && (
+                  <div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${currentPct}%` }} />
+                    </div>
+                    <div className="progress-labels">
+                      <span>Direct WebRTC Transfer Stream</span>
+                      <span>{currentPct}%</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4-Stage Hardware Spool Pipeline */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    gap: 8,
+                    padding: "10px 12px",
+                    background: "rgba(0, 0, 0, 0.03)",
+                    borderRadius: "var(--radius-md)",
+                  }}
+                >
+                  {stages.map((st, idx) => {
+                    const isPassed = activeStageIdx > idx;
+                    const isCurrent = activeStageIdx === idx;
+                    return (
+                      <div
+                        key={st.id}
                         style={{
-                          fontSize: 9,
-                          fontWeight: 600,
-                          color: isCurrent ? "var(--accent-emerald)" : "var(--text-muted)",
+                          fontSize: 11,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                          opacity: isCurrent ? 1 : isPassed ? 0.8 : 0.4,
+                          color: isCurrent ? "var(--accent-emerald)" : "var(--text-primary)",
                         }}
                       >
-                        {isCurrent ? "● Active" : isPassed ? "✓ Done" : "Wait"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Expandable Filenames List Accordion upon clicking */}
-              {expandedJobs[currentJob.sessionId] && (
-                <div className="queue-files-list">
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    Files in this print order:
-                  </div>
-                  {currentJob.files && currentJob.files.length > 0 ? (
-                    currentJob.files.map((file, idx) => (
-                      <div key={idx} className="queue-file-row">
-                        <div className="queue-file-name" title={file.fileName}>
-                          <IconFileText size={14} color="var(--text-secondary)" />
-                          <span>{file.fileName}</span>
-                        </div>
-                        <div className="queue-file-meta">
-                          {file.pageCount ? `${file.pageCount} pg` : "1 pg"}
-                          {file.settings?.colorMode ? ` • ${file.settings.colorMode.toUpperCase()}` : ""}
-                          {file.settings?.copies ? ` • ${file.settings.copies} copy` : ""}
-                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)" }}>
+                          Step {st.num}
+                        </span>
+                        <span style={{ fontWeight: isCurrent ? 700 : 500 }}>{st.label}</span>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 600,
+                            color: isCurrent ? "var(--accent-emerald)" : "var(--text-muted)",
+                          }}
+                        >
+                          {isCurrent ? "● Active" : isPassed ? "✓ Done" : "Wait"}
+                        </span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="queue-file-row">
-                      <div className="queue-file-name">
-                        <IconFileText size={14} color="var(--text-secondary)" />
-                        <span>{currentJob.fileName || "Customer Document"}</span>
-                      </div>
-                      <div className="queue-file-meta">1 document</div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
-              )}
 
-              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                {currentJob.detail || "Processing document directly in hardware memory..."}
+                {/* Expandable Filenames List Accordion upon clicking */}
+                {expandedJobs[currentJob.sessionId] && (
+                  <div className="queue-files-list">
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Files in this print order:
+                    </div>
+                    {currentJob.files && currentJob.files.length > 0 ? (
+                      currentJob.files.map((file, idx) => (
+                        <div key={idx} className="queue-file-row">
+                          <div className="queue-file-name" title={file.fileName}>
+                            <IconFileText size={14} color="var(--text-secondary)" />
+                            <span>{file.fileName}</span>
+                          </div>
+                          <div className="queue-file-meta">
+                            {file.pageCount ? `${file.pageCount} pg` : "1 pg"}
+                            {file.settings?.colorMode ? ` • ${file.settings.colorMode.toUpperCase()}` : ""}
+                            {file.settings?.copies ? ` • ${file.settings.copies} copy` : ""}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="queue-file-row">
+                        <div className="queue-file-name">
+                          <IconFileText size={14} color="var(--text-secondary)" />
+                          <span>{currentJob.fileName || "Customer Document"}</span>
+                        </div>
+                        <div className="queue-file-meta">1 document</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  {currentJob.detail || "Processing document directly in hardware memory..."}
+                </div>
               </div>
-            </div>
+            )
           )}
 
           {/* Recent Spooler Job (Single Container) */}

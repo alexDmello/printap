@@ -15,14 +15,30 @@ export const CounterQr: React.FC = () => {
   const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [networkInfo, setNetworkInfo] = useState<{ localIp: string; allIps: string[] } | null>(null);
+  const [qrMode, setQrMode] = useState<"live" | "lan">("live");
 
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<HTMLDivElement>(null);
 
-  // Canonical customer print URL on mellod.in (uses shop slug/name, never UUID)
+  React.useEffect(() => {
+    if (window.electronAPI?.getNetworkInfo) {
+      window.electronAPI.getNetworkInfo().then((info) => {
+        if (info && info.localIp) {
+          setNetworkInfo(info);
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Canonical customer print URL (live subdomain vs. local Wi-Fi LAN IP)
   const targetUrl = React.useMemo(() => {
+    const slug = shop?.slug || "shop";
+    if (qrMode === "lan" && networkInfo?.localIp && networkInfo.localIp !== "127.0.0.1") {
+      return `http://${networkInfo.localIp}:3000/customer/${slug}`;
+    }
     return getShopCustomerUrl(shop, shop?.name || "shop");
-  }, [shop]);
+  }, [shop, qrMode, networkInfo]);
 
   const copyToClipboard = () => {
     if (!targetUrl) return;
@@ -253,7 +269,7 @@ export const CounterQr: React.FC = () => {
         </div>
       </div>
 
-      {/* Subdomain Destination Banner */}
+      {/* Destination Mode Selector Banner */}
       <div
         className="card"
         style={{
@@ -264,15 +280,46 @@ export const CounterQr: React.FC = () => {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-              Dedicated Shop Subdomain
+              Counter Connection Destination
             </div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-              Customer print requests route directly to your dedicated subdomain on {ROOT_DOMAIN}.
+              {qrMode === "live"
+                ? `Customer print requests route through your dedicated subdomain on ${ROOT_DOMAIN}.`
+                : `Local Wi-Fi Mode: Customers on the same Wi-Fi connect directly to this terminal at ${networkInfo?.localIp || "local network"}.`}
             </div>
           </div>
-          <span className="status-badge active" style={{ fontSize: 11 }}>
-            ● Production Ready
-          </span>
+
+          {/* Mode Switcher Toggle */}
+          <div style={{ display: "flex", gap: 6, background: "rgba(0,0,0,0.04)", padding: 4, borderRadius: "var(--radius-lg)" }}>
+            <button
+              type="button"
+              className={qrMode === "live" ? "login-btn" : "btn-ghost"}
+              style={{
+                width: "auto",
+                padding: "4px 12px",
+                fontSize: 11,
+                borderRadius: "var(--radius-md)",
+                margin: 0,
+              }}
+              onClick={() => setQrMode("live")}
+            >
+              Live Cloud ({ROOT_DOMAIN})
+            </button>
+            <button
+              type="button"
+              className={qrMode === "lan" ? "login-btn" : "btn-ghost"}
+              style={{
+                width: "auto",
+                padding: "4px 12px",
+                fontSize: 11,
+                borderRadius: "var(--radius-md)",
+                margin: 0,
+              }}
+              onClick={() => setQrMode("lan")}
+            >
+              Local Wi-Fi ({networkInfo?.localIp || "LAN IP"})
+            </button>
+          </div>
         </div>
 
         <div
@@ -288,7 +335,9 @@ export const CounterQr: React.FC = () => {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <span style={{ color: "var(--accent-emerald)", fontWeight: 700 }}>● Destination:</span>
+            <span style={{ color: "var(--accent-emerald)", fontWeight: 700 }}>
+              ● {qrMode === "live" ? "Production URL:" : "Local LAN URL:"}
+            </span>
             <span style={{ color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "Geist Mono, monospace", fontWeight: 500 }}>
               {targetUrl}
             </span>

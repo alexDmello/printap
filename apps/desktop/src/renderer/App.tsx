@@ -265,9 +265,34 @@ function ShopAdminShell(): React.ReactElement {
       const cached = localStorage.getItem(`printap_printers_${id}`);
       if (cached) {
         assignmentsRef.current = JSON.parse(cached);
+        return;
       }
     } catch {
       // ignore
+    }
+
+    // Auto-discover and register default Windows printer if assignments are empty
+    if (Object.keys(assignmentsRef.current).length === 0 && window.electronAPI?.listPrinters) {
+      window.electronAPI.listPrinters().then((res) => {
+        if (res?.success && res.printers && res.printers.length > 0) {
+          const defaultP = res.printers.find((p) => p.isDefault) || res.printers[0];
+          const autoMap: Record<string, PrinterAssignment> = {
+            [defaultP.name]: {
+              shop_id: id,
+              printer_name: defaultP.name,
+              printer_number: 1,
+              role: "both",
+              is_default: true,
+              is_active: true,
+            },
+          };
+          assignmentsRef.current = autoMap;
+          try {
+            localStorage.setItem(`printap_printers_${id}`, JSON.stringify(autoMap));
+          } catch {}
+          console.log(`[App] Auto-assigned default printer "${defaultP.name}" as Printer #1`);
+        }
+      }).catch(() => {});
     }
   }, []);
 
@@ -403,14 +428,47 @@ function ShopAdminShell(): React.ReactElement {
         }, 5000);
       },
 
-      onJobFailed: (job, error, printerName) => {
+      onJobFailed: async (job, error, printerName) => {
         console.error(
           `[App] Dispatcher: Job ${job.tokenCode} failed on ${printerName}:`,
           error
         );
+
+        // Update database print_orders status to failed
+        try {
+          const supabase = getSupabase();
+          await supabase
+            .from("print_orders")
+            .update({ status: "failed" })
+            .eq("session_id", job.sessionId);
+        } catch (dbErr) {
+          console.warn("[App] Could not update print_order status to failed:", dbErr);
+        }
+
+        // Broadcast hardware failure to customer phone so UI updates cleanly
+        if (signalingChannelRef.current) {
+          try {
+            await broadcastOrderStatus(signalingChannelRef.current, {
+              sessionId: job.sessionId,
+              tokenCode: job.tokenCode,
+              status: "error",
+              errorDetail: `${error} (${printerName})`,
+            });
+          } catch (broadcastErr) {
+            console.warn("[App] Error broadcasting failure status to customer:", broadcastErr);
+          }
+        }
+
         const failedJob: LiveJob = {
           sessionId: job.sessionId,
           tokenCode: job.tokenCode,
+          fileCount: job.files.length,
+          files: job.files.map((f) => ({
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            pageCount: f.pageCount,
+            settings: f.settings,
+          })),
           fileName: job.files[0]?.fileName || `Print #${job.sessionId.slice(0, 8)}`,
           status: "error",
           detail: `${error} (${printerName})`,
@@ -489,11 +547,22 @@ function ShopAdminShell(): React.ReactElement {
 
     let isMounted = true;
     const initPresence = async () => {
-      // On fresh launch, reset DB state to false (cleans up any previous crashes)
-      // The shop owner explicitly toggles "Go Online" when ready for orders
-      await setShopOnline(shopId, false);
-      if (isMounted) {
-        setIsShopOnline(false);
+      // Default to ONLINE automatically upon login/launch so customers can connect immediately.
+      // If the shop owner previously explicitly chose to go offline, honor that preference.
+      const pref = localStorage.getItem("printap_shop_online_pref");
+      const shouldBeOnline = pref !== "false";
+
+      if (shouldBeOnline) {
+        console.log(`[App] Automatically setting terminal online for shop ${shopId}...`);
+        const res = await startPresence(shopId);
+        if (isMounted && res.success) {
+          setIsShopOnline(true);
+        }
+      } else {
+        await setShopOnline(shopId, false);
+        if (isMounted) {
+          setIsShopOnline(false);
+        }
       }
     };
 
@@ -885,6 +954,36 @@ function ShopAdminShell(): React.ReactElement {
     [activeJob, recentJobs]
   );
 
+  // Retry Failed Print Job Handler called from LiveDashboard
+  const handleRetryJob = useCallback(
+    (sessionId: string) => {
+      if (!fifoDispatcherRef.current || !shopId) return;
+      refreshAssignments(shopId);
+      const success = fifoDispatcherRef.current.retryJob(sessionId, assignmentsRef.current);
+      if (success) {
+        console.log(`[App] Retrying failed print job: ${sessionId}`);
+        setActiveJob((prev) => {
+          if (!prev || prev.sessionId !== sessionId) return prev;
+          return {
+            ...prev,
+            status: "printing",
+            detail: "Retrying print job on hardware spooler...",
+          };
+        });
+      }
+    },
+    [shopId, refreshAssignments]
+  );
+
+  // Dismiss Failed Job Handler
+  const handleDismissJob = useCallback(
+    (sessionId: string) => {
+      fifoDispatcherRef.current?.dismissFailedJob(sessionId);
+      setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
+    },
+    []
+  );
+
   // Loading state
   if (isLoading) {
     return (
@@ -1006,6 +1105,8 @@ function ShopAdminShell(): React.ReactElement {
                 printers.filter((p) => p.isPhysical && p.isOnline).length
               }
               onConfirmPayment={handleConfirmPayment}
+              onRetryJob={handleRetryJob}
+              onDismissJob={handleDismissJob}
               onNavigateToHistory={() => handleSelectPage("history")}
             />
           </div>

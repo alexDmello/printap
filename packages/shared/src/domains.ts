@@ -162,6 +162,27 @@ export type SubdomainType =
   | { type: "not-found" };
 
 /**
+ * Detects whether a host string is a local network, localhost, or private IP address.
+ * Covers: localhost, 127.0.0.1, *.localhost, *.local, 192.168.*, 10.*, 172.16-31.*.
+ */
+export function isLocalOrPrivateHost(host: string | null | undefined): boolean {
+  if (!host) return false;
+  const cleanHost = host.split(":")[0].toLowerCase().trim().replace(/\.+$/, "");
+  if (
+    cleanHost === "localhost" ||
+    cleanHost === "127.0.0.1" ||
+    cleanHost.endsWith(".localhost") ||
+    cleanHost.endsWith(".local")
+  ) {
+    return true;
+  }
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return true;
+  return false;
+}
+
+/**
  * Extracts and classifies the subdomain from an HTTP Host header.
  * Handles production domains (mellod.in) as well as development/test hosts.
  *

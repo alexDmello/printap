@@ -123,15 +123,29 @@ export async function sendOrderToShop(
     }
   };
 
+  let offerRetryTimer: any = null;
+
+  const clearOfferRetry = () => {
+    if (offerRetryTimer) {
+      clearInterval(offerRetryTimer);
+      offerRetryTimer = null;
+    }
+  };
+
   // Listen for shop answer
   channel.on("broadcast", { event: "webrtc-answer" }, async ({ payload: resPayload }) => {
     const { sessionId: answerSessionId, data } = resPayload as SignalPayload;
     if (answerSessionId !== sessionId) return;
 
+    clearOfferRetry();
     console.log(`[customer] Received answer for session ${sessionId}`);
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(data as RTCSessionDescriptionInit)
-    );
+    try {
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(data as RTCSessionDescriptionInit)
+      );
+    } catch (err) {
+      console.warn("[customer] setRemoteDescription error:", err);
+    }
   });
 
   // Listen for shop ICE candidates
@@ -146,8 +160,26 @@ export async function sendOrderToShop(
     }
   });
 
+  // Listen for terminal hardware errors
+  channel.on("broadcast", { event: "order-status" }, ({ payload: resPayload }) => {
+    const p = resPayload as SignalPayload;
+    if (p.sessionId !== sessionId) return;
+    if (p.status === "error") {
+      clearOfferRetry();
+      console.error(`[customer] Terminal reported hardware error:`, p.errorDetail);
+      onProgress({
+        status: "error",
+        percent: 0,
+        bytesSent: 0,
+        totalBytes,
+        error: p.errorDetail || "Shop counter terminal reported a hardware/spooler error",
+      });
+    }
+  });
+
   // Handle data channel lifecycle
   dc.onopen = async () => {
+    clearOfferRetry();
     console.log(`[customer] DataChannel opened — streaming order manifest & files`);
     onProgress({
       status: "connected",
@@ -174,13 +206,14 @@ export async function sendOrderToShop(
   };
 
   dc.onerror = (err) => {
+    clearOfferRetry();
     console.error(`[customer] DataChannel error:`, err);
     onProgress({
       status: "error",
       percent: 0,
       bytesSent: 0,
       totalBytes,
-      error: "DataChannel error",
+      error: "DataChannel connection interrupted",
     });
   };
 
@@ -188,12 +221,35 @@ export async function sendOrderToShop(
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  await broadcast(channel, "webrtc-offer", {
-    sessionId,
-    data: offer,
-  });
+  const sendOffer = async () => {
+    if (pc.signalingState === "have-local-offer") {
+      console.log(`[customer] Transmitting offer for session ${sessionId}`);
+      await broadcast(channel, "webrtc-offer", {
+        sessionId,
+        data: offer,
+      });
+    }
+  };
 
-  console.log(`[customer] Sent offer for session ${sessionId}`);
+  await sendOffer();
+
+  // Retry up to 3 times (every 2.5s) if connection has not established
+  let offerRetries = 0;
+  offerRetryTimer = setInterval(async () => {
+    if (
+      pc.remoteDescription ||
+      pc.signalingState === "stable" ||
+      offerRetries >= 3
+    ) {
+      clearOfferRetry();
+      return;
+    }
+    offerRetries++;
+    console.log(
+      `[customer] Re-transmitting offer (attempt ${offerRetries + 1}/4) for session ${sessionId}`
+    );
+    await sendOffer();
+  }, 2500);
 }
 
 /**

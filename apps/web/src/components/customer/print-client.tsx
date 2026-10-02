@@ -304,7 +304,12 @@ export default function PrintClient({
 
     channel.on("broadcast", { event: "order-status" }, ({ payload }) => {
       console.log("[PrintClient] Broadcast order-status received:", payload);
-      const p = payload as { sessionId?: string; tokenCode?: string; status?: JobStatus };
+      const p = payload as {
+        sessionId?: string;
+        tokenCode?: string;
+        status?: string;
+        errorDetail?: string;
+      };
       if (
         (currentSessionId && p.sessionId === currentSessionId) ||
         (token && p.tokenCode && p.tokenCode === token.tokenCode)
@@ -312,8 +317,16 @@ export default function PrintClient({
         if (p.tokenCode) {
           setToken((prev) => (prev ? { ...prev, tokenCode: p.tokenCode! } : prev));
         }
+        if (p.status === "error") {
+          setStep("error");
+          setErrorMsg(
+            p.errorDetail ||
+              "Shop printer reported an error. Please check with the counter operator."
+          );
+          return;
+        }
         if (p.status) {
-          setJobStatus(p.status);
+          setJobStatus(p.status as JobStatus);
           if (p.status === "ready_for_pickup") {
             setIsPaymentConfirmedByShop(true);
           }
@@ -357,7 +370,12 @@ export default function PrintClient({
             setIsPaymentConfirmedByShop(true);
             setJobStatus("ready_for_pickup");
           }
-          if (row.status) {
+          if (row.status === "failed") {
+            setStep("error");
+            setErrorMsg(
+              "Hardware print spooler reported an error. The shopkeeper can retry your print at the counter."
+            );
+          } else if (row.status) {
             setJobStatus(row.status as JobStatus);
           }
         }

@@ -72,6 +72,7 @@ export interface DispatcherCallbacks {
 export class FifoPrintDispatcher {
   private queue: QueuedPrintJob[] = [];
   private allocatedTokens: Map<string, TokenAllocation> = new Map();
+  private failedJobs: Map<string, QueuedPrintJob> = new Map();
   private printerWorkers: Map<
     string,
     {
@@ -347,17 +348,24 @@ export class FifoPrintDispatcher {
         );
 
         // Send to Windows Print Spooler via Electron API
-        await (window as any).electronAPI.printPdf(file.buffer, job.sessionId, {
+        const printRes = await (window as any).electronAPI.printPdf(file.buffer, job.sessionId, {
           printer: printerName,
           copies: settings.copies || 1,
           orientation: settings.orientation,
           scale: settings.pageFit === "fill" ? "noscale" : "fit",
         });
+
+        if (printRes && !printRes.success) {
+          throw new Error(printRes.error || `Hardware spooler error on ${printerName || "Default Printer"}`);
+        }
       }
 
       console.log(
-        `[FifoDispatcher] Successfully spooled & shredded Token ${job.tokenCode} on ${printerName}!`
+        `[FifoDispatcher] Successfully spooled & shredded Token ${job.tokenCode} on ${printerName || "Default Printer"}!`
       );
+
+      // Clean up failedJobs if this was a retried job that succeeded
+      this.failedJobs.delete(job.sessionId);
 
       // Increment completed count
       const worker = this.printerWorkers.get(printerName) || {
@@ -371,12 +379,16 @@ export class FifoPrintDispatcher {
         jobsCompleted: worker.jobsCompleted + 1,
       });
 
-      this.callbacks.onJobCompleted?.(job, printerName);
+      this.callbacks.onJobCompleted?.(job, printerName || "Default Printer");
     } catch (err: any) {
+      const errorMsg = err?.message || String(err);
       console.error(
-        `[FifoDispatcher] Error printing Token ${job.tokenCode} on ${printerName}:`,
-        err
+        `[FifoDispatcher] Error printing Token ${job.tokenCode} on ${printerName || "Default Printer"}:`,
+        errorMsg
       );
+
+      // Retain failed job in memory so shopkeeper can fix the printer and retry
+      this.failedJobs.set(job.sessionId, job);
 
       const worker = this.printerWorkers.get(printerName) || {
         isBusy: false,
@@ -389,7 +401,7 @@ export class FifoPrintDispatcher {
         jobsCompleted: worker.jobsCompleted,
       });
 
-      this.callbacks.onJobFailed?.(job, err?.message || String(err), printerName);
+      this.callbacks.onJobFailed?.(job, errorMsg, printerName || "Default Printer");
     } finally {
       this.notifyQueueUpdate(assignments);
 
@@ -412,7 +424,26 @@ export class FifoPrintDispatcher {
       (a) => a.role !== "disabled" && a.is_active !== false
     );
 
-    if (list.length === 0) return null;
+    // If no configured active assignments exist in the shop yet,
+    // automatically provide a default fallback printer so jobs can print immediately!
+    if (list.length === 0) {
+      const fallbackPrinter: PrinterAssignment = {
+        shop_id: this.shopId,
+        printer_name: "", // empty string tells Windows spooler / ptp to use system default
+        printer_number: 1,
+        role: "both",
+        is_default: true,
+        is_active: true,
+      };
+      const workerState = this.printerWorkers.get("") || {
+        isBusy: false,
+        jobsCompleted: 0,
+      };
+      if (!workerState.isBusy) {
+        return fallbackPrinter;
+      }
+      return null;
+    }
 
     // Filter idle printers
     const idleList = list.filter((p) => {
@@ -455,7 +486,16 @@ export class FifoPrintDispatcher {
       (a) => a.role !== "disabled" && a.is_active !== false
     );
 
-    if (list.length === 0) return null;
+    if (list.length === 0) {
+      return {
+        shop_id: this.shopId,
+        printer_name: "",
+        printer_number: 1,
+        role: "both",
+        is_default: true,
+        is_active: true,
+      };
+    }
 
     const compatible = list.filter((p) => this.isCompatible(p, hasColor));
     if (compatible.length > 0) {
@@ -554,5 +594,38 @@ export class FifoPrintDispatcher {
         jobsCompleted: state?.jobsCompleted || 0,
       };
     });
+  }
+
+  /**
+   * Re-enqueues a failed job to the front of the queue to retry printing.
+   */
+  public retryJob(sessionId: string, assignments: Record<string, PrinterAssignment>): boolean {
+    const job = this.failedJobs.get(sessionId);
+    if (!job) {
+      console.warn(`[FifoDispatcher] Cannot retry: job ${sessionId} not found in failed jobs`);
+      return false;
+    }
+
+    this.failedJobs.delete(sessionId);
+    console.log(`[FifoDispatcher] Retrying failed job for Token ${job.tokenCode}...`);
+    // Prepend to front of queue so retried job prints next (FIFO priority)
+    this.queue.unshift(job);
+    this.notifyQueueUpdate(assignments);
+    this.processQueue(assignments);
+    return true;
+  }
+
+  /**
+   * Dismisses a failed job from the retry cache.
+   */
+  public dismissFailedJob(sessionId: string): void {
+    this.failedJobs.delete(sessionId);
+  }
+
+  /**
+   * Gets all currently failed jobs awaiting retry or dismissal.
+   */
+  public getFailedJobs(): QueuedPrintJob[] {
+    return Array.from(this.failedJobs.values());
   }
 }

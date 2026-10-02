@@ -24,6 +24,8 @@ export interface SignalPayload {
   queuePosition?: number;
   printerNumber?: number;
   paymentStatus?: string;
+  status?: string;
+  errorDetail?: string;
   confirmedAt?: string;
   hasColor?: boolean;
   totalAmount?: number;

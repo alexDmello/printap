@@ -20,6 +20,7 @@ export {
   getCustomerPrintUrl,
   getShopCustomerUrl,
   extractSubdomain,
+  isLocalOrPrivateHost,
   type SubdomainType,
 } from "./domains";
 

@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { extractSubdomain, ROOT_DOMAIN, MARKETING_URL } from "@printap/shared";
+import {
+  extractSubdomain,
+  isLocalOrPrivateHost,
+  ROOT_DOMAIN,
+  MARKETING_URL,
+} from "@printap/shared";
 
 /**
  * Builds canonical URL for a shop's dedicated customer counter.
  */
 function getCanonicalShopUrl(slug: string, host: string): string {
   const cleanSlug = encodeURIComponent(slug.toLowerCase().trim());
-  if (host.includes("localhost")) {
+  if (isLocalOrPrivateHost(host)) {
     const portPart = host.split(":")[1] ? `:${host.split(":")[1]}` : "";
-    return `http://${cleanSlug}.localhost${portPart}`;
+    const cleanHost = host.split(":")[0].toLowerCase().trim();
+    if (cleanHost === "localhost" || cleanHost.endsWith(".localhost")) {
+      return `http://${cleanSlug}.localhost${portPart}`;
+    }
+    return `http://${cleanHost}${portPart}/customer/${cleanSlug}`;
   }
   return `https://${cleanSlug}.${ROOT_DOMAIN}`;
 }
@@ -57,6 +66,11 @@ export function middleware(request: NextRequest) {
   // 308 redirect to the shop's designated canonical subdomain
   if (sub.type === "marketing") {
     if (pathname.startsWith("/customer/")) {
+      // If accessed via local private IP or localhost (e.g. local Wi-Fi counter mode),
+      // allow direct access to /customer/:slug without redirecting to mellod.in!
+      if (isLocalOrPrivateHost(rawHost)) {
+        return NextResponse.next();
+      }
       const targetSlug = pathname.replace(/^\/customer\/?/, "").split("/")[0];
       if (targetSlug) {
         return NextResponse.redirect(getCanonicalShopUrl(targetSlug, rawHost), 308);

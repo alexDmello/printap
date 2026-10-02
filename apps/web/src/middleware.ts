@@ -4,10 +4,9 @@ import { extractSubdomain } from "@printap/shared";
 
 /**
  * Next.js Edge Middleware for Subdomain-based Routing on mellod.in:
- * - shop.mellod.in / admin.mellod.in -> /desktop-required (Browser Access Blocked • Desktop Only)
- * - /shop-admin / /platform-admin   -> /desktop-required (Browser Access Blocked • Desktop Only)
- * - {slug}.mellod.in               -> /customer/[slug] (Customer Print Experience)
- * - www.mellod.in or mellod.in     -> / (Landing & Marketing)
+ * - {slug}.mellod.in                 -> /customer/[slug] (Customer Print Experience)
+ * - www.mellod.in or mellod.in       -> / (Landing & Marketing)
+ * - shop.mellod.in / admin.mellod.in -> 404 (Do not exist at all)
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,34 +20,28 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow direct access to the desktop-required security notice
-  if (pathname.startsWith("/desktop-required")) {
-    return NextResponse.next();
-  }
-
   const hostHeader = request.headers.get("host") || "";
   const sub = extractSubdomain(hostHeader);
 
-  // 1. Blocked Admin Subdomains (shop.mellod.in or admin.mellod.in)
-  // Browser access is strictly disabled — operators must use Desktop Electron apps
-  if (sub.type === "blocked-admin") {
+  // 1. Reserved or nonexistent subdomains (e.g. shop.mellod.in, admin.mellod.in)
+  // These subdomains must not exist at all — return 404 Not Found
+  if (sub.type === "not-found") {
     const url = request.nextUrl.clone();
-    url.pathname = "/desktop-required";
-    url.searchParams.set("target", sub.target);
-    return NextResponse.rewrite(url);
+    url.pathname = "/_not-found";
+    return NextResponse.rewrite(url, { status: 404 });
   }
 
-  // 2. Direct browser navigation to legacy admin paths is blocked
+  // 2. Legacy admin routes or removed paths do not exist — return 404 Not Found
   if (
     pathname.startsWith("/shop-admin") ||
     pathname.startsWith("/platform-admin") ||
+    pathname.startsWith("/desktop-required") ||
     pathname === "/admin" ||
     pathname === "/shop"
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/desktop-required";
-    url.searchParams.set("target", pathname.includes("shop") ? "shop" : "platform");
-    return NextResponse.rewrite(url);
+    url.pathname = "/_not-found";
+    return NextResponse.rewrite(url, { status: 404 });
   }
 
   // 3. Customer Print Page: {shop_slug}.mellod.in

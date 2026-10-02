@@ -69,7 +69,7 @@ export function HealthView() {
       status: "Strict Enforced",
       badge: "Desktop Exclusive",
       color: "text-black",
-      desc: "shop.mellod.in and admin.mellod.in are blocked in web browsers. Management is exclusively via Electron apps.",
+      desc: "All shop and platform management is exclusively via desktop Electron apps. No web admin portals exist.",
     },
   ];
 

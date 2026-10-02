@@ -14,8 +14,6 @@ export {
   RESERVED_SUBDOMAINS,
   isReservedSubdomain,
   MARKETING_URL,
-  SHOP_ADMIN_URL,
-  PLATFORM_ADMIN_URL,
   sanitizeSubdomain,
   getCustomerPrintUrl,
   getShopCustomerUrl,

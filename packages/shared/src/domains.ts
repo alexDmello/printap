@@ -13,16 +13,6 @@ export const PLATFORM_ADMIN_SUBDOMAIN = "admin";
 export const MARKETING_URL = `https://www.${ROOT_DOMAIN}`;
 
 /**
- * Shop owner web administration portal URL
- */
-export const SHOP_ADMIN_URL = `https://${SHOP_ADMIN_SUBDOMAIN}.${ROOT_DOMAIN}`;
-
-/**
- * Platform operator administration portal URL
- */
-export const PLATFORM_ADMIN_URL = `https://${PLATFORM_ADMIN_SUBDOMAIN}.${ROOT_DOMAIN}`;
-
-/**
  * Sanitizes an input string to be a valid DNS subdomain label.
  * Rules: lowercase, alphanumeric and hyphen only, no leading/trailing hyphens, max 63 chars.
  */
@@ -73,8 +63,8 @@ export function getShopCustomerUrl(
 
 /**
  * Reserved subdomains that cannot be used by shop counters.
- * "shop" and "admin" are explicitly retired from browser routing
- * as shop and platform management are strictly controlled via Electron Desktop apps.
+ * Neither "shop" nor "admin" exist as web destinations because
+ * shop and platform management are strictly handled via Electron Desktop apps.
  */
 export const RESERVED_SUBDOMAINS = [
   "www",
@@ -99,16 +89,15 @@ export function isReservedSubdomain(slug: string): boolean {
 
 export type SubdomainType =
   | { type: "marketing" }
-  | { type: "blocked-admin"; target: "shop" | "platform" }
-  | { type: "customer"; slug: string };
+  | { type: "customer"; slug: string }
+  | { type: "not-found" };
 
 /**
  * Extracts and classifies the subdomain from an HTTP Host header.
  * Handles production domains (mellod.in) as well as development/test hosts.
  *
  * NOTE: Both shop and platform administration domains (shop.mellod.in & admin.mellod.in)
- * are blocked from browser access and classify as "blocked-admin" so the Edge middleware
- * can display the desktop-only security notice.
+ * do not exist as web portals and resolve to "not-found".
  */
 export function extractSubdomain(hostHeader: string | null | undefined): SubdomainType {
   if (!hostHeader) {
@@ -134,11 +123,8 @@ export function extractSubdomain(hostHeader: string | null | undefined): Subdoma
     if (!sub || sub === "www") {
       return { type: "marketing" };
     }
-    if (sub === SHOP_ADMIN_SUBDOMAIN) {
-      return { type: "blocked-admin", target: "shop" };
-    }
-    if (sub === PLATFORM_ADMIN_SUBDOMAIN) {
-      return { type: "blocked-admin", target: "platform" };
+    if (isReservedSubdomain(sub)) {
+      return { type: "not-found" };
     }
     return { type: "customer", slug: sub };
   }
@@ -149,11 +135,8 @@ export function extractSubdomain(hostHeader: string | null | undefined): Subdoma
     if (!sub || sub === "www") {
       return { type: "marketing" };
     }
-    if (sub === SHOP_ADMIN_SUBDOMAIN) {
-      return { type: "blocked-admin", target: "shop" };
-    }
-    if (sub === PLATFORM_ADMIN_SUBDOMAIN) {
-      return { type: "blocked-admin", target: "platform" };
+    if (isReservedSubdomain(sub)) {
+      return { type: "not-found" };
     }
     return { type: "customer", slug: sub };
   }

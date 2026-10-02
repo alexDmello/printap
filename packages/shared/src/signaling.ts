@@ -141,3 +141,55 @@ export async function broadcast(
   }
 }
 
+/**
+ * Highly resilient, zero-cost public STUN servers for WebRTC NAT traversal.
+ * Combines Google, Cloudflare, and Twilio worldwide STUN infrastructures.
+ */
+export const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun.cloudflare.com:3478" },
+  { urls: "stun:global.stun.twilio.com:3478" },
+];
+
+/**
+ * Awaits RTCPeerConnection ICE candidate gathering completion or times out after
+ * maxWaitMs. This ensures initial host (LAN) and STUN reflexive (public NAT)
+ * candidates are directly embedded within the local SDP description,
+ * preventing connection failure when trickle ICE broadcast packets are delayed.
+ */
+export async function waitForIceGathering(
+  pc: RTCPeerConnection,
+  maxWaitMs: number = 800
+): Promise<void> {
+  if (pc.iceGatheringState === "complete") {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let timer: any = null;
+
+    const check = () => {
+      if (pc.iceGatheringState === "complete") {
+        cleanup();
+        resolve();
+      }
+    };
+
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+      pc.removeEventListener("icegatheringstatechange", check);
+    };
+
+    timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, maxWaitMs);
+
+    pc.addEventListener("icegatheringstatechange", check);
+  });
+}
+

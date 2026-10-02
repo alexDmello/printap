@@ -12,6 +12,8 @@
 import {
   joinSignalingChannel,
   broadcast,
+  DEFAULT_ICE_SERVERS,
+  waitForIceGathering,
   type SignalPayload,
   type PrintSettings,
   type TransferManifestOrder,
@@ -31,12 +33,6 @@ const sessions = new Map<string, ShopSession>();
 
 /** Early remote ICE candidates buffered before remoteDescription is set */
 const earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
-
-/** STUN servers — free Google STUN for NAT traversal on LAN */
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-];
 
 export interface ReceivedOrderFile {
   fileId: string;
@@ -122,6 +118,7 @@ export function startShopSignaling(
     async ({ payload }: { payload: Record<string, unknown> }) => {
       const { sessionId, data } = payload as unknown as SignalPayload;
       const candidateInit = data as RTCIceCandidateInit;
+      if (!candidateInit || !candidateInit.candidate) return;
       const session = sessions.get(sessionId);
 
       // Buffer candidate if session doesn't exist yet or remote description isn't set
@@ -189,7 +186,34 @@ async function handleOffer(
   offer: RTCSessionDescriptionInit,
   callbacks: SignalingCallbacks
 ): Promise<void> {
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const existing = sessions.get(sessionId);
+  if (existing) {
+    console.log(
+      `[shop] Session ${sessionId} already exists (state: ${existing.pc.connectionState}, signaling: ${existing.pc.signalingState})`
+    );
+    if (
+      existing.pc.connectionState === "connected" ||
+      existing.pc.connectionState === "connecting" ||
+      existing.pc.signalingState === "stable"
+    ) {
+      if (existing.pc.localDescription) {
+        console.log(`[shop] Re-transmitting existing answer for session ${sessionId}`);
+        const localDesc = existing.pc.localDescription;
+        await broadcast(channel, "webrtc-answer", {
+          sessionId,
+          data: { type: localDesc.type, sdp: localDesc.sdp },
+        });
+      }
+      return;
+    } else {
+      cleanup(sessionId);
+    }
+  }
+
+  const pc = new RTCPeerConnection({
+    iceServers: DEFAULT_ICE_SERVERS,
+    iceCandidatePoolSize: 10,
+  });
 
   const session: ShopSession = {
     sessionId,
@@ -201,7 +225,7 @@ async function handleOffer(
 
   // Relay our ICE candidates to the customer
   pc.onicecandidate = (event) => {
-    if (event.candidate) {
+    if (event.candidate && event.candidate.candidate) {
       broadcast(channel, "webrtc-ice", {
         sessionId,
         data: event.candidate.toJSON(),
@@ -210,14 +234,11 @@ async function handleOffer(
   };
 
   pc.onconnectionstatechange = () => {
-    console.log(`[shop] Connection state: ${pc.connectionState}`);
-    if (
-      pc.connectionState === "disconnected" ||
-      pc.connectionState === "failed"
-    ) {
-      if (pc.connectionState === "failed") {
-        callbacks.onSessionError?.(sessionId, "WebRTC peer connection failed");
-      }
+    console.log(
+      `[shop] Connection state: ${pc.connectionState} (ice: ${pc.iceConnectionState})`
+    );
+    if (pc.connectionState === "failed") {
+      callbacks.onSessionError?.(sessionId, "WebRTC peer connection failed");
       cleanup(sessionId);
     }
   };
@@ -239,7 +260,9 @@ async function handleOffer(
       console.log(`[shop] Draining ${buffered.length} early ICE candidates for ${sessionId}`);
       for (const cand of buffered) {
         try {
-          await pc.addIceCandidate(new RTCIceCandidate(cand));
+          if (cand && cand.candidate) {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
         } catch (e) {
           console.warn(`[shop] Failed to add early ICE candidate:`, e);
         }
@@ -250,10 +273,15 @@ async function handleOffer(
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
+    // Wait up to 800ms for initial host (LAN) and STUN candidates to be gathered
+    await waitForIceGathering(pc, 800);
+
+    const localAnswer = pc.localDescription || answer;
+
     // Send answer back to customer via broadcast
     await broadcast(channel, "webrtc-answer", {
       sessionId,
-      data: answer,
+      data: { type: localAnswer.type, sdp: localAnswer.sdp },
     });
 
     console.log(`[shop] Sent answer for session ${sessionId}`);

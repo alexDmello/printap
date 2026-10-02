@@ -1,19 +1,17 @@
 /**
  * Customer-side WebRTC handler for Multi-File & Print Settings Streaming.
  *
- * Creates a peer connection, generates an SDP offer, and sends it via
- * Supabase Realtime Broadcast. Once the shop's Electron agent answers,
- * a DataChannel is opened and:
- *   1. Sends order manifest (token code, pickup PIN, total, settings, file list)
- *   2. Sequentially streams each file in 64KB chunks with backpressure
- *   3. Emits per-file and overall progress updates
- *   4. Sends order completion signal
+ * Creates a peer connection, generates an SDP offer with ICE candidate preroll,
+ * relays ICE candidates with early-candidate buffering, and transfers
+ * the complete order manifest and file stream via RTCDataChannel.
  */
 
 import {
   joinSignalingChannel,
   waitForChannelReady,
   broadcast,
+  DEFAULT_ICE_SERVERS,
+  waitForIceGathering,
   type SignalPayload,
   type UploadedDocument,
   type QueueToken,
@@ -26,12 +24,8 @@ import {
   type TransferOrderCompleteMessage,
 } from "@printap/shared";
 
-const CHUNK_SIZE = 64 * 1024; // 64KB chunks
-
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-];
+// 32KB safe WebRTC chunk size across iOS Safari, Android Chrome, and Windows/Mac
+const CHUNK_SIZE = 32 * 1024;
 
 export type TransferStatus =
   | "connecting"
@@ -73,116 +67,78 @@ export interface SendOrderPayload {
 /**
  * Connect to the shop's Electron agent and stream an entire order
  * (manifest + multiple files with print settings) over WebRTC.
+ * Returns a Promise that resolves when all files have finished streaming,
+ * or rejects if connection/transfer fails.
  */
-export async function sendOrderToShop(
+export function sendOrderToShop(
   payload: SendOrderPayload,
   onProgress: ProgressCallback
 ): Promise<void> {
   const { shopId, sessionId, documents } = payload;
   const totalBytes = documents.reduce((acc, d) => acc + d.file.size, 0);
 
-  onProgress({
-    status: "connecting",
-    percent: 0,
-    bytesSent: 0,
-    totalBytes,
-    totalFiles: documents.length,
-    currentFileIndex: 1,
-    currentFileName: documents[0]?.file.name,
-  });
+  return new Promise<void>(async (resolve, reject) => {
+    let settled = false;
+    let offerRetryTimer: any = null;
+    let overallTimeoutTimer: any = null;
+    let pc: RTCPeerConnection | null = null;
+    let dc: RTCDataChannel | null = null;
 
-  const channel = joinSignalingChannel(shopId);
+    const cleanup = () => {
+      if (offerRetryTimer) {
+        clearInterval(offerRetryTimer);
+        offerRetryTimer = null;
+      }
+      if (overallTimeoutTimer) {
+        clearTimeout(overallTimeoutTimer);
+        overallTimeoutTimer = null;
+      }
+    };
 
-  // Wait for channel to subscribe
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error("Channel subscribe timeout")),
-      10_000
-    );
-    setTimeout(() => {
-      clearTimeout(timeout);
-      resolve();
-    }, 1200);
-  });
+    const fail = (errorMessage: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
 
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-  // Create DataChannel before offer
-  const dc = pc.createDataChannel("order-transfer", {
-    ordered: true,
-  });
-  dc.binaryType = "arraybuffer";
-
-  // Relay ICE candidates
-  pc.onicecandidate = (event) => {
-    if (event.candidate) {
-      broadcast(channel, "webrtc-ice", {
-        sessionId,
-        data: event.candidate.toJSON(),
-      });
-    }
-  };
-
-  let offerRetryTimer: any = null;
-
-  const clearOfferRetry = () => {
-    if (offerRetryTimer) {
-      clearInterval(offerRetryTimer);
-      offerRetryTimer = null;
-    }
-  };
-
-  // Listen for shop answer
-  channel.on("broadcast", { event: "webrtc-answer" }, async ({ payload: resPayload }) => {
-    const { sessionId: answerSessionId, data } = resPayload as SignalPayload;
-    if (answerSessionId !== sessionId) return;
-
-    clearOfferRetry();
-    console.log(`[customer] Received answer for session ${sessionId}`);
-    try {
-      await pc.setRemoteDescription(
-        new RTCSessionDescription(data as RTCSessionDescriptionInit)
-      );
-    } catch (err) {
-      console.warn("[customer] setRemoteDescription error:", err);
-    }
-  });
-
-  // Listen for shop ICE candidates
-  channel.on("broadcast", { event: "webrtc-ice" }, async ({ payload: resPayload }) => {
-    const { sessionId: iceSessionId, data } = resPayload as SignalPayload;
-    if (iceSessionId !== sessionId) return;
-
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
-    } catch (err) {
-      console.error(`[customer] Failed to add ICE candidate:`, err);
-    }
-  });
-
-  // Listen for terminal hardware errors
-  channel.on("broadcast", { event: "order-status" }, ({ payload: resPayload }) => {
-    const p = resPayload as SignalPayload;
-    if (p.sessionId !== sessionId) return;
-    if (p.status === "error") {
-      clearOfferRetry();
-      console.error(`[customer] Terminal reported hardware error:`, p.errorDetail);
+      console.error(`[customer] sendOrderToShop failed: ${errorMessage}`);
       onProgress({
         status: "error",
         percent: 0,
         bytesSent: 0,
         totalBytes,
-        error: p.errorDetail || "Shop counter terminal reported a hardware/spooler error",
+        error: errorMessage,
       });
-    }
-  });
 
-  // Handle data channel lifecycle
-  dc.onopen = async () => {
-    clearOfferRetry();
-    console.log(`[customer] DataChannel opened — streaming order manifest & files`);
+      try {
+        dc?.close();
+        pc?.close();
+      } catch {}
+
+      reject(new Error(errorMessage));
+    };
+
+    const succeed = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+
+      console.log(`[customer] sendOrderToShop successfully completed for session ${sessionId}`);
+      onProgress({
+        status: "complete",
+        percent: 100,
+        bytesSent: totalBytes,
+        totalBytes,
+        currentFileIndex: documents.length,
+        currentFileName: documents[documents.length - 1]?.file.name,
+        totalFiles: documents.length,
+      });
+
+      resolve();
+    };
+
+    // 1. Initial status
     onProgress({
-      status: "connected",
+      status: "connecting",
       percent: 0,
       bytesSent: 0,
       totalBytes,
@@ -191,65 +147,210 @@ export async function sendOrderToShop(
       currentFileName: documents[0]?.file.name,
     });
 
+    // 2. Timeout safeguard (35 seconds)
+    overallTimeoutTimer = setTimeout(() => {
+      fail(
+        "Connection to counter terminal timed out. Please ensure the shop desktop app is running and connected."
+      );
+    }, 35_000);
+
     try {
-      await streamOrder(dc, payload, onProgress);
+      const channel = joinSignalingChannel(shopId);
+      await waitForChannelReady(channel, 2000);
+
+      // 3. Initialize RTCPeerConnection with unified resilient STUN servers & candidate pool
+      pc = new RTCPeerConnection({
+        iceServers: DEFAULT_ICE_SERVERS,
+        iceCandidatePoolSize: 10,
+      });
+
+      // 4. Create DataChannel before creating the offer
+      dc = pc.createDataChannel("order-transfer", {
+        ordered: true,
+      });
+      dc.binaryType = "arraybuffer";
+
+      // 5. Early candidate buffer
+      const earlyCandidates: RTCIceCandidateInit[] = [];
+      let remoteDescriptionSet = false;
+
+      // 6. Relay local ICE candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate && event.candidate.candidate) {
+          broadcast(channel, "webrtc-ice", {
+            sessionId,
+            data: event.candidate.toJSON(),
+          });
+        }
+      };
+
+      // 7. Track connection state
+      pc.onconnectionstatechange = () => {
+        if (!pc) return;
+        console.log(
+          `[customer] Connection state: ${pc.connectionState} (ice: ${pc.iceConnectionState})`
+        );
+        if (pc.connectionState === "failed") {
+          fail("WebRTC direct peer connection failed. NAT traversal could not find an open path.");
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (!pc) return;
+        console.log(`[customer] ICE state: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === "failed") {
+          try {
+            if (typeof pc.restartIce === "function") {
+              console.log("[customer] Restarting ICE...");
+              pc.restartIce();
+            }
+          } catch (e) {
+            console.warn("[customer] restartIce error:", e);
+          }
+        }
+      };
+
+      // 8. Listen for shop answer
+      channel.on("broadcast", { event: "webrtc-answer" }, async ({ payload: resPayload }) => {
+        const { sessionId: answerSessionId, data } = resPayload as SignalPayload;
+        if (answerSessionId !== sessionId || !pc) return;
+
+        if (offerRetryTimer) {
+          clearInterval(offerRetryTimer);
+          offerRetryTimer = null;
+        }
+
+        console.log(`[customer] Received answer for session ${sessionId}`);
+        try {
+          if (pc.signalingState === "have-local-offer") {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription(data as RTCSessionDescriptionInit)
+            );
+            remoteDescriptionSet = true;
+
+            // Drain buffered early candidates
+            if (earlyCandidates.length > 0) {
+              console.log(
+                `[customer] Draining ${earlyCandidates.length} buffered ICE candidates for ${sessionId}`
+              );
+              for (const cand of earlyCandidates) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (candErr) {
+                  console.warn("[customer] Failed adding buffered candidate:", candErr);
+                }
+              }
+              earlyCandidates.length = 0;
+            }
+          }
+        } catch (err) {
+          console.warn("[customer] setRemoteDescription error:", err);
+        }
+      });
+
+      // 9. Listen for shop ICE candidates
+      channel.on("broadcast", { event: "webrtc-ice" }, async ({ payload: resPayload }) => {
+        const { sessionId: iceSessionId, data } = resPayload as SignalPayload;
+        if (iceSessionId !== sessionId || !pc) return;
+
+        const candidateInit = data as RTCIceCandidateInit;
+        if (!candidateInit || !candidateInit.candidate) return;
+
+        if (!remoteDescriptionSet || !pc.remoteDescription) {
+          earlyCandidates.push(candidateInit);
+          return;
+        }
+
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidateInit));
+        } catch (err) {
+          console.warn(`[customer] Failed to add ICE candidate:`, err);
+        }
+      });
+
+      // 10. Listen for terminal hardware errors
+      channel.on("broadcast", { event: "order-status" }, ({ payload: resPayload }) => {
+        const p = resPayload as SignalPayload;
+        if (p.sessionId !== sessionId) return;
+        if (p.status === "error") {
+          fail(p.errorDetail || "Shop counter terminal reported a hardware/spooler error");
+        }
+      });
+
+      // 11. DataChannel lifecycle
+      dc.onopen = async () => {
+        if (offerRetryTimer) {
+          clearInterval(offerRetryTimer);
+          offerRetryTimer = null;
+        }
+
+        console.log(`[customer] DataChannel opened — streaming order manifest & files`);
+        onProgress({
+          status: "connected",
+          percent: 0,
+          bytesSent: 0,
+          totalBytes,
+          totalFiles: documents.length,
+          currentFileIndex: 1,
+          currentFileName: documents[0]?.file.name,
+        });
+
+        try {
+          await streamOrder(dc!, payload, onProgress);
+          succeed();
+        } catch (err) {
+          fail(`Transfer error: ${String(err)}`);
+        }
+      };
+
+      dc.onerror = () => {
+        fail("DataChannel connection interrupted during transfer");
+      };
+
+      // 12. Create and set local offer with ICE candidate gathering preroll
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Wait up to 800ms so initial LAN & STUN candidates are embedded directly in offer SDP
+      await waitForIceGathering(pc, 800);
+
+      const sendOffer = async () => {
+        if (!pc || pc.signalingState !== "have-local-offer") return;
+        const localDesc = pc.localDescription || offer;
+        console.log(`[customer] Transmitting offer for session ${sessionId}`);
+        await broadcast(channel, "webrtc-offer", {
+          sessionId,
+          data: { type: localDesc.type, sdp: localDesc.sdp },
+        });
+      };
+
+      await sendOffer();
+
+      // Retry offer up to 4 times (every 2.5s) if connection has not established
+      let offerRetries = 0;
+      offerRetryTimer = setInterval(async () => {
+        if (
+          !pc ||
+          pc.remoteDescription ||
+          pc.signalingState === "stable" ||
+          offerRetries >= 4
+        ) {
+          if (offerRetryTimer) {
+            clearInterval(offerRetryTimer);
+            offerRetryTimer = null;
+          }
+          return;
+        }
+        offerRetries++;
+        console.log(
+          `[customer] Re-transmitting offer (attempt ${offerRetries + 1}/5) for session ${sessionId}`
+        );
+        await sendOffer();
+      }, 2500);
     } catch (err) {
-      console.error(`[customer] Error during order stream:`, err);
-      onProgress({
-        status: "error",
-        percent: 0,
-        bytesSent: 0,
-        totalBytes,
-        error: String(err),
-      });
+      fail(String(err));
     }
-  };
-
-  dc.onerror = (err) => {
-    clearOfferRetry();
-    console.error(`[customer] DataChannel error:`, err);
-    onProgress({
-      status: "error",
-      percent: 0,
-      bytesSent: 0,
-      totalBytes,
-      error: "DataChannel connection interrupted",
-    });
-  };
-
-  // Create and send offer
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-
-  const sendOffer = async () => {
-    if (pc.signalingState === "have-local-offer") {
-      console.log(`[customer] Transmitting offer for session ${sessionId}`);
-      await broadcast(channel, "webrtc-offer", {
-        sessionId,
-        data: offer,
-      });
-    }
-  };
-
-  await sendOffer();
-
-  // Retry up to 3 times (every 2.5s) if connection has not established
-  let offerRetries = 0;
-  offerRetryTimer = setInterval(async () => {
-    if (
-      pc.remoteDescription ||
-      pc.signalingState === "stable" ||
-      offerRetries >= 3
-    ) {
-      clearOfferRetry();
-      return;
-    }
-    offerRetries++;
-    console.log(
-      `[customer] Re-transmitting offer (attempt ${offerRetries + 1}/4) for session ${sessionId}`
-    );
-    await sendOffer();
-  }, 2500);
+  });
 }
 
 /**
@@ -381,18 +482,7 @@ async function streamOrder(
     sessionId,
   };
   dc.send(JSON.stringify(orderComplete));
-
-  onProgress({
-    status: "complete",
-    percent: 100,
-    bytesSent: totalBytes,
-    totalBytes,
-    currentFileIndex: documents.length,
-    currentFileName: documents[documents.length - 1]?.file.name,
-    totalFiles: documents.length,
-  });
 }
-
 
 /**
  * Request an authoritative, collision-free local token directly from the Shop Desktop App.
@@ -474,4 +564,3 @@ export async function requestTokenFromShop(
     }, timeoutMs);
   });
 }
-

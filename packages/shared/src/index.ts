@@ -4,6 +4,8 @@ export {
   waitForChannelReady,
   broadcast,
   channelName,
+  DEFAULT_ICE_SERVERS,
+  waitForIceGathering,
   type SignalEvent,
   type SignalPayload,
 } from "./signaling";

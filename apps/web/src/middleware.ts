@@ -24,14 +24,12 @@ export function middleware(request: NextRequest) {
   const sub = extractSubdomain(hostHeader);
 
   // 1. Reserved or nonexistent subdomains (e.g. shop.mellod.in, admin.mellod.in)
-  // These subdomains must not exist at all — return 404 Not Found
+  // These subdomains must not exist at all — terminate immediately with empty 404 (no page rendered)
   if (sub.type === "not-found") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/_not-found";
-    return NextResponse.rewrite(url, { status: 404 });
+    return new NextResponse(null, { status: 404 });
   }
 
-  // 2. Legacy admin routes or removed paths do not exist — return 404 Not Found
+  // 2. Legacy admin routes or removed paths do not exist — terminate with empty 404
   if (
     pathname.startsWith("/shop-admin") ||
     pathname.startsWith("/platform-admin") ||
@@ -39,9 +37,7 @@ export function middleware(request: NextRequest) {
     pathname === "/admin" ||
     pathname === "/shop"
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/_not-found";
-    return NextResponse.rewrite(url, { status: 404 });
+    return new NextResponse(null, { status: 404 });
   }
 
   // 3. Customer Print Page: {shop_slug}.mellod.in

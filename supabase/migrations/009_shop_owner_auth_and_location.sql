@@ -26,6 +26,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_shops_owner_email
   ON public.shops (lower(owner_email)) 
   WHERE owner_email IS NOT NULL;
 
+-- 2.1 ENFORCE VALID EMAIL FORMAT AT THE DATABASE LEVEL
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'check_owner_email_format'
+  ) THEN
+    ALTER TABLE public.shops
+      ADD CONSTRAINT check_owner_email_format 
+      CHECK (owner_email IS NULL OR owner_email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+  END IF;
+END $$;
+
 -- 3. CREATE SPATIAL/GEOLOCATION INDEX FOR FAST NEARBY SHOP LOOKUPS
 CREATE INDEX IF NOT EXISTS idx_shops_location 
   ON public.shops (latitude, longitude) 
@@ -34,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_shops_location
 -- 4. CREATE EMAIL OTPS TABLE FOR SECURE RESEND EMAIL VERIFICATION
 CREATE TABLE IF NOT EXISTS public.email_otps (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email         TEXT NOT NULL,
+  email         TEXT NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
   otp_hash      TEXT NOT NULL, -- SHA-256 hash of the 6-digit OTP code (never plaintext)
   purpose       TEXT NOT NULL CHECK (purpose IN ('onboarding', 'reset_password')),
   attempts      INT NOT NULL DEFAULT 0,

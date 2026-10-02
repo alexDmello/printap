@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getServerSupabase } from "@/lib/server-auth";
+import { getServerSupabase, validateEmail } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { email, password } = body;
 
-    if (!email || typeof email !== "string" || !password || typeof password !== "string") {
-      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
+    }
+    if (!password || typeof password !== "string") {
+      return NextResponse.json({ error: "Password is required." }, { status: 400 });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = emailCheck.normalizedEmail;
     const supabase = getServerSupabase();
 
     const { data: shop, error } = await supabase

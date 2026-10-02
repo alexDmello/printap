@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+export { validateEmail, isValidEmail, type EmailValidationResult } from "@printap/shared";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://pjwystvflmigolgtlpow.supabase.co";
 const SUPABASE_ANON_KEY =

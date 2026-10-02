@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { IconShield, IconCheck } from "./Icons";
+import { validateEmail } from "@printap/shared";
 import logoImg from "../assets/logo.png";
 
 const SAVED_EMAIL_KEY = "printap_saved_email";
@@ -48,18 +49,26 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailInput.trim() || !passwordInput) return;
+    const emailCheck = validateEmail(emailInput);
+    if (!emailCheck.valid) {
+      setErrorMessage(emailCheck.reason || "Please enter a valid email address.");
+      return;
+    }
+    if (!passwordInput) {
+      setErrorMessage("Please enter your password.");
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const result = await login(emailInput.trim(), passwordInput);
+    const result = await login(emailCheck.normalizedEmail, passwordInput);
     if (!result.success) {
       setErrorMessage(result.error || "Terminal authentication failed.");
       setIsSubmitting(false);
     } else {
       if (rememberEmail) {
-        localStorage.setItem(SAVED_EMAIL_KEY, emailInput.trim());
+        localStorage.setItem(SAVED_EMAIL_KEY, emailCheck.normalizedEmail);
       } else {
         localStorage.removeItem(SAVED_EMAIL_KEY);
       }
@@ -69,15 +78,16 @@ export const Login: React.FC = () => {
   // Step 1: Send OTP for password reset
   const handleSendResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail.trim() || !forgotEmail.includes("@")) {
-      setForgotError("Please enter a valid registered email address.");
+    const emailCheck = validateEmail(forgotEmail);
+    if (!emailCheck.valid) {
+      setForgotError(emailCheck.reason || "Please enter a valid registered email address.");
       return;
     }
 
     setForgotLoading(true);
     setForgotError(null);
 
-    const res = await sendResetOtp(forgotEmail.trim());
+    const res = await sendResetOtp(emailCheck.normalizedEmail);
     if (res.success) {
       setForgotStep(2);
       setResendCooldown(60);

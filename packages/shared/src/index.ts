@@ -24,6 +24,11 @@ export {
 } from "./domains";
 
 export {
+  validateEmail,
+  isValidEmail,
+  type EmailValidationResult,
+} from "./validation";
+export {
   DEFAULT_PRINT_SETTINGS,
   DEFAULT_FINISHING_SERVICES,
   DEFAULT_SHOP_SERVICES,

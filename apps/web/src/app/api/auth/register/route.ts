@@ -5,6 +5,7 @@ import {
   getServerSupabase,
   verifyOtpHash,
   validatePasswordStrength,
+  validateEmail,
 } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
@@ -34,17 +35,19 @@ export async function POST(request: Request) {
     if (!ownerName || typeof ownerName !== "string" || !ownerName.trim()) {
       return NextResponse.json({ error: "Owner name is required." }, { status: 400 });
     }
-    if (!ownerEmail || typeof ownerEmail !== "string" || !ownerEmail.includes("@")) {
-      return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
+
+    const emailCheck = validateEmail(ownerEmail);
+    if (!emailCheck.valid) {
+      return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
     }
+    const normalizedEmail = emailCheck.normalizedEmail;
+
     if (!upiVpa || typeof upiVpa !== "string" || !upiVpa.includes("@")) {
       return NextResponse.json(
         { error: "A valid UPI ID (e.g. yourname@okaxis) is required to receive customer payments." },
         { status: 400 }
       );
     }
-
-    const normalizedEmail = ownerEmail.trim().toLowerCase();
     const cleanShopName = shopName.trim();
     const cleanOwnerName = ownerName.trim();
     const cleanPhone = (ownerPhone || "").trim();

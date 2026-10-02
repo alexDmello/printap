@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useId } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { sanitizeSubdomain } from "@printap/shared";
+import { sanitizeSubdomain, validateEmail } from "@printap/shared";
 
 // Dynamically import MapLocationPicker with SSR disabled (Leaflet requires browser window)
 const MapLocationPicker = dynamic(
@@ -38,6 +38,7 @@ export default function OnboardPage() {
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [emailBlurred, setEmailBlurred] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -158,8 +159,10 @@ export default function OnboardPage() {
     if (!upiVpa.trim() || !upiVpa.includes("@"))
       return "Please enter a valid UPI VPA ID (e.g. name@okaxis) to receive payments.";
     if (!ownerName.trim()) return "Please enter the owner's full name.";
-    if (!ownerEmail.trim() || !ownerEmail.includes("@"))
-      return "Please enter a valid owner email address.";
+    const emailCheck = validateEmail(ownerEmail);
+    if (!emailCheck.valid) {
+      return emailCheck.reason || "Please enter a valid owner email address.";
+    }
     if (password.length < 8) return "Password must be at least 8 characters long.";
     if (!/[A-Z]/.test(password) || !/[0-9]/.test(password))
       return "Password must contain at least one uppercase letter and one number.";
@@ -580,9 +583,22 @@ export default function OnboardPage() {
 
               {/* Owner Email (Primary Login) */}
               <div className="space-y-1.5 sm:col-span-2">
-                <label htmlFor={ownerEmailId} className="block text-xs font-bold text-zinc-700">
-                  Primary Login Email <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor={ownerEmailId} className="block text-xs font-bold text-zinc-700">
+                    Primary Login Email <span className="text-red-500">*</span>
+                  </label>
+                  {ownerEmail && (
+                    validateEmail(ownerEmail).valid ? (
+                      <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+                        ✓ Valid email format
+                      </span>
+                    ) : (emailBlurred || ownerEmail.includes("@")) ? (
+                      <span className="text-[11px] text-red-500 font-medium">
+                        {validateEmail(ownerEmail).reason}
+                      </span>
+                    ) : null
+                  )}
+                </div>
                 <input
                   id={ownerEmailId}
                   type="email"
@@ -590,7 +606,14 @@ export default function OnboardPage() {
                   placeholder="e.g. rahul@apexprints.com"
                   value={ownerEmail}
                   onChange={(e) => setOwnerEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-900 font-medium placeholder:text-zinc-400"
+                  onBlur={() => setEmailBlurred(true)}
+                  className={`w-full px-4 py-2.5 text-sm bg-white border rounded-xl focus:ring-2 text-zinc-900 font-medium placeholder:text-zinc-400 transition-colors ${
+                    ownerEmail && (emailBlurred || ownerEmail.includes("@"))
+                      ? validateEmail(ownerEmail).valid
+                        ? "border-emerald-400 focus:ring-emerald-500 focus:border-emerald-500"
+                        : "border-red-400 focus:ring-red-500 focus:border-red-500"
+                      : "border-zinc-300 focus:ring-indigo-500 focus:border-indigo-500"
+                  }`}
                 />
                 <p className="text-[11px] text-zinc-500">
                   This will be your terminal username. A 6-digit verification code will be sent to this email.

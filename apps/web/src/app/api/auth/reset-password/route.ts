@@ -4,6 +4,7 @@ import {
   getServerSupabase,
   verifyOtpHash,
   validatePasswordStrength,
+  validateEmail,
 } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
@@ -11,9 +12,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, otp, newPassword } = body;
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
     }
+    const normalizedEmail = emailCheck.normalizedEmail;
+
     if (!otp || typeof otp !== "string" || otp.trim().length !== 6) {
       return NextResponse.json({ error: "A valid 6-digit verification code is required." }, { status: 400 });
     }
@@ -23,7 +27,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: passwordCheck.reason }, { status: 400 });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
     const supabase = getServerSupabase();
     const nowIso = new Date().toISOString();
 

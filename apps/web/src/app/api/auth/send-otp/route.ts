@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { getServerSupabase, generateOtp, hashOtp } from "@/lib/server-auth";
+import { getServerSupabase, generateOtp, hashOtp, validateEmail } from "@/lib/server-auth";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -11,11 +11,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, purpose } = body;
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = emailCheck.normalizedEmail;
     const validPurpose = purpose === "reset_password" ? "reset_password" : "onboarding";
 
     const supabase = getServerSupabase();

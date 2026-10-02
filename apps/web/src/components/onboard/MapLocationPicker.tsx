@@ -335,24 +335,58 @@ export function MapLocationPicker({
     });
   };
 
+  // Quick jump to major Indian educational/metro hubs
+  const quickCities = [
+    { name: "Bangalore", lat: 12.9716, lng: 77.5946 },
+    { name: "Delhi NCR", lat: 28.6139, lng: 77.2090 },
+    { name: "Mumbai", lat: 19.0760, lng: 72.8777 },
+    { name: "Hyderabad", lat: 17.3850, lng: 78.4867 },
+    { name: "Pune", lat: 18.5204, lng: 73.8567 },
+    { name: "Chennai", lat: 13.0827, lng: 80.2707 },
+  ];
+
+  const handleJumpCity = (cLat: number, cLng: number) => {
+    if (mapInstanceRef.current && markerRef.current) {
+      markerRef.current.setLatLng([cLat, cLng]);
+      mapInstanceRef.current.setView([cLat, cLng], 14);
+    }
+    onChange({ lat: cLat, lng: cLng });
+    reverseGeocode(cLat, cLng);
+  };
+
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-3.5">
       {/* Search Bar & Auto-detect Button */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row gap-2.5">
         <form onSubmit={handleSearch} className="relative flex-1">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <input
             type="text"
-            className="w-full px-3.5 py-2.5 text-sm bg-white border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pr-20 text-zinc-900 placeholder:text-zinc-400"
-            placeholder="Search street, area, city (e.g. Indiranagar, Bangalore)..."
+            className="w-full pl-10 pr-24 py-3 text-sm bg-white border border-zinc-200/90 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-900 placeholder:text-zinc-400 font-medium shadow-2xs transition-all"
+            placeholder="Search college, street, or landmark (e.g. Indiranagar, Bangalore)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <button
             type="submit"
             disabled={isSearching || !searchQuery.trim()}
-            className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors"
+            className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
           >
-            {isSearching ? "Searching..." : "Search"}
+            {isSearching ? (
+              <span className="flex items-center gap-1.5">
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Searching
+              </span>
+            ) : (
+              "Search"
+            )}
           </button>
         </form>
 
@@ -360,20 +394,31 @@ export function MapLocationPicker({
           type="button"
           onClick={handleDetectLocation}
           disabled={isLocating}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl transition-colors shrink-0"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/90 text-emerald-800 text-xs font-extrabold rounded-2xl shadow-2xs hover:shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
         >
-          <svg
-            className={`w-4 h-4 ${isLocating ? "animate-spin" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="12" cy="12" r="3" fill="currentColor" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v3m0 14v3M2 12h3m14 0h3" />
-          </svg>
-          <span>{isLocating ? "Locating..." : "Detect My Location"}</span>
+          <span className="relative flex h-3 w-3">
+            {isLocating && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            )}
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <span>{isLocating ? "Pinpointing Location..." : "Detect My Location"}</span>
         </button>
+      </div>
+
+      {/* Quick City Presets */}
+      <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-zinc-500">
+        <span className="font-bold text-zinc-400 uppercase text-[10px] tracking-wider mr-1">Quick Jump:</span>
+        {quickCities.map((c) => (
+          <button
+            key={c.name}
+            type="button"
+            onClick={() => handleJumpCity(c.lat, c.lng)}
+            className="px-2.5 py-1 rounded-lg bg-zinc-100/90 hover:bg-zinc-200/90 text-zinc-700 font-semibold border border-zinc-200/80 transition-all hover:scale-105 cursor-pointer shadow-2xs"
+          >
+            {c.name}
+          </button>
+        ))}
       </div>
 
       {/* Detection status message */}

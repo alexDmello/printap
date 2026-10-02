@@ -7,12 +7,13 @@ interface DemoDoc {
   name: string;
   pages: number;
   price: number;
+  type: string;
 }
 
 const DEMO_DOCS: DemoDoc[] = [
-  { name: "College_Admit_Card.pdf", pages: 1, price: 2 },
-  { name: "Resume_2026_Final.pdf", pages: 2, price: 4 },
-  { name: "Project_Thesis_Report.pdf", pages: 14, price: 28 },
+  { name: "College_Admit_Card.pdf", pages: 1, price: 2, type: "PDF Document" },
+  { name: "Resume_2026_Final.pdf", pages: 2, price: 4, type: "Job Application" },
+  { name: "Project_Thesis_Report.pdf", pages: 14, price: 28, type: "College Notes" },
 ];
 
 export default function Home() {
@@ -34,24 +35,24 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [rotatingWords.length]);
 
-  // Infinite Automated Live Print Simulator Loop
+  // Continuous Auto-Looping Live Print Simulator State
   const [selectedDocIndex, setSelectedDocIndex] = useState(0);
   const [simStep, setSimStep] = useState<"idle" | "upload" | "pay" | "print" | "ready">("ready");
 
   const currentDoc = DEMO_DOCS[selectedDocIndex];
 
+  // Infinite, automated continuous simulation loop
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     if (simStep === "idle") {
-      timeout = setTimeout(() => setSimStep("upload"), 800);
+      timeout = setTimeout(() => setSimStep("upload"), 700);
     } else if (simStep === "upload") {
-      timeout = setTimeout(() => setSimStep("pay"), 1200);
+      timeout = setTimeout(() => setSimStep("pay"), 1100);
     } else if (simStep === "pay") {
-      timeout = setTimeout(() => setSimStep("print"), 1400);
+      timeout = setTimeout(() => setSimStep("print"), 1300);
     } else if (simStep === "print") {
       timeout = setTimeout(() => setSimStep("ready"), 1600);
     } else if (simStep === "ready") {
-      // Loop to next document automatically after showing ready state
       timeout = setTimeout(() => {
         setSelectedDocIndex((prev) => (prev + 1) % DEMO_DOCS.length);
         setSimStep("idle");
@@ -67,7 +68,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-zinc-950 font-sans selection:bg-zinc-900 selection:text-white">
-      {/* ─── NAVIGATION BAR (No Sign-in option as requested) ─── */}
+      {/* ─── NAVIGATION BAR (Sign-in option removed) ─── */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-zinc-200/90 transition-all">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
@@ -102,7 +103,7 @@ export default function Home() {
             </a>
           </nav>
 
-          {/* Single Focused Action CTA */}
+          {/* Single Clear Action CTA */}
           <div className="flex items-center">
             <Link
               href="/onboard"
@@ -115,67 +116,134 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ─── HERO SECTION: SIMULATION ON LEFT, TEXT ON RIGHT ─── */}
-      <section className="pt-8 sm:pt-14 pb-16 sm:pb-24 px-4 sm:px-6 relative overflow-hidden bg-mesh">
+      {/* ─── 2-COLUMN HERO SECTION: TEXT LEFT, FIXED-SIZE SIMULATION RIGHT ─── */}
+      <section className="pt-8 sm:pt-14 pb-16 sm:pb-20 px-4 sm:px-6 relative overflow-hidden bg-mesh">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center relative z-10">
           
-          {/* ─── LEFT COLUMN: LIVE SIMULATION IN CONTINUOUS LOOP ─── */}
-          <div className="lg:col-span-6 w-full order-2 lg:order-1">
-            <div className="bg-white rounded-3xl border border-zinc-200/90 p-5 sm:p-7 shadow-xl relative overflow-hidden space-y-4">
-              {/* Ticker / Status Bar */}
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+          {/* LEFT COLUMN: HERO HEADLINE & TEXT */}
+          <div className="lg:col-span-6 text-left space-y-6 sm:space-y-7 animate-fade-in-up">
+            {/* Animated Announcement Beacon */}
+            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white border border-zinc-200/90 text-zinc-800 text-xs font-bold shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-950"></span>
+              </span>
+              <span className="tracking-wide">15-Second Document Printing Network</span>
+              <span className="text-zinc-300">•</span>
+              <span className="text-zinc-500 font-semibold">100% Free</span>
+            </div>
+
+            {/* Editorial Headline with Animated Word Cycler */}
+            <div className="space-y-3">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-zinc-950 tracking-tight leading-[1.08]">
+                Print any document. <br />
+                From your phone. <br />
+                <span className="relative inline-block text-zinc-400 font-extrabold transition-all duration-300 underline decoration-zinc-300 underline-offset-8">
+                  {rotatingWords[wordIndex]}
+                </span>
+              </h1>
+
+              <p className="text-base sm:text-lg text-zinc-600 font-normal leading-relaxed pt-1 max-w-lg">
+                Walk up to any counter, scan the QR code with your phone, pick your file, and pay with UPI.
+                Your pages print out right away. No sharing phone numbers. No WhatsApp.
+              </p>
+            </div>
+
+            {/* CTA Button Row (No test button) */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+              <Link
+                href="/onboard"
+                className="w-full sm:w-auto px-8 py-4 bg-zinc-950 hover:bg-zinc-800 text-white text-base font-black rounded-2xl shadow-lg shadow-zinc-950/15 hover:shadow-xl transition-all cursor-pointer hover:scale-[1.02] flex items-center justify-center gap-2 group"
+              >
+                <span>Open Your Free Shop</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </Link>
+
+              <a
+                href="#how-it-works"
+                className="w-full sm:w-auto px-6 py-4 bg-white hover:bg-zinc-50 text-zinc-900 text-sm sm:text-base font-bold rounded-2xl border border-zinc-200/90 shadow-2xs transition-all hover:border-zinc-400 text-center"
+              >
+                See How It Works ↓
+              </a>
+            </div>
+
+            {/* 3 Quick Proof Metric Badges */}
+            <div className="pt-2 grid grid-cols-3 gap-3 border-t border-zinc-200/80 max-w-lg">
+              <div>
+                <div className="text-2xl font-black text-zinc-950">0%</div>
+                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
+                  Platform Fees
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-zinc-950">&lt; 15s</div>
+                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
+                  Turnaround
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-zinc-950">100%</div>
+                <div className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
+                  Direct to Bank
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: STRICTLY FIXED-SIZE LIVE SIMULATION (NEVER CHANGES SIZE) */}
+          <div className="lg:col-span-6 w-full flex justify-center lg:justify-end animate-fade-in-up">
+            <div className="w-full max-w-[480px] h-[550px] min-h-[550px] max-h-[550px] bg-white rounded-3xl border border-zinc-200/90 shadow-xl p-5 sm:p-6 flex flex-col justify-between overflow-hidden relative select-none">
+              
+              {/* Header: Fixed Height (h-8) */}
+              <div className="h-8 shrink-0 flex items-center justify-between border-b border-zinc-100 pb-2.5">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-xs font-black uppercase tracking-wider text-zinc-900">
-                    Live System Flow
+                    Live Counter Flow
                   </span>
                 </div>
-                <div className="text-[11px] font-mono font-bold text-zinc-500 bg-zinc-100 px-2.5 py-0.5 rounded-full">
-                  Under 15 Seconds
-                </div>
+                <span className="text-[11px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-0.5 rounded-full">
+                  {currentDoc.name.split("_")[0]} • ₹{currentDoc.price}.00
+                </span>
               </div>
 
-              {/* Step 1: Customer Phone Card */}
-              <div className="bg-zinc-50 rounded-2xl border border-zinc-200/90 p-4 space-y-2.5 text-left">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-black uppercase tracking-wider text-zinc-700 bg-white px-2 py-0.5 rounded-md border border-zinc-200 text-[10px]">
+              {/* Station 1: Customer Phone (Fixed Height: 185px) */}
+              <div className="h-[185px] shrink-0 bg-zinc-50 rounded-2xl border border-zinc-200/90 p-3.5 flex flex-col justify-between text-left">
+                <div className="h-5 shrink-0 flex items-center justify-between text-[10px]">
+                  <span className="font-black uppercase tracking-wider text-zinc-500 bg-white px-2 py-0.5 rounded-md border border-zinc-200">
                     1. Customer Phone
                   </span>
-                  <span className="font-mono text-[10px] text-zinc-400">shop.mellod.in</span>
+                  <div className="font-mono text-zinc-600 bg-white px-2 py-0.5 rounded border border-zinc-200 truncate max-w-[150px]">
+                    🔒 shop.mellod.in
+                  </div>
                 </div>
 
-                {/* File representation */}
-                <div className="bg-white p-3 rounded-xl border border-zinc-200 flex items-center justify-between shadow-2xs">
+                {/* File Row (Fixed Height: 56px) */}
+                <div className="h-14 shrink-0 bg-white rounded-xl border border-zinc-200 px-3 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2.5 truncate">
                     <span className="w-7 h-7 rounded-lg bg-zinc-950 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                       PDF
                     </span>
                     <div className="truncate">
-                      <span className="text-xs font-bold text-zinc-950 block truncate">
-                        {currentDoc.name}
-                      </span>
-                      <span className="text-[10px] text-zinc-400">
-                        {currentDoc.pages} {currentDoc.pages === 1 ? "page" : "pages"} • Black & White
-                      </span>
+                      <div className="text-xs font-bold text-zinc-950 truncate">{currentDoc.name}</div>
+                      <div className="text-[10px] text-zinc-500">{currentDoc.pages} {currentDoc.pages === 1 ? "page" : "pages"} • Black & White</div>
                     </div>
                   </div>
-                  <span className="text-xs font-black text-zinc-950 shrink-0">
-                    ₹{currentDoc.price}.00
-                  </span>
+                  <span className="text-xs font-black text-zinc-900 shrink-0">₹{currentDoc.price}.00</span>
                 </div>
 
-                {/* Simulated Payment */}
-                <div>
+                {/* Payment State Button (Fixed Height: 36px) */}
+                <div className="h-9 shrink-0">
                   {simStep === "idle" || simStep === "upload" ? (
-                    <div className="w-full py-2 bg-zinc-100 text-zinc-500 text-xs font-bold rounded-xl text-center">
+                    <div className="w-full h-full bg-zinc-100 text-zinc-500 text-xs font-bold rounded-xl flex items-center justify-center">
                       Selecting file...
                     </div>
                   ) : simStep === "pay" ? (
-                    <div className="w-full py-2 bg-zinc-950 text-white text-xs font-bold rounded-xl text-center animate-pulse">
+                    <div className="w-full h-full bg-zinc-950 text-white text-xs font-bold rounded-xl flex items-center justify-center animate-pulse">
                       Paying ₹{currentDoc.price}.00 via UPI...
                     </div>
                   ) : (
-                    <div className="w-full py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs">
+                    <div className="w-full h-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs">
                       <span>✓</span>
                       <span>Paid ₹{currentDoc.price}.00 to Shopkeeper</span>
                     </div>
@@ -183,133 +251,67 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Animated Connecting Pulse Line */}
-              <div className="flex items-center justify-center py-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-0.5 bg-zinc-200 relative overflow-hidden rounded-full">
-                    <div className="absolute inset-0 bg-zinc-950 rounded-full animate-beam-slide"></div>
-                  </div>
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                    Direct Transfer
-                  </span>
-                  <div className="w-16 h-0.5 bg-zinc-200 relative overflow-hidden rounded-full">
-                    <div className="absolute inset-0 bg-zinc-950 rounded-full animate-beam-slide"></div>
-                  </div>
+              {/* Connecting Signal Beam (Fixed Height: 28px) */}
+              <div className="h-7 shrink-0 flex items-center justify-between px-2 text-[10px] text-zinc-400 font-bold">
+                <span>From Phone</span>
+                <div className="relative w-36 h-1 bg-zinc-200 rounded-full overflow-hidden">
+                  <div className="absolute inset-0 bg-zinc-950 rounded-full animate-beam-slide"></div>
                 </div>
+                <span>Direct Transfer (&lt;1s)</span>
               </div>
 
-              {/* Step 2: Shop Computer Terminal & Printer Output */}
-              <div className="bg-zinc-950 text-white rounded-2xl p-4 border border-zinc-800 text-left space-y-3 font-mono">
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pb-2 border-b border-zinc-800">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
-                    2. Shop Counter PC
-                  </span>
-                  <span className="text-[10px] text-zinc-400">Canon / HP Ready</span>
-                </div>
-
-                <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-800 flex items-center justify-between text-xs">
-                  <span className="truncate font-bold text-zinc-200">
-                    Job #104: {currentDoc.name}
-                  </span>
-                  <span className="text-emerald-400 font-bold shrink-0">
-                    ₹{currentDoc.price}.00 Paid
+              {/* Station 2: Counter Terminal & Printer (Fixed Height: 195px) */}
+              <div className="h-[195px] shrink-0 bg-zinc-950 text-white rounded-2xl border border-zinc-800 p-3.5 flex flex-col justify-between text-left font-mono">
+                <div className="h-6 shrink-0 flex items-center justify-between text-[10px] pb-1 border-b border-zinc-800 text-zinc-400">
+                  <span>2. Shop Counter Terminal</span>
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Printer Ready
                   </span>
                 </div>
 
-                {/* Printed Sheet Ejection */}
-                <div className="pt-1">
+                {/* Job Info (Fixed Height: 44px) */}
+                <div className="h-11 shrink-0 bg-zinc-900 rounded-xl px-3 flex items-center justify-between text-xs">
+                  <div className="truncate">
+                    <span className="text-zinc-200 font-bold block truncate">Job: {currentDoc.name}</span>
+                    <span className="text-[10px] text-zinc-400 block">{currentDoc.pages} pgs • Auto-Print</span>
+                  </div>
+                  <span className="text-emerald-400 font-bold shrink-0">₹{currentDoc.price}.00 Paid</span>
+                </div>
+
+                {/* Paper Output Slot (Fixed Height: 60px) */}
+                <div className="h-[60px] shrink-0 overflow-hidden relative flex items-center justify-center">
                   {simStep === "print" ? (
-                    <div className="p-2.5 bg-zinc-800 rounded-xl text-center text-xs text-zinc-300 font-bold animate-pulse font-sans">
-                      🖨️ Printing document now...
+                    <div className="w-full h-full bg-zinc-900 rounded-xl flex items-center justify-center text-xs text-zinc-300 font-bold animate-pulse">
+                      🖨️ Printing document...
                     </div>
                   ) : simStep === "ready" ? (
-                    <div className="bg-white text-zinc-950 rounded-xl p-3 shadow-md border border-zinc-200 animate-paper-slide space-y-1 font-sans">
-                      <div className="flex items-center justify-between text-xs font-black">
-                        <span>📄 Printed Paper Ready</span>
-                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[10px]">
-                          ✓ Finished
-                        </span>
+                    <div className="w-full h-full bg-white text-zinc-950 rounded-xl px-3 py-2 shadow-md border border-zinc-200 animate-paper-slide flex items-center justify-between font-sans">
+                      <div>
+                        <div className="text-xs font-black">📄 Printed Sheet Ready</div>
+                        <div className="text-[10px] text-zinc-500 font-medium">{currentDoc.pages} pages output</div>
                       </div>
-                      <div className="h-1.5 bg-zinc-200 rounded-full w-4/5"></div>
-                      <div className="h-1.5 bg-zinc-200 rounded-full w-2/3"></div>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md text-[10px] font-bold">
+                        ✓ Collected
+                      </span>
                     </div>
                   ) : (
-                    <div className="p-2.5 bg-zinc-900/60 rounded-xl text-center text-[11px] text-zinc-500 font-sans">
-                      Waiting for incoming job...
+                    <div className="w-full h-full bg-zinc-900/40 rounded-xl flex items-center justify-center text-[10px] text-zinc-500 font-sans">
+                      Waiting for incoming print...
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Bottom Micro Proof Strip */}
-              <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-500 font-medium">
-                <span className="flex items-center gap-1 font-bold text-zinc-800">
-                  <span className="text-emerald-600">✓</span> 0% Fee
+              {/* Bottom Status: Fixed Height (h-6) */}
+              <div className="h-6 shrink-0 flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-zinc-100 font-medium">
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse"></span>
+                  Continuous Loop
                 </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 font-bold text-zinc-800">
-                  <span className="text-emerald-600">✓</span> Direct UPI
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 font-bold text-zinc-800">
-                  <span className="text-emerald-600">✓</span> Zero WhatsApp
-                </span>
+                <span>100% Direct Bank Settlement</span>
               </div>
-            </div>
-          </div>
 
-          {/* ─── RIGHT COLUMN: EDITORIAL HEADLINE & VALUE PROPOSITION ─── */}
-          <div className="lg:col-span-6 text-left space-y-6 order-1 lg:order-2">
-            {/* Animated Announcement Beacon */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-zinc-200/90 text-zinc-800 text-xs font-bold shadow-2xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-950"></span>
-              </span>
-              <span>The 15-Second Document Printing Network</span>
-            </div>
-
-            {/* Editorial Headline with Animated Word Cycler */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-zinc-950 tracking-tight leading-[1.08]">
-              Print any document. <br />
-              From your phone.{" "}
-              <span className="relative inline-block text-zinc-400 font-extrabold transition-all duration-300 underline decoration-zinc-300 underline-offset-8">
-                {rotatingWords[wordIndex]}
-              </span>
-            </h1>
-
-            {/* Subtitle in Plain English */}
-            <p className="text-base sm:text-lg text-zinc-600 font-normal leading-relaxed">
-              Walk up to any counter, scan the QR code with your phone, pick your file, and pay with UPI.
-              Your pages print out right away. No sharing phone numbers. No WhatsApp.
-            </p>
-
-            {/* Action Row - ONLY "Open Your Free Shop", NO "Test Live Simulation" button */}
-            <div className="pt-2 space-y-2.5">
-              <Link
-                href="/onboard"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-950 hover:bg-zinc-800 text-white text-base font-black rounded-2xl shadow-lg shadow-zinc-950/15 hover:shadow-xl transition-all cursor-pointer hover:scale-[1.02] group"
-              >
-                <span>Open Your Free Shop</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </Link>
-              <div className="text-xs text-zinc-500 font-medium">
-                Free forever • Works on any Windows PC • Takes 2 minutes
-              </div>
-            </div>
-
-            {/* Proof Badges Grid */}
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-zinc-100">
-              <div className="bg-white p-3 rounded-xl border border-zinc-200/80 shadow-2xs">
-                <div className="text-xl font-black text-zinc-950">0%</div>
-                <div className="text-xs font-bold text-zinc-800">Zero Fees for Shops</div>
-                <div className="text-[10px] text-zinc-400 font-medium">100% direct bank payout</div>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-zinc-200/80 shadow-2xs">
-                <div className="text-xl font-black text-zinc-950">&lt; 15s</div>
-                <div className="text-xs font-bold text-zinc-800">Queue Turnaround</div>
-                <div className="text-[10px] text-zinc-400 font-medium">Instant paper in hand</div>
-              </div>
             </div>
           </div>
 

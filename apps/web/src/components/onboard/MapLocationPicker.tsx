@@ -95,9 +95,9 @@ export function MapLocationPicker({
         html: `
           <div style="position: relative; width: 36px; height: 42px; transform: translate(-50%, -100%); cursor: grab;">
             <svg width="36" height="42" viewBox="0 0 36 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M18 0C8.05888 0 0 8.05888 0 18C0 27.25 14.5 40.5 17.15 41.85C17.68 42.12 18.32 42.12 18.85 41.85C21.5 40.5 36 27.25 36 18C36 8.05888 27.9411 0 18 0Z" fill="#4F46E5"/>
+              <path d="M18 0C8.05888 0 0 8.05888 0 18C0 27.25 14.5 40.5 17.15 41.85C17.68 42.12 18.32 42.12 18.85 41.85C21.5 40.5 36 27.25 36 18C36 8.05888 27.9411 0 18 0Z" fill="#09090B"/>
               <circle cx="18" cy="18" r="8" fill="#FFFFFF"/>
-              <circle cx="18" cy="18" r="4" fill="#10B981"/>
+              <circle cx="18" cy="18" r="4" fill="#09090B"/>
             </svg>
             <div style="position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 12px; height: 4px; background: rgba(0,0,0,0.25); border-radius: 50%; filter: blur(1px);"></div>
           </div>
@@ -366,7 +366,7 @@ export function MapLocationPicker({
           </div>
           <input
             type="text"
-            className="w-full pl-10 pr-24 py-3 text-sm bg-white border border-zinc-200/90 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-900 placeholder:text-zinc-400 font-medium shadow-2xs transition-all"
+            className="w-full pl-10 pr-24 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-900 placeholder:text-zinc-400 font-medium shadow-2xs transition-all"
             placeholder="Search college, street, or landmark (e.g. Indiranagar, Bangalore)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -374,7 +374,7 @@ export function MapLocationPicker({
           <button
             type="submit"
             disabled={isSearching || !searchQuery.trim()}
-            className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
+            className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
           >
             {isSearching ? (
               <span className="flex items-center gap-1.5">
@@ -394,15 +394,15 @@ export function MapLocationPicker({
           type="button"
           onClick={handleDetectLocation}
           disabled={isLocating}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/90 text-emerald-800 text-xs font-extrabold rounded-2xl shadow-2xs hover:shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-white hover:bg-zinc-50 border border-zinc-300 text-zinc-900 text-xs font-extrabold rounded-2xl shadow-2xs hover:shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
         >
-          <span className="relative flex h-3 w-3">
+          <span className="relative flex h-2.5 w-2.5">
             {isLocating && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
             )}
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-950"></span>
           </span>
-          <span>{isLocating ? "Pinpointing Location..." : "Detect My Location"}</span>
+          <span>{isLocating ? "Finding location..." : "Detect My Location"}</span>
         </button>
       </div>
 
@@ -414,7 +414,7 @@ export function MapLocationPicker({
             key={c.name}
             type="button"
             onClick={() => handleJumpCity(c.lat, c.lng)}
-            className="px-2.5 py-1 rounded-lg bg-zinc-100/90 hover:bg-zinc-200/90 text-zinc-700 font-semibold border border-zinc-200/80 transition-all hover:scale-105 cursor-pointer shadow-2xs"
+            className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold border border-zinc-200 transition-all hover:scale-105 cursor-pointer shadow-2xs"
           >
             {c.name}
           </button>
@@ -423,8 +423,8 @@ export function MapLocationPicker({
 
       {/* Detection status message */}
       {detectStatus && (
-        <div className="flex items-center gap-2 px-3.5 py-2 bg-indigo-50/90 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-medium">
-          <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0 animate-pulse"></span>
+        <div className="flex items-center gap-2 px-3.5 py-2 bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-xl text-xs font-medium">
+          <span className="w-2 h-2 rounded-full bg-zinc-950 shrink-0"></span>
           <span className="flex-1">{detectStatus}</span>
         </div>
       )}
@@ -437,10 +437,10 @@ export function MapLocationPicker({
               key={item.place_id}
               type="button"
               onClick={() => handleSelectResult(item)}
-              className="w-full text-left px-3.5 py-2.5 text-xs text-zinc-700 hover:bg-indigo-50 transition-colors flex items-center justify-between"
+              className="w-full text-left px-3.5 py-2.5 text-xs text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center justify-between"
             >
               <span className="truncate pr-2">{item.display_name}</span>
-              <span className="text-[10px] text-indigo-600 font-semibold shrink-0">Select →</span>
+              <span className="text-[10px] text-zinc-950 font-bold shrink-0">Select →</span>
             </button>
           ))}
         </div>
@@ -451,14 +451,14 @@ export function MapLocationPicker({
         <div ref={mapContainerRef} className="w-full h-full z-0" />
 
         {/* Floating Instruction Overlay */}
-        <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-zinc-200 text-[11px] text-zinc-700 font-medium shadow-sm flex items-center gap-1.5 pointer-events-none">
-          <span className="inline-block w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-          Drag the pin or click on the map to pinpoint your store
+        <div className="absolute top-2 left-2 z-[400] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg border border-zinc-200 text-[11px] text-zinc-800 font-medium shadow-2xs flex items-center gap-1.5 pointer-events-none">
+          <span className="inline-block w-2 h-2 rounded-full bg-zinc-950"></span>
+          Drag the pin or click on the map to pinpoint your shop
         </div>
 
         {/* Coordinate Badge */}
         {latitude !== null && longitude !== null && (
-          <div className="absolute bottom-2 right-2 z-[400] bg-zinc-900/90 backdrop-blur-md text-white px-2.5 py-1 rounded-md text-[10px] font-mono shadow-md">
+          <div className="absolute bottom-2 right-2 z-[400] bg-zinc-950 text-white px-2.5 py-1 rounded-md text-[10px] font-mono shadow-md">
             {latitude.toFixed(6)}, {longitude.toFixed(6)}
           </div>
         )}
@@ -467,12 +467,9 @@ export function MapLocationPicker({
       {/* Geocoded Address Preview */}
       {addressPreview && (
         <div className="flex items-start gap-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-600">
-          <svg className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
+          <span className="text-zinc-800">📍</span>
           <div className="flex-1 truncate">
-            <span className="font-semibold text-zinc-800">Pin Location:</span> {addressPreview}
+            <span className="font-semibold text-zinc-800">Shop Location:</span> {addressPreview}
           </div>
         </div>
       )}

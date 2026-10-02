@@ -16,14 +16,14 @@ const MapLocationPicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-[340px] rounded-3xl bg-zinc-100/90 flex flex-col items-center justify-center text-xs text-zinc-500 font-medium animate-pulse border border-zinc-200/90 gap-3 shadow-inner">
-        <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+      <div className="w-full h-[320px] rounded-3xl bg-zinc-50 flex flex-col items-center justify-center text-xs text-zinc-500 font-medium animate-pulse border border-zinc-200 gap-3 shadow-inner">
+        <div className="w-10 h-10 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-800 shadow-sm">
           <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
           </svg>
         </div>
-        <span className="font-bold text-zinc-700">Loading High-Precision Interactive Map...</span>
+        <span className="font-bold text-zinc-700">Loading Map...</span>
       </div>
     ),
   }
@@ -117,8 +117,8 @@ function OnboardContent() {
     /[^A-Za-z0-9]/.test(password) || password.length >= 12,
   ].filter(Boolean).length;
 
-  const strengthLabels = ["Weak", "Fair", "Good", "Bulletproof"];
-  const strengthColors = ["bg-red-500", "bg-amber-500", "bg-indigo-500", "bg-emerald-500"];
+  const strengthLabels = ["Needs more characters", "Fair", "Good", "Very Strong"];
+  const strengthColors = ["bg-zinc-300", "bg-zinc-500", "bg-zinc-800", "bg-zinc-950"];
 
   // UPI format check (e.g. name@bank)
   const isUpiValid = Boolean(
@@ -203,11 +203,11 @@ function OnboardContent() {
       });
 
       if (error) {
-        setStepError(error.message || "Failed to initiate Google Sign-In.");
+        setStepError(error.message || "Could not sign in with Google.");
         setIsSigningIn(false);
       }
     } catch (err) {
-      setStepError("Network error while connecting to Google.");
+      setStepError("Network connection error. Please try again.");
       console.error(err);
       setIsSigningIn(false);
     }
@@ -316,23 +316,23 @@ function OnboardContent() {
     setStepError(null);
 
     if (!shopName.trim()) {
-      setStepError("Please enter your business or print shop name.");
+      setStepError("Please type your shop name.");
       return;
     }
     if (!slug.trim()) {
-      setStepError("Please wait a moment while your unique subdomain is assigned.");
+      setStepError("Please wait a moment while your shop link is generated.");
       return;
     }
     if (password.length < 8) {
-      setStepError("Terminal password must be at least 8 characters long.");
+      setStepError("Password must be at least 8 characters long.");
       return;
     }
     if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      setStepError("Terminal password must contain at least one uppercase letter and one number.");
+      setStepError("Password must have at least one capital letter and one number.");
       return;
     }
     if (password !== confirmPassword) {
-      setStepError("Passwords do not match. Please verify your confirm password.");
+      setStepError("Passwords do not match. Please check again.");
       return;
     }
 
@@ -347,7 +347,7 @@ function OnboardContent() {
     setStepError(null);
 
     if (latitude === null || longitude === null) {
-      setStepError("Please pinpoint your store location on the map or click 'Detect My Location'.");
+      setStepError("Please select your shop on the map or click 'Detect My Location'.");
       return;
     }
 
@@ -362,12 +362,12 @@ function OnboardContent() {
     setStepError(null);
 
     if (!isUpiValid) {
-      setStepError("Please enter a valid UPI VPA ID (e.g. apexprints@okaxis) to receive customer payments.");
+      setStepError("Please enter a valid UPI ID (e.g. apexprints@okaxis) to receive your payments.");
       return;
     }
 
     if (!googleUser?.email) {
-      setStepError("Google authentication session expired. Please sign in again.");
+      setStepError("Your login session timed out. Please sign in again.");
       return;
     }
 
@@ -397,11 +397,10 @@ function OnboardContent() {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data.existingSlug) {
-          // Already registered: redirect directly to download page
           router.push(`/download?shop=${encodeURIComponent(data.existingSlug)}`);
           return;
         }
-        setStepError(data.error || "Failed to create shop profile.");
+        setStepError(data.error || "Could not complete shop registration.");
         setIsSubmitting(false);
         return;
       }
@@ -410,7 +409,7 @@ function OnboardContent() {
       const assignedSlug = data.shop?.slug || slug.trim();
       router.push(`/download?shop=${encodeURIComponent(assignedSlug)}`);
     } catch (err) {
-      setStepError("Network connection error during shop creation.");
+      setStepError("Network connection error. Please try again.");
       console.error(err);
       setIsSubmitting(false);
     }
@@ -419,152 +418,136 @@ function OnboardContent() {
   // RENDER: LOADING STATE
   if (isAuthLoading) {
     return (
-      <div className="min-h-screen bg-mesh flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4 animate-fade-in-up">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-3xl bg-indigo-500/25 blur-xl animate-pulse"></div>
-            <div className="relative w-16 h-16 rounded-3xl bg-white border border-zinc-200/90 shadow-xl flex items-center justify-center text-indigo-600">
-              <svg className="w-7 h-7 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-            </div>
-          </div>
+          <img src="/P.png" alt="Printap" className="w-12 h-12 rounded-2xl shadow-xs" />
           <div className="text-center space-y-1">
-            <div className="text-xs font-black tracking-widest uppercase text-zinc-800">
-              Initializing Partner Portal
+            <div className="text-xs font-black tracking-widest uppercase text-zinc-900">
+              Loading Printap
             </div>
-            <div className="text-[11px] text-zinc-400 font-medium">Securing cloud handshake...</div>
+            <div className="text-xs text-zinc-400 font-medium">Please wait a moment...</div>
           </div>
         </div>
       </div>
     );
   }
 
-  // RENDER: STEP 0 - LUXURY 2-COLUMN SIGN IN SHOWCASE (WHEN NOT LOGGED IN)
+  // RENDER: STEP 0 - PREMIUM MONOCHROME SIGN IN SHOWCASE (WHEN NOT LOGGED IN)
   if (!googleUser) {
     return (
-      <div className="min-h-screen bg-mesh py-12 sm:py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden flex items-center justify-center">
-        {/* Ambient Gradient Auroras */}
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-tr from-indigo-500/15 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-gradient-to-bl from-emerald-500/15 via-teal-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-
+      <div className="min-h-screen bg-mesh py-12 sm:py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden flex items-center justify-center selection:bg-zinc-900 selection:text-white">
         <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center relative z-10">
-          {/* LEFT COLUMN: THE VALUE PROPOSITION & BRAND PROMISE */}
+          {/* LEFT COLUMN: PLAIN WORDS VALUE PROPOSITION */}
           <div className="lg:col-span-7 space-y-8 text-left animate-fade-in-up">
             {/* Super Header Badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/90 border border-zinc-200/90 shadow-xs backdrop-blur-md">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[11px] font-black text-zinc-800 tracking-wider uppercase">
-                Official Shop Partner Network • Printap OS
+            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white border border-zinc-200 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-zinc-900 animate-pulse"></span>
+              <span className="text-[11px] font-bold text-zinc-800 tracking-wider uppercase">
+                Print Shop Registration • Free Forever
               </span>
             </div>
 
             {/* Hero Heading */}
             <div className="space-y-4">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-zinc-950 tracking-tight leading-[1.08]">
-                Transform your print counter into an{" "}
-                <span className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 bg-clip-text text-transparent">
-                  autonomous powerhouse.
-                </span>
+                Run your print counter with zero hassle.
               </h1>
               <p className="text-base sm:text-lg text-zinc-600 max-w-xl leading-relaxed font-normal">
-                Give customers an instant upload link right on their smartphones. Auto-print jobs directly to your counter printers with 100% direct UPI settlement into your bank account.
+                Give customers an easy link to upload and pay from their phones. Documents appear on your counter computer screen ready to print. All money goes 100% straight to your bank account.
               </p>
             </div>
 
-            {/* Feature Cards Grid */}
+            {/* Feature Cards Grid (Plain Words) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="glass-strong rounded-3xl p-5 border border-zinc-200/90 shadow-xs space-y-2.5 hover:border-indigo-300 hover:shadow-md transition-all group">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100/80 text-indigo-600 flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
+              <div className="bg-white rounded-3xl p-5 border border-zinc-200 shadow-2xs space-y-2 hover:border-zinc-400 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center font-bold text-sm">
                   🌐
                 </div>
-                <div className="font-extrabold text-sm text-zinc-900">Branded Web Link</div>
+                <div className="font-extrabold text-sm text-zinc-950">Your Own Web Link</div>
                 <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                  Auto-assigned <code>shop.mellod.in</code> URL. Zero customer apps or logins needed.
+                  Customers visit your shop link on their phones. No app to download.
                 </p>
               </div>
 
-              <div className="glass-strong rounded-3xl p-5 border border-zinc-200/90 shadow-xs space-y-2.5 hover:border-emerald-300 hover:shadow-md transition-all group">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100/80 text-emerald-600 flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
+              <div className="bg-white rounded-3xl p-5 border border-zinc-200 shadow-2xs space-y-2 hover:border-zinc-400 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center font-bold text-sm">
                   ⚡
                 </div>
-                <div className="font-extrabold text-sm text-zinc-900">Auto Print Queue</div>
+                <div className="font-extrabold text-sm text-zinc-950">1-Click Printing</div>
                 <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                  Incoming files pop up on your Windows PC ready for instant 1-click counter printing.
+                  Files pop up on your computer. Click print and hand the paper to the customer.
                 </p>
               </div>
 
-              <div className="glass-strong rounded-3xl p-5 border border-zinc-200/90 shadow-xs space-y-2.5 hover:border-teal-300 hover:shadow-md transition-all group">
-                <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-100/80 text-teal-600 flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
+              <div className="bg-white rounded-3xl p-5 border border-zinc-200 shadow-2xs space-y-2 hover:border-zinc-400 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center font-bold text-sm">
                   ₹
                 </div>
-                <div className="font-extrabold text-sm text-zinc-900">100% Direct UPI</div>
+                <div className="font-extrabold text-sm text-zinc-950">100% Direct UPI</div>
                 <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                  Direct customer-to-bank settlement. Zero platform fee or fund withholding.
+                  Customer payments go directly into your bank. Zero fees or deductions.
                 </p>
               </div>
             </div>
 
-            {/* Metric Proof Badges */}
-            <div className="pt-2 flex items-center gap-6 sm:gap-10 border-t border-zinc-200/80 text-left">
-              <div>
-                <div className="text-2xl sm:text-3xl font-black text-zinc-950">100%</div>
-                <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
-                  Direct P2P Payout
-                </div>
-              </div>
-              <div className="h-9 w-px bg-zinc-200"></div>
-              <div>
-                <div className="text-2xl sm:text-3xl font-black text-zinc-950">&lt; 15s</div>
-                <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
-                  Queue Turnaround
-                </div>
-              </div>
-              <div className="h-9 w-px bg-zinc-200"></div>
+            {/* Simple Proof Row */}
+            <div className="pt-2 flex items-center gap-6 sm:gap-10 border-t border-zinc-200 text-left">
               <div>
                 <div className="text-2xl sm:text-3xl font-black text-zinc-950">0%</div>
                 <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
-                  Platform Commission
+                  Platform Fees
+                </div>
+              </div>
+              <div className="h-8 w-px bg-zinc-200"></div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black text-zinc-950">&lt; 30s</div>
+                <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
+                  Counter Turnaround
+                </div>
+              </div>
+              <div className="h-8 w-px bg-zinc-200"></div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black text-zinc-950">100%</div>
+                <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
+                  Direct Bank Settlement
                 </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: LUXURY FROSTED SIGN-IN CARD */}
+          {/* RIGHT COLUMN: CLEAN BLACK & WHITE AUTH CARD */}
           <div className="lg:col-span-5 w-full max-w-md mx-auto animate-fade-in-up">
-            <div className="glass-strong rounded-3xl p-8 sm:p-10 border border-zinc-200/90 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.08)] space-y-7 text-center relative backdrop-blur-3xl">
-              {/* Brand Emblem */}
+            <div className="bg-white rounded-3xl p-8 sm:p-10 border border-zinc-200 shadow-md space-y-7 text-center relative">
+              {/* Brand Logo */}
               <div className="space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-emerald-500 flex items-center justify-center text-white font-black text-2xl mx-auto shadow-xl shadow-indigo-600/25">
-                  P
-                </div>
+                <img
+                  src="/P.png"
+                  alt="Printap Logo"
+                  className="w-14 h-14 rounded-2xl mx-auto shadow-sm"
+                />
                 <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 tracking-tight">
-                  Shop Partner Portal
+                  Shop Owner Sign In
                 </h2>
                 <p className="text-xs text-zinc-600 max-w-xs mx-auto leading-relaxed font-medium">
-                  Sign in with Google to provision your store URL, configure your counter agent, and receive customer payments.
+                  Sign in with Google to set up your shop, get your free web link, and download the counter app.
                 </p>
               </div>
 
               {stepError && (
-                <div className="p-3.5 bg-red-50/90 border border-red-200 text-red-700 rounded-2xl text-xs font-semibold text-center animate-shake">
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs font-semibold text-center">
                   {stepError}
                 </div>
               )}
 
-              {/* The Master Google OAuth Button */}
+              {/* The Master Google Button */}
               <div className="space-y-4 pt-1">
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isSigningIn}
-                  className="w-full py-4 px-6 bg-white hover:bg-zinc-50 active:bg-zinc-100 text-zinc-900 font-extrabold border border-zinc-300 hover:border-zinc-400 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 text-sm sm:text-base cursor-pointer disabled:opacity-50 group hover:scale-[1.01]"
+                  className="w-full py-4 px-6 bg-white hover:bg-zinc-50 active:bg-zinc-100 text-zinc-900 font-bold border-2 border-zinc-900 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 text-sm sm:text-base cursor-pointer disabled:opacity-50 hover:scale-[1.01]"
                 >
-                  <svg className="w-5 h-5 shrink-0 group-hover:scale-105 transition-transform" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -590,28 +573,20 @@ function OnboardContent() {
                   <button
                     type="button"
                     onClick={handleDevPreviewLogin}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-950 text-xs font-bold transition-all cursor-pointer"
                   >
-                    <span>⚡ Instant Dev / Preview Access</span>
+                    <span>⚡ Instant Demo Mode (No Google Login Needed)</span>
                   </button>
                 </div>
               </div>
 
               {/* Trust Badge Footer */}
               <div className="pt-5 border-t border-zinc-100 flex items-center justify-center gap-4 text-[11px] text-zinc-500 font-semibold">
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 1a9 9 0 100 18 9 9 0 000-18zm3.707 7.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Google OAuth 2.0
-                </span>
+                <span>Safe Google Sign-In</span>
                 <span>•</span>
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                  </svg>
-                  256-bit TLS Encrypted
-                </span>
+                <span>Direct Bank UPI</span>
+                <span>•</span>
+                <span>Free Forever</span>
               </div>
             </div>
           </div>
@@ -620,48 +595,42 @@ function OnboardContent() {
     );
   }
 
-  // RENDER: STEPPED FLOW (AFTER GOOGLE OAUTH 2.0 LOGIN)
+  // RENDER: STEPPED FLOW (AFTER GOOGLE LOGIN)
   return (
-    <div className="min-h-screen bg-mesh py-8 sm:py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Subtle Aurora Ambient Lights */}
-      <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-0 left-1/4 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
-
+    <div className="min-h-screen bg-mesh py-8 sm:py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-zinc-900 selection:text-white">
       <div className="max-w-6xl mx-auto space-y-7 relative z-10">
         {/* Brand Bar & Authenticated Account Header */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 glass-strong rounded-3xl p-4 sm:px-6 border border-zinc-200/90 shadow-xs">
-          <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
-              P
-            </div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-3xl p-4 sm:px-6 border border-zinc-200 shadow-2xs">
+          <Link href="/" className="inline-flex items-center gap-3 group">
+            <img src="/P.png" alt="Printap Logo" className="w-9 h-9 rounded-xl shadow-xs" />
             <div>
-              <span className="text-xl font-black tracking-tight text-zinc-950 group-hover:text-indigo-600 transition-colors">
+              <span className="text-xl font-black tracking-tight text-zinc-950">
                 Printap
               </span>
-              <span className="text-[10px] text-zinc-400 block font-bold -mt-1 tracking-wider uppercase">
+              <span className="text-[10px] text-zinc-400 block font-bold -mt-0.5 tracking-wider uppercase">
                 Shop Registration
               </span>
             </div>
           </Link>
 
           {/* Verified Google Account Capsule */}
-          <div className="flex items-center gap-3.5 bg-white/95 px-3.5 py-2 rounded-2xl border border-zinc-200/90 shadow-2xs">
+          <div className="flex items-center gap-3 bg-zinc-50 px-3.5 py-2 rounded-2xl border border-zinc-200">
             {googleUser.avatarUrl ? (
               <img
                 src={googleUser.avatarUrl}
                 alt={googleUser.name}
-                className="w-8 h-8 rounded-full border border-zinc-200 shadow-2xs shrink-0"
+                className="w-8 h-8 rounded-full border border-zinc-200 shrink-0"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-2xs shrink-0">
+              <div className="w-8 h-8 rounded-full bg-zinc-900 text-white font-bold flex items-center justify-center text-xs shrink-0">
                 {googleUser.name[0]?.toUpperCase()}
               </div>
             )}
             <div className="text-left min-w-0">
               <div className="text-xs font-black text-zinc-900 flex items-center gap-1.5 truncate">
                 <span className="truncate">{googleUser.name}</span>
-                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.2 rounded-full shrink-0 flex items-center gap-0.5">
-                  ✓ Verified
+                <span className="text-[9px] bg-zinc-200 text-zinc-800 font-extrabold px-1.5 py-0.2 rounded-full shrink-0">
+                  Signed In
                 </span>
               </div>
               <div className="text-[11px] text-zinc-500 font-mono truncate">{googleUser.email}</div>
@@ -669,7 +638,7 @@ function OnboardContent() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="text-xs text-zinc-400 hover:text-zinc-700 font-bold px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors shrink-0 cursor-pointer"
+              className="text-xs text-zinc-400 hover:text-zinc-950 font-bold px-2 py-1 rounded-lg hover:bg-zinc-200 transition-colors shrink-0 cursor-pointer"
             >
               Switch
             </button>
@@ -677,12 +646,12 @@ function OnboardContent() {
         </div>
 
         {/* STEP PROGRESS TRACKER CAPSULE */}
-        <div className="glass-strong rounded-3xl p-4 sm:p-5 border border-zinc-200/90 shadow-xs max-w-3xl mx-auto space-y-3">
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-zinc-200 shadow-xs max-w-3xl mx-auto space-y-3">
           <div className="flex items-center justify-between">
             {[
-              { num: 1, label: "Store & Terminal", icon: "🏬" },
-              { num: 2, label: "Location & Map", icon: "📍" },
-              { num: 3, label: "UPI & Launch", icon: "💳" },
+              { num: 1, label: "1. Shop Details" },
+              { num: 2, label: "2. Shop Location" },
+              { num: 3, label: "3. Bank Payment (UPI)" },
             ].map((step, idx) => {
               const isCurrent = currentStep === step.num;
               const isDone = currentStep > step.num;
@@ -699,35 +668,33 @@ function OnboardContent() {
                         setCurrentStep(step.num as 1 | 2 | 3);
                       }
                     }}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl transition-all ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-2xl transition-all ${
                       isCurrent
-                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]"
+                        ? "bg-zinc-950 text-white shadow-xs font-bold"
                         : isDone
-                        ? "hover:bg-emerald-50 text-emerald-800"
-                        : "text-zinc-400"
+                        ? "text-zinc-900 font-bold hover:bg-zinc-100"
+                        : "text-zinc-400 font-medium"
                     } ${canClick ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
                   >
                     <div
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
                         isCurrent
-                          ? "bg-white text-indigo-700 shadow-xs"
+                          ? "bg-white text-zinc-950"
                           : isDone
-                          ? "bg-emerald-500 text-white shadow-xs"
+                          ? "bg-zinc-900 text-white"
                           : "bg-zinc-100 text-zinc-400"
                       }`}
                     >
                       {isDone ? "✓" : step.num}
                     </div>
-                    <div className="text-left hidden sm:block">
-                      <div className="text-xs font-black leading-tight">
-                        {step.label}
-                      </div>
+                    <div className="text-xs leading-tight hidden sm:block">
+                      {step.label}
                     </div>
                   </button>
                   {idx < 2 && (
                     <div
-                      className={`flex-1 h-1 mx-2 sm:mx-4 rounded-full transition-all ${
-                        currentStep > idx + 1 ? "bg-emerald-500" : "bg-zinc-200"
+                      className={`flex-1 h-0.5 mx-2 rounded-full transition-all ${
+                        currentStep > idx + 1 ? "bg-zinc-900" : "bg-zinc-200"
                       }`}
                     />
                   )}
@@ -736,53 +703,49 @@ function OnboardContent() {
             })}
           </div>
 
-          {/* Progress Percentage Micro-Indicator */}
           <div className="flex items-center justify-between text-[11px] text-zinc-500 font-semibold px-1">
             <span>Step {currentStep} of 3</span>
-            <span className="text-indigo-600 font-extrabold">
-              {currentStep === 1 ? "33% Complete" : currentStep === 2 ? "66% Complete" : "Almost Ready to Launch!"}
+            <span className="text-zinc-900 font-bold">
+              {currentStep === 1 ? "Step 1: Your Shop Details" : currentStep === 2 ? "Step 2: Map Location" : "Step 3: Setup Direct Payment"}
             </span>
           </div>
         </div>
 
         {/* Global Error Banner */}
         {stepError && (
-          <div className="max-w-3xl mx-auto p-4 bg-red-50/90 border border-red-200 text-red-800 rounded-2xl text-xs font-bold flex items-center gap-3 shadow-xs animate-shake">
-            <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+          <div className="max-w-3xl mx-auto p-4 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-bold flex items-center gap-3">
             <span className="flex-1">{stepError}</span>
             <button
               type="button"
               onClick={() => setStepError(null)}
-              className="text-red-400 hover:text-red-700 font-black text-sm cursor-pointer"
+              className="text-red-500 hover:text-red-900 font-black text-sm cursor-pointer"
             >
               ×
             </button>
           </div>
         )}
 
-        {/* MAIN CONTAINER: 2-COLUMN LUXURY LAYOUT */}
+        {/* MAIN CONTAINER: 2-COLUMN MONOCHROME LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-6xl mx-auto">
-          {/* LEFT COLUMN: ACTIVE STEP FORM & PROGRESSIVE COMPLETED BADGES */}
+          {/* LEFT COLUMN: ACTIVE STEP FORM */}
           <div className="lg:col-span-7 space-y-5">
-            {/* COMPLETED STEPS SUMMARY CHIPS (Appear sequentially above active step) */}
+            {/* Completed steps summaries */}
             {currentStep > 1 && (
               <div className="space-y-2.5">
-                <div className="glass-strong rounded-2xl p-4 border border-emerald-200/90 bg-emerald-50/40 flex items-center justify-between text-xs transition-all shadow-xs">
+                <div className="bg-white rounded-2xl p-4 border border-zinc-200 flex items-center justify-between text-xs shadow-2xs">
                   <div className="flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
+                    <span className="w-6 h-6 rounded-lg bg-zinc-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
                       ✓
                     </span>
                     <div>
                       <div className="font-extrabold text-zinc-950 flex items-center gap-2">
                         <span>{shopName}</span>
-                        <span className="text-emerald-800 font-mono text-[11px] bg-emerald-100/90 px-2 py-0.5 rounded-full font-bold">
+                        <span className="text-zinc-600 font-mono text-[11px] bg-zinc-100 px-2 py-0.5 rounded-full font-bold">
                           {slug}.mellod.in
                         </span>
                       </div>
                       <div className="text-zinc-500 text-[11px] font-medium">
-                        Terminal credentials locked & ready
+                        Shop link and password saved
                       </div>
                     </div>
                   </div>
@@ -792,24 +755,24 @@ function OnboardContent() {
                       setStepError(null);
                       setCurrentStep(1);
                     }}
-                    className="text-indigo-600 hover:text-indigo-800 font-bold px-3 py-1.5 rounded-xl hover:bg-indigo-50/80 transition-colors text-xs cursor-pointer"
+                    className="text-zinc-900 underline font-bold px-2 py-1 text-xs cursor-pointer"
                   >
-                    Edit
+                    Change
                   </button>
                 </div>
 
                 {currentStep > 2 && (
-                  <div className="glass-strong rounded-2xl p-4 border border-emerald-200/90 bg-emerald-50/40 flex items-center justify-between text-xs transition-all shadow-xs">
+                  <div className="bg-white rounded-2xl p-4 border border-zinc-200 flex items-center justify-between text-xs shadow-2xs">
                     <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
+                      <span className="w-6 h-6 rounded-lg bg-zinc-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
                         ✓
                       </span>
                       <div>
                         <div className="font-extrabold text-zinc-950">
-                          {city ? `${city}${state ? `, ${state}` : ""}` : "Store Location Pinpointed"}
+                          {city ? `${city}${state ? `, ${state}` : ""}` : "Shop Location Saved"}
                         </div>
                         <div className="text-zinc-500 text-[11px] truncate max-w-xs font-medium">
-                          {address || (latitude && longitude ? `Coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}` : "")}
+                          {address || "Coordinates pinned on map"}
                         </div>
                       </div>
                     </div>
@@ -819,30 +782,25 @@ function OnboardContent() {
                         setStepError(null);
                         setCurrentStep(2);
                       }}
-                      className="text-indigo-600 hover:text-indigo-800 font-bold px-3 py-1.5 rounded-xl hover:bg-indigo-50/80 transition-colors text-xs cursor-pointer"
+                      className="text-zinc-900 underline font-bold px-2 py-1 text-xs cursor-pointer"
                     >
-                      Edit
+                      Change
                     </button>
                   </div>
                 )}
               </div>
             )}
 
-            {/* STEP 1: STORE DETAILS & TERMINAL PASSWORD */}
+            {/* STEP 1: STORE DETAILS & COMPUTER PASSWORD */}
             {currentStep === 1 && (
-              <form onSubmit={handleProceedToStep2} className="glass-strong rounded-3xl p-6 sm:p-9 border border-zinc-200/90 shadow-sm space-y-7 animate-fade-in-up">
+              <form onSubmit={handleProceedToStep2} className="bg-white rounded-3xl p-6 sm:p-9 border border-zinc-200 shadow-sm space-y-7 animate-fade-in-up">
                 <div className="border-b border-zinc-100 pb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
-                      Step 1 of 3 • Store Profile
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
-                      ● Google Account Linked
-                    </span>
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 mt-1">Shop Details & Terminal Access</h2>
-                  <p className="text-xs text-zinc-500 mt-1 leading-relaxed font-medium">
-                    Name your print counter. Your permanent customer upload link will be automatically generated with guaranteed uniqueness.
+                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                    Step 1 of 3
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 mt-1">Shop Details & Password</h2>
+                  <p className="text-xs text-zinc-600 mt-1 leading-relaxed font-medium">
+                    Enter the name of your print shop. We will create your shop&apos;s free web link automatically.
                   </p>
                 </div>
 
@@ -851,7 +809,7 @@ function OnboardContent() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label htmlFor={shopNameId} className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wide">
-                        Shop / Business Name <span className="text-red-500">*</span>
+                        Shop Name <span className="text-red-500">*</span>
                       </label>
                       <span className="text-[11px] text-zinc-400 font-medium">
                         {shopName.length} / 50
@@ -862,69 +820,59 @@ function OnboardContent() {
                       type="text"
                       required
                       maxLength={50}
-                      placeholder="e.g. Apex Digital Print & Xerox"
+                      placeholder="e.g. Apex Xerox & Digital Prints"
                       value={shopName}
                       onChange={(e) => setShopName(e.target.value)}
-                      className="w-full px-4.5 py-3.5 text-base bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-950 font-bold placeholder:text-zinc-400 placeholder:font-normal shadow-2xs transition-all"
+                      className="w-full px-4.5 py-3.5 text-base bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-950 font-bold placeholder:text-zinc-400 placeholder:font-normal shadow-2xs transition-all"
                     />
                   </div>
 
-                  {/* Auto-Assigned Subdomain Live Card (NON-CUSTOMISABLE AS REQUESTED) */}
-                  <div className="bg-gradient-to-br from-indigo-50/80 via-purple-50/40 to-white border border-indigo-200/80 rounded-3xl p-5 space-y-3.5 shadow-xs">
+                  {/* Auto-Assigned Subdomain Live Card */}
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-extrabold text-indigo-950 flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                        Permanent Subdomain URL
+                      <span className="font-extrabold text-zinc-900 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-zinc-950"></span>
+                        Your Shop&apos;s Web Link
                       </span>
                       {slugState.checking ? (
-                        <span className="text-[11px] text-indigo-600 font-bold flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                          </svg>
-                          Checking collision...
+                        <span className="text-[11px] text-zinc-500 font-bold">
+                          Creating link...
                         </span>
                       ) : slug ? (
-                        <span className="text-[11px] text-emerald-800 font-extrabold bg-emerald-100/90 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
-                          <span>✓ Guaranteed Collision-Free</span>
-                          {slugState.wasAdjusted && <span className="text-zinc-500 font-medium">(auto-numbered)</span>}
+                        <span className="text-[11px] text-zinc-900 font-bold bg-zinc-200 px-2.5 py-0.5 rounded-full">
+                          Ready & Unique
                         </span>
                       ) : (
-                        <span className="text-[11px] text-zinc-400 font-medium">Type store name above</span>
+                        <span className="text-[11px] text-zinc-400 font-medium">Type shop name above</span>
                       )}
                     </div>
 
-                    {/* Simulated macOS / Safari Address Bar */}
-                    <div className="flex items-center gap-2.5 bg-white px-4 py-3 rounded-2xl border border-indigo-200/90 shadow-xs">
-                      <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                      </svg>
-                      <div className="font-mono text-xs sm:text-sm text-indigo-700 font-black truncate flex-1">
+                    {/* Address Bar */}
+                    <div className="flex items-center gap-2.5 bg-white px-4 py-3 rounded-2xl border border-zinc-200 shadow-2xs">
+                      <span className="text-xs">🔒</span>
+                      <div className="font-mono text-xs sm:text-sm text-zinc-950 font-bold truncate flex-1">
                         {slug ? `https://${slug}.mellod.in` : "https://your-shop.mellod.in"}
                       </div>
                       {slug && (
                         <button
                           type="button"
                           onClick={handleCopySlug}
-                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold px-2 py-1 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                          className="text-[10px] text-zinc-900 font-bold px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
                         >
                           {copiedSlug ? "Copied! ✓" : "Copy"}
                         </button>
                       )}
-                      <span className="text-[10px] text-zinc-500 font-extrabold select-none bg-zinc-100 px-2.5 py-1 rounded-lg">
-                        100% Automated
-                      </span>
                     </div>
 
-                    <p className="text-[11px] text-indigo-950/70 leading-relaxed font-medium">
-                      Subdomains are permanently auto-assigned to maintain collision-free global routing. Customers open this web link on their phones to upload files and print directly at your counter.
+                    <p className="text-[11px] text-zinc-600 leading-relaxed font-medium">
+                      Customers will open this web link on their smartphones to upload files and print at your counter.
                     </p>
                   </div>
 
                   {/* Owner Phone */}
                   <div className="space-y-2">
                     <label htmlFor={ownerPhoneId} className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wide">
-                      Counter Phone Number <span className="text-zinc-400 font-normal">(Optional)</span>
+                      Phone Number <span className="text-zinc-400 font-normal">(Optional)</span>
                     </label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400 select-none">
@@ -936,24 +884,23 @@ function OnboardContent() {
                         placeholder="98765 43210"
                         value={ownerPhone}
                         onChange={(e) => setOwnerPhone(e.target.value)}
-                        className="w-full pl-16 pr-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-950 font-bold placeholder:text-zinc-400 placeholder:font-normal shadow-2xs"
+                        className="w-full pl-16 pr-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-950 font-bold placeholder:text-zinc-400 shadow-2xs"
                       />
                     </div>
                   </div>
 
-                  {/* Terminal Password & Confirm Password */}
+                  {/* Password & Confirm Password */}
                   <div className="space-y-3 pt-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Password */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <label htmlFor={passwordId} className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wide">
-                            Terminal Password <span className="text-red-500">*</span>
+                            Computer App Password <span className="text-red-500">*</span>
                           </label>
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
+                            className="text-[11px] text-zinc-600 hover:text-zinc-950 font-bold cursor-pointer"
                           >
                             {showPassword ? "Hide" : "Show"}
                           </button>
@@ -965,20 +912,19 @@ function OnboardContent() {
                           placeholder="Min. 8 characters"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full px-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-950 font-bold placeholder:text-zinc-400 placeholder:font-normal shadow-2xs"
+                          className="w-full px-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-950 font-bold placeholder:text-zinc-400 shadow-2xs"
                         />
                       </div>
 
-                      {/* Confirm Password */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <label htmlFor={confirmPasswordId} className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wide">
-                            Confirm Password <span className="text-red-500">*</span>
+                            Re-type Password <span className="text-red-500">*</span>
                           </label>
                           <button
                             type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
+                            className="text-[11px] text-zinc-600 hover:text-zinc-950 font-bold cursor-pointer"
                           >
                             {showConfirmPassword ? "Hide" : "Show"}
                           </button>
@@ -987,30 +933,20 @@ function OnboardContent() {
                           id={confirmPasswordId}
                           type={showConfirmPassword ? "text" : "password"}
                           required
-                          placeholder="Re-enter password"
+                          placeholder="Confirm password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full px-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-950 font-bold placeholder:text-zinc-400 placeholder:font-normal shadow-2xs"
+                          className="w-full px-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-950 font-bold placeholder:text-zinc-400 shadow-2xs"
                         />
                       </div>
                     </div>
 
-                    {/* Interactive Password Strength Indicator */}
+                    {/* Password Strength Indicator */}
                     {password && (
                       <div className="space-y-1.5 pt-1">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-zinc-600">Password Strength:</span>
-                          <span
-                            className={`font-black uppercase tracking-wider ${
-                              passwordStrengthScore <= 1
-                                ? "text-red-600"
-                                : passwordStrengthScore === 2
-                                ? "text-amber-600"
-                                : passwordStrengthScore === 3
-                                ? "text-indigo-600"
-                                : "text-emerald-600"
-                            }`}
-                          >
+                          <span className="font-bold text-zinc-600">Password Quality:</span>
+                          <span className="font-bold text-zinc-950">
                             {strengthLabels[Math.max(0, passwordStrengthScore - 1)]}
                           </span>
                         </div>
@@ -1029,40 +965,24 @@ function OnboardContent() {
                       </div>
                     )}
 
-                    {/* Password Criteria Badges */}
+                    {/* Criteria check pills */}
                     <div className="flex flex-wrap gap-2 text-[11px] pt-1">
-                      <span
-                        className={`px-2.5 py-1 rounded-xl font-bold transition-all flex items-center gap-1 ${
-                          passwordCriteria.length ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
-                        {passwordCriteria.length ? "✓" : "○"} 8+ characters
+                      <span className={`px-2.5 py-1 rounded-xl font-bold ${passwordCriteria.length ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"}`}>
+                        {passwordCriteria.length ? "✓" : "○"} 8+ letters
                       </span>
-                      <span
-                        className={`px-2.5 py-1 rounded-xl font-bold transition-all flex items-center gap-1 ${
-                          passwordCriteria.hasUpper ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
-                        {passwordCriteria.hasUpper ? "✓" : "○"} Uppercase letter
+                      <span className={`px-2.5 py-1 rounded-xl font-bold ${passwordCriteria.hasUpper ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"}`}>
+                        {passwordCriteria.hasUpper ? "✓" : "○"} Capital letter
                       </span>
-                      <span
-                        className={`px-2.5 py-1 rounded-xl font-bold transition-all flex items-center gap-1 ${
-                          passwordCriteria.hasNumber ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
+                      <span className={`px-2.5 py-1 rounded-xl font-bold ${passwordCriteria.hasNumber ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"}`}>
                         {passwordCriteria.hasNumber ? "✓" : "○"} Number (0-9)
                       </span>
-                      <span
-                        className={`px-2.5 py-1 rounded-xl font-bold transition-all flex items-center gap-1 ${
-                          passwordCriteria.match ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
+                      <span className={`px-2.5 py-1 rounded-xl font-bold ${passwordCriteria.match ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"}`}>
                         {passwordCriteria.match ? "✓" : "○"} Passwords match
                       </span>
                     </div>
 
-                    <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-2xl text-[11px] text-zinc-600 leading-relaxed font-medium">
-                      💡 You will use your Google email (<code>{googleUser.email}</code>) and this password to log in to the <strong>Printap Desktop Counter Terminal</strong>.
+                    <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[11px] text-zinc-600 leading-relaxed font-medium">
+                      💡 You will use your email (<code>{googleUser.email}</code>) and this password to sign into the Printap app on your shop counter computer.
                     </div>
                   </div>
                 </div>
@@ -1070,31 +990,31 @@ function OnboardContent() {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black text-sm sm:text-base rounded-2xl shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2.5 cursor-pointer hover:scale-[1.01]"
+                    className="w-full py-4 px-6 bg-zinc-950 hover:bg-zinc-800 text-white font-black text-sm sm:text-base rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01]"
                   >
-                    <span>Continue to Store Location</span>
+                    <span>Continue to Step 2 (Shop Location)</span>
                     <span>→</span>
                   </button>
                 </div>
               </form>
             )}
 
-            {/* STEP 2: STORE GEOLOCATION & ADDRESS */}
+            {/* STEP 2: STORE LOCATION & ADDRESS */}
             {currentStep === 2 && (
-              <form onSubmit={handleProceedToStep3} className="glass-strong rounded-3xl p-6 sm:p-9 border border-zinc-200/90 shadow-sm space-y-7 animate-fade-in-up">
+              <form onSubmit={handleProceedToStep3} className="bg-white rounded-3xl p-6 sm:p-9 border border-zinc-200 shadow-sm space-y-7 animate-fade-in-up">
                 <div className="border-b border-zinc-100 pb-4">
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
-                    Step 2 of 3 • Location
+                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                    Step 2 of 3
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 mt-1">Store Geolocation & Address</h2>
-                  <p className="text-xs text-zinc-500 mt-1 leading-relaxed font-medium">
-                    Pinpoint your store on the interactive map so nearby students, customers, and campus walk-ins can find your counter.
+                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 mt-1">Where is your shop located?</h2>
+                  <p className="text-xs text-zinc-600 mt-1 leading-relaxed font-medium">
+                    Pin your shop on the map so nearby students and walk-in customers can find your counter.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <label className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wide">
-                    Pinpoint Shop on Map <span className="text-red-500">*</span>
+                    Select Shop on Map <span className="text-red-500">*</span>
                   </label>
                   <MapLocationPicker
                     latitude={latitude}
@@ -1107,7 +1027,7 @@ function OnboardContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                   <div className="sm:col-span-3 space-y-1.5">
                     <label htmlFor={addressId} className="block text-xs font-extrabold text-zinc-800">
-                      Street Address / Building Landmark
+                      Street Address or Landmark
                     </label>
                     <input
                       id={addressId}
@@ -1115,7 +1035,7 @@ function OnboardContent() {
                       placeholder="e.g. Shop #4, Ground Floor, Near University North Gate"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-900 font-medium placeholder:text-zinc-400"
+                      className="w-full px-4 py-3 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-900 font-medium placeholder:text-zinc-400"
                     />
                   </div>
 
@@ -1129,7 +1049,7 @@ function OnboardContent() {
                       placeholder="e.g. Bangalore"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-900 font-medium placeholder:text-zinc-400"
+                      className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-900 font-medium placeholder:text-zinc-400"
                     />
                   </div>
 
@@ -1143,7 +1063,7 @@ function OnboardContent() {
                       placeholder="e.g. Karnataka"
                       value={state}
                       onChange={(e) => setState(e.target.value)}
-                      className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-900 font-medium placeholder:text-zinc-400"
+                      className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-900 font-medium placeholder:text-zinc-400"
                     />
                   </div>
 
@@ -1157,7 +1077,7 @@ function OnboardContent() {
                       placeholder="e.g. 560038"
                       value={pincode}
                       onChange={(e) => setPincode(e.target.value)}
-                      className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-600 text-zinc-900 font-medium placeholder:text-zinc-400"
+                      className="w-full px-4 py-2.5 text-sm bg-white border border-zinc-300 rounded-2xl focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 text-zinc-900 font-medium placeholder:text-zinc-400"
                     />
                   </div>
                 </div>
@@ -1175,9 +1095,9 @@ function OnboardContent() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3.5 px-6 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black text-sm sm:text-base rounded-2xl shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01]"
+                    className="flex-1 py-3.5 px-6 bg-zinc-950 hover:bg-zinc-800 text-white font-black text-sm sm:text-base rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01]"
                   >
-                    <span>Continue to UPI Payout</span>
+                    <span>Continue to Step 3 (Payment Details)</span>
                     <span>→</span>
                   </button>
                 </div>
@@ -1186,14 +1106,14 @@ function OnboardContent() {
 
             {/* STEP 3: DIRECT UPI PAYOUT & LAUNCH */}
             {currentStep === 3 && (
-              <form onSubmit={handleFinalizeShop} className="glass-strong rounded-3xl p-6 sm:p-9 border border-zinc-200/90 shadow-sm space-y-7 animate-fade-in-up">
+              <form onSubmit={handleFinalizeShop} className="bg-white rounded-3xl p-6 sm:p-9 border border-zinc-200 shadow-sm space-y-7 animate-fade-in-up">
                 <div className="border-b border-zinc-100 pb-4">
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
-                    Step 3 of 3 • UPI Payout & Launch
+                  <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                    Step 3 of 3
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 mt-1">Direct Customer UPI Payout</h2>
-                  <p className="text-xs text-zinc-500 mt-1 leading-relaxed font-medium">
-                    Enter the UPI ID where 100% of customer print payments will be credited directly to your bank account.
+                  <h2 className="text-2xl sm:text-3xl font-black text-zinc-950 mt-1">Where should customer payments go?</h2>
+                  <p className="text-xs text-zinc-600 mt-1 leading-relaxed font-medium">
+                    Enter the UPI ID of your shop. 100% of customer payments will be deposited directly into your bank account.
                   </p>
                 </div>
 
@@ -1201,16 +1121,16 @@ function OnboardContent() {
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label htmlFor={upiId} className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wide">
-                      Shop Owner UPI ID (VPA) <span className="text-red-500">*</span>
+                      Shop UPI ID <span className="text-red-500">*</span>
                     </label>
                     {upiVpa && (
                       isUpiValid ? (
-                        <span className="text-[11px] text-emerald-700 font-extrabold flex items-center gap-1 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+                        <span className="text-[11px] text-zinc-900 font-bold bg-zinc-100 px-2.5 py-0.5 rounded-full border border-zinc-200">
                           ✓ Valid UPI format
                         </span>
                       ) : upiBlurred ? (
                         <span className="text-[11px] text-red-500 font-bold">
-                          Must contain @ (e.g. name@okaxis)
+                          Must include @ (e.g. name@okaxis)
                         </span>
                       ) : null
                     )}
@@ -1227,57 +1147,48 @@ function OnboardContent() {
                       value={upiVpa}
                       onChange={(e) => setUpiVpa(e.target.value)}
                       onBlur={() => setUpiBlurred(true)}
-                      className={`w-full pl-9 pr-4 py-3.5 text-base font-mono bg-white border rounded-2xl focus:ring-3 text-zinc-950 placeholder:text-zinc-400 transition-all font-bold ${
+                      className={`w-full pl-9 pr-4 py-3.5 text-base font-mono bg-white border rounded-2xl focus:ring-2 text-zinc-950 placeholder:text-zinc-400 transition-all font-bold ${
                         upiVpa && upiBlurred
                           ? isUpiValid
-                            ? "border-emerald-400 focus:ring-emerald-500/20"
-                            : "border-red-400 focus:ring-red-500/20"
-                          : "border-zinc-300 focus:ring-indigo-500/20 focus:border-indigo-600"
+                            ? "border-zinc-950 focus:ring-zinc-950"
+                            : "border-red-400 focus:ring-red-400"
+                          : "border-zinc-300 focus:ring-zinc-950 focus:border-zinc-950"
                       }`}
                     />
                   </div>
 
-                  {/* Supported UPI Providers Badges */}
-                  <div className="flex items-center gap-2 flex-wrap pt-1 text-[11px]">
-                    <span className="font-bold text-zinc-400 text-[10px] uppercase tracking-wider">Supported:</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-600 font-bold">Google Pay</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-600 font-bold">PhonePe</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-600 font-bold">Paytm</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-600 font-bold">BHIM</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-600 font-bold">Cred / Axis / HDFC</span>
-                  </div>
+                  <p className="text-xs text-zinc-500 font-medium">
+                    Works with Google Pay, PhonePe, Paytm, BHIM, Axis, ICICI, SBI, and HDFC.
+                  </p>
                 </div>
 
-                {/* P2P Direct Settlement Explainer */}
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-3xl p-5 flex items-start gap-4 shadow-xs">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 font-black text-lg shadow-xs">
+                {/* Zero Commission Card */}
+                <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shrink-0 font-black text-lg">
                     ₹
                   </div>
-                  <div className="text-xs text-emerald-950 space-y-1 text-left">
-                    <div className="font-extrabold text-sm">Direct Peer-to-Peer Settlements</div>
-                    <p className="leading-relaxed text-emerald-800/90 font-medium">
-                      When a customer pays via UPI QR code, the funds are deposited directly into your bank.
-                      <strong> Printap takes zero commission and holds zero funds.</strong>
+                  <div className="text-xs text-zinc-800 space-y-1 text-left">
+                    <div className="font-extrabold text-sm text-zinc-950">Direct Payments to Your Bank</div>
+                    <p className="leading-relaxed text-zinc-600 font-medium">
+                      When a customer pays via UPI QR code, the funds are deposited directly into your bank account.
+                      <strong> Printap takes 0% commission and holds zero money.</strong>
                     </p>
                   </div>
                 </div>
 
-                {/* Digital Passport Summary Card */}
-                <div className="bg-zinc-50/90 border border-zinc-200/90 rounded-3xl p-5 text-xs space-y-3 shadow-2xs">
-                  <div className="font-extrabold text-zinc-800 uppercase tracking-wider text-[11px] flex items-center justify-between">
-                    <span>Store Passport Summary</span>
-                    <span className="text-emerald-700 font-black flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Ready to launch
-                    </span>
+                {/* Summary Card */}
+                <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 text-xs space-y-3">
+                  <div className="font-extrabold text-zinc-950 uppercase tracking-wider text-[11px] flex items-center justify-between">
+                    <span>Summary</span>
+                    <span className="text-zinc-600 font-bold">Ready to finish</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3.5 text-zinc-600 font-medium pt-1 text-left">
-                    <div>Shop: <span className="font-black text-zinc-950 block truncate">{shopName}</span></div>
-                    <div>Subdomain: <span className="font-mono font-black text-indigo-600 block truncate">{slug}.mellod.in</span></div>
-                    <div>Owner: <span className="font-black text-zinc-950 block truncate">{googleUser.name}</span></div>
-                    <div>Login Email: <span className="font-black text-zinc-950 block truncate">{googleUser.email}</span></div>
+                  <div className="grid grid-cols-2 gap-3 text-zinc-600 font-medium pt-1 text-left">
+                    <div>Shop: <span className="font-bold text-zinc-950 block truncate">{shopName}</span></div>
+                    <div>Link: <span className="font-mono font-bold text-zinc-950 block truncate">{slug}.mellod.in</span></div>
+                    <div>Owner: <span className="font-bold text-zinc-950 block truncate">{googleUser.name}</span></div>
+                    <div>Email: <span className="font-bold text-zinc-950 block truncate">{googleUser.email}</span></div>
                     <div className="col-span-2">
-                      Location: <span className="text-zinc-900 block truncate font-bold">{address || `${city || ""} ${state || ""}` || "Coordinates pinned on map"}</span>
+                      Location: <span className="text-zinc-950 block truncate font-bold">{address || `${city || ""} ${state || ""}` || "Coordinates pinned on map"}</span>
                     </div>
                   </div>
                 </div>
@@ -1296,7 +1207,7 @@ function OnboardContent() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-4 px-6 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-50 text-white font-black text-sm sm:text-base rounded-2xl shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2.5 cursor-pointer hover:scale-[1.01]"
+                    className="flex-1 py-4 px-6 bg-zinc-950 hover:bg-zinc-800 disabled:opacity-50 text-white font-black text-sm sm:text-base rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01]"
                   >
                     {isSubmitting ? (
                       <>
@@ -1304,11 +1215,11 @@ function OnboardContent() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                         </svg>
-                        <span>Launching Shop & Preparing Setup...</span>
+                        <span>Creating Your Shop...</span>
                       </>
                     ) : (
                       <>
-                        <span>Complete Setup & Download Desktop Terminal 🚀</span>
+                        <span>Finish Setup & Download Computer App →</span>
                       </>
                     )}
                   </button>
@@ -1319,45 +1230,45 @@ function OnboardContent() {
 
           {/* RIGHT COLUMN: INTERACTIVE LIVE DUAL-MODE SIMULATOR */}
           <div className="lg:col-span-5 sticky top-8 space-y-4 hidden lg:block">
-            <div className="glass-strong rounded-3xl p-6 border border-zinc-200/90 shadow-xl space-y-5 backdrop-blur-2xl">
+            <div className="bg-white rounded-3xl p-6 border border-zinc-200 shadow-sm space-y-5">
               {/* Simulator Header & View Switcher */}
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black tracking-wider text-zinc-400 uppercase">
-                  Live System Preview
+                <span className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase">
+                  How It Looks
                 </span>
-                <div className="flex items-center p-1 bg-zinc-100 rounded-2xl border border-zinc-200/80">
+                <div className="flex items-center p-1 bg-zinc-100 rounded-2xl border border-zinc-200">
                   <button
                     type="button"
                     onClick={() => setPreviewTab("mobile")}
                     className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
                       previewTab === "mobile"
-                        ? "bg-white text-zinc-950 shadow-xs"
+                        ? "bg-white text-zinc-950 shadow-2xs"
                         : "text-zinc-500 hover:text-zinc-800"
                     }`}
                   >
-                    📱 Customer
+                    📱 Customer View
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreviewTab("terminal")}
                     className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
                       previewTab === "terminal"
-                        ? "bg-white text-zinc-950 shadow-xs"
+                        ? "bg-white text-zinc-950 shadow-2xs"
                         : "text-zinc-500 hover:text-zinc-800"
                     }`}
                   >
-                    🖥️ Counter
+                    🖥️ Counter Computer
                   </button>
                 </div>
               </div>
 
-              {/* TAB 1: 📱 CUSTOMER MOBILE EXPERIENCE SIMULATOR */}
+              {/* TAB 1: 📱 CUSTOMER PHONE PREVIEW */}
               {previewTab === "mobile" && (
-                <div className="bg-white rounded-3xl border border-zinc-200/90 shadow-lg overflow-hidden animate-fade-in-up">
-                  {/* Phone Bezel Header with Dynamic Island */}
-                  <div className="bg-zinc-100 px-4 py-2 border-b border-zinc-200/80 flex items-center justify-between text-[10px] font-bold text-zinc-500">
+                <div className="bg-white rounded-3xl border-2 border-zinc-200 shadow-md overflow-hidden animate-fade-in-up">
+                  {/* Phone Bezel Header */}
+                  <div className="bg-zinc-100 px-4 py-2 border-b border-zinc-200 flex items-center justify-between text-[10px] font-bold text-zinc-500">
                     <span>9:41</span>
-                    <div className="w-16 h-3 bg-zinc-900 rounded-full"></div>
+                    <div className="w-14 h-3 bg-zinc-800 rounded-full"></div>
                     <div className="flex items-center gap-1">
                       <span>5G</span>
                       <span>100%</span>
@@ -1365,69 +1276,50 @@ function OnboardContent() {
                   </div>
 
                   {/* Browser URL Capsule */}
-                  <div className="bg-zinc-50 px-3.5 py-2 border-b border-zinc-200/80 flex items-center gap-2">
-                    <div className="flex-1 bg-white px-3 py-1 rounded-xl text-[10px] font-mono text-zinc-700 border border-zinc-200 truncate flex items-center gap-1.5 shadow-2xs">
-                      <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                      </svg>
+                  <div className="bg-zinc-50 px-3.5 py-2 border-b border-zinc-200 flex items-center gap-2">
+                    <div className="flex-1 bg-white px-3 py-1 rounded-xl text-[10px] font-mono text-zinc-800 border border-zinc-200 truncate flex items-center gap-1.5">
+                      <span>🔒</span>
                       <span className="truncate font-bold">{slug ? `${slug}.mellod.in` : "your-shop.mellod.in"}</span>
                     </div>
                   </div>
 
                   {/* Mobile Storefront Body */}
                   <div className="p-5 space-y-4 text-left">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-indigo-600/20">
-                        {shopName ? shopName.charAt(0).toUpperCase() : "P"}
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <img src="/P.png" alt="Printap" className="w-9 h-9 rounded-xl shadow-xs" />
                       <div className="flex-1 min-w-0">
                         <h4 className="font-black text-sm text-zinc-950 truncate">
                           {shopName || "Your Print Shop"}
                         </h4>
                         <p className="text-[11px] text-zinc-500 truncate font-medium">
-                          {city ? `${city}${state ? `, ${state}` : ""}` : "Instant Peer-to-Peer Document Printing"}
+                          {city ? `${city}${state ? `, ${state}` : ""}` : "Instant Document Printing"}
                         </p>
                       </div>
                     </div>
 
-                    {/* Feature Pills */}
-                    <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
-                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100">
-                        ⚡ Instant Upload
-                      </span>
-                      <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-100">
-                        ₹ Direct UPI
-                      </span>
-                      <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg border border-purple-100">
-                        📄 Auto-Spool
-                      </span>
-                    </div>
-
                     {/* Customer Drop Zone Simulation */}
-                    <div className="border-2 border-dashed border-zinc-200 rounded-2xl p-4 text-center bg-zinc-50/70 hover:bg-zinc-50 transition-colors">
-                      <div className="text-xs font-black text-zinc-800">Tap or drop documents to print</div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5 font-medium">PDF, DOCX, PPTX, or Images</div>
+                    <div className="border-2 border-dashed border-zinc-300 rounded-2xl p-4 text-center bg-zinc-50 hover:bg-white transition-colors">
+                      <div className="text-xs font-bold text-zinc-800">Tap to upload your document</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5 font-medium">PDF, Word, or Photos</div>
                     </div>
 
-                    {/* Simulated Order Item */}
-                    <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/80 flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px] shrink-0">
-                          PDF
-                        </span>
-                        <span className="font-bold text-zinc-800 truncate">Project_Report.pdf</span>
+                    {/* Order Item */}
+                    <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 flex items-center justify-between text-[11px]">
+                      <div className="truncate">
+                        <span className="font-bold text-zinc-900 block truncate">College_Admit_Card.pdf</span>
+                        <span className="text-zinc-500 text-[10px]">1 Page • Black & White</span>
                       </div>
-                      <span className="font-black text-emerald-700 shrink-0">₹24.00</span>
+                      <span className="font-black text-zinc-950 shrink-0">₹2.00</span>
                     </div>
 
-                    {/* QR Payment Simulation */}
-                    <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3 flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white rounded-xl border border-emerald-200 flex items-center justify-center font-bold text-xs shadow-2xs">
+                    {/* UPI Box */}
+                    <div className="bg-zinc-100 border border-zinc-200 rounded-2xl p-3 flex items-center gap-3">
+                      <div className="w-9 h-9 bg-white rounded-xl border border-zinc-200 flex items-center justify-center font-bold text-xs">
                         QR
                       </div>
-                      <div className="text-[10px] text-emerald-950 min-w-0">
-                        <div className="font-extrabold truncate">Direct UPI Payment</div>
-                        <div className="text-emerald-700 font-mono truncate">{upiVpa || "your-upi@bank"}</div>
+                      <div className="text-[10px] text-zinc-800 min-w-0">
+                        <div className="font-bold truncate">Pay directly via UPI</div>
+                        <div className="text-zinc-500 font-mono truncate">{upiVpa || "your-upi@bank"}</div>
                       </div>
                     </div>
                   </div>
@@ -1436,12 +1328,12 @@ function OnboardContent() {
 
               {/* TAB 2: 🖥️ COUNTER AGENT TERMINAL SIMULATOR */}
               {previewTab === "terminal" && (
-                <div className="bg-zinc-950 text-zinc-100 rounded-3xl border border-zinc-800 shadow-2xl overflow-hidden animate-fade-in-up font-mono">
+                <div className="bg-zinc-950 text-zinc-100 rounded-3xl border border-zinc-800 shadow-xl overflow-hidden animate-fade-in-up font-mono">
                   {/* Windows Terminal Title Bar */}
-                  <div className="bg-zinc-900/90 px-3.5 py-2 border-b border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400">
+                  <div className="bg-zinc-900 px-3.5 py-2 border-b border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span className="font-bold text-zinc-200">Printap Counter Agent v0.0.1</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                      <span className="font-bold text-zinc-200">Printap Counter App</span>
                     </div>
                     <div className="flex items-center gap-2 select-none text-zinc-500">
                       <span>—</span>
@@ -1453,34 +1345,32 @@ function OnboardContent() {
                   {/* Terminal Status Readout */}
                   <div className="p-4 space-y-3.5 text-xs text-left">
                     <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-800 space-y-1">
-                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Terminal Connection</div>
+                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Counter Status</div>
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-200 font-bold truncate">{shopName || "Printap Counter"}</span>
-                        <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800">
-                          ● Online
+                        <span className="text-zinc-200 font-bold truncate">{shopName || "Print Shop"}</span>
+                        <span className="text-[10px] text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">
+                          Ready to Print
                         </span>
                       </div>
-                      <div className="text-[10px] text-zinc-500 truncate">Queue: {slug || "your-shop"}.mellod.in</div>
+                      <div className="text-[10px] text-zinc-500 truncate">Link: {slug || "your-shop"}.mellod.in</div>
                     </div>
 
-                    {/* Printer Status */}
                     <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-800 space-y-1">
-                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Local Printer Status</div>
-                      <div className="text-zinc-200 font-bold text-[11px]">HP LaserJet Pro MFP / Canon iR-ADV</div>
-                      <div className="text-[10px] text-emerald-400">Ready • Auto-Spool Active</div>
+                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Connected Printer</div>
+                      <div className="text-zinc-200 font-bold text-[11px]">HP LaserJet Pro / Canon Printer</div>
                     </div>
 
                     {/* Incoming Jobs Mock Ticker */}
                     <div className="space-y-1.5 pt-1">
-                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Recent Queue Activity</div>
+                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Recent Prints</div>
                       <div className="space-y-1 text-[11px]">
-                        <div className="p-2 bg-zinc-900/60 rounded-lg border border-zinc-800/80 flex items-center justify-between">
-                          <span className="text-zinc-300">#1042 Thesis_Final.pdf</span>
-                          <span className="text-emerald-400 font-bold">Auto-Printed ✓</span>
+                        <div className="p-2 bg-zinc-900 rounded-lg border border-zinc-800 flex items-center justify-between">
+                          <span className="text-zinc-300">#102 Admit_Card.pdf</span>
+                          <span className="text-emerald-400 font-bold">Printed ✓</span>
                         </div>
-                        <div className="p-2 bg-zinc-900/60 rounded-lg border border-zinc-800/80 flex items-center justify-between">
-                          <span className="text-zinc-300">#1041 Resume_2026.docx</span>
-                          <span className="text-indigo-400 font-bold">Processing...</span>
+                        <div className="p-2 bg-zinc-900 rounded-lg border border-zinc-800 flex items-center justify-between">
+                          <span className="text-zinc-300">#101 Resume_Final.pdf</span>
+                          <span className="text-zinc-400">Ready to print</span>
                         </div>
                       </div>
                     </div>
@@ -1489,16 +1379,12 @@ function OnboardContent() {
               )}
 
               {/* Counter Terminal Info Capsule */}
-              <div className="bg-zinc-50 border border-zinc-200/90 rounded-2xl p-4 text-xs space-y-2 text-left shadow-2xs">
-                <div className="font-extrabold text-zinc-900 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Counter Terminal Login Credentials
+              <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 text-xs space-y-1.5 text-left">
+                <div className="font-extrabold text-zinc-900 text-[11px] uppercase tracking-wider">
+                  Counter Sign-In Details
                 </div>
-                <div className="space-y-1 text-zinc-600 font-mono text-[11px]">
-                  <div>Login ID: <span className="text-zinc-950 font-bold">{googleUser.email}</span></div>
-                  <div>UPI VPA: <span className="text-emerald-700 font-bold">{upiVpa || "Pending setup"}</span></div>
+                <div className="text-zinc-600 text-[11px]">
+                  Sign into your shop computer app using: <strong className="text-zinc-950 font-mono">{googleUser.email}</strong>
                 </div>
               </div>
             </div>
@@ -1513,8 +1399,8 @@ export default function OnboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-mesh flex items-center justify-center">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
         </div>
       }
     >

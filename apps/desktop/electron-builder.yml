@@ -10,7 +10,7 @@ asar: true
 asarUnpack:
   - "**/node_modules/pdf-to-printer/**/*"
 win:
-  icon: build/icon.png
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:

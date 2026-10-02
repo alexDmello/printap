@@ -7,6 +7,8 @@ node_modules
 # Build outputs
 /apps/desktop/out
 /apps/desktop/dist
+/apps/admin-desktop/out
+/apps/admin-desktop/dist
 /apps/web/.next
 /apps/web/out
 /apps/web/build

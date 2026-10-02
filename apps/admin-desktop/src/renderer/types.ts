@@ -3,6 +3,9 @@ import type { ShopInfo } from "@printap/shared";
 export interface ExtendedShop extends ShopInfo {
   printCount?: number;
   revenueGenerated?: number;
+  owner_email?: string;
+  owner_name?: string;
+  owner_phone?: string;
 }
 
 export interface GlobalPrintEvent {

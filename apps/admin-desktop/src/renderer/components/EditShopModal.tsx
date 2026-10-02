@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { ROOT_DOMAIN, sanitizeSubdomain, isReservedSubdomain, getSupabase } from "@printap/shared";
 import logoImg from "../assets/logo.png";
 import type { ExtendedShop } from "../types";
-import { IconClose } from "./Icons";
+import { IconClose, IconTrash } from "./Icons";
 
 interface EditShopModalProps {
   shop: ExtendedShop | null;
   onClose: () => void;
   onSuccess: () => void;
+  onOpenDeleteModal?: (shop: ExtendedShop) => void;
   globalPlatformFee: number;
   globalGstPercentage: number;
 }
@@ -16,6 +17,7 @@ export function EditShopModal({
   shop,
   onClose,
   onSuccess,
+  onOpenDeleteModal,
   globalPlatformFee,
   globalGstPercentage,
 }: EditShopModalProps) {
@@ -229,21 +231,38 @@ export function EditShopModal({
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs text-zinc-600 hover:text-black"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="wabi-btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <span>{saving ? "Saving..." : "Save Changes"}</span>
-            </button>
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-100">
+            {onOpenDeleteModal ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenDeleteModal(shop);
+                }}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 transition flex items-center gap-1.5 cursor-pointer"
+                title="Offboard shop and permanently delete Google Auth account"
+              >
+                <IconTrash size={12} />
+                <span>Offboard Shop...</span>
+              </button>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl text-xs text-zinc-600 hover:text-black"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="wabi-btn-primary px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>{saving ? "Saving..." : "Save Changes"}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

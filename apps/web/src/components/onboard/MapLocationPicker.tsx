@@ -286,8 +286,13 @@ export function MapLocationPicker({
   };
 
   // Search Address / Landmark via compliant internal API proxy
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async (
+    e?: React.FormEvent | React.KeyboardEvent | React.MouseEvent
+  ) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
@@ -358,7 +363,7 @@ export function MapLocationPicker({
     <div className="w-full space-y-3.5">
       {/* Search Bar & Auto-detect Button */}
       <div className="flex flex-col sm:flex-row gap-2.5">
-        <form onSubmit={handleSearch} className="relative flex-1">
+        <div className="relative flex-1">
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -370,9 +375,17 @@ export function MapLocationPicker({
             placeholder="Search college, street, or landmark (e.g. Indiranagar, Bangalore)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSearch(e);
+              }
+            }}
           />
           <button
-            type="submit"
+            type="button"
+            onClick={handleSearch}
             disabled={isSearching || !searchQuery.trim()}
             className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
           >
@@ -388,7 +401,7 @@ export function MapLocationPicker({
               "Search"
             )}
           </button>
-        </form>
+        </div>
 
         <button
           type="button"

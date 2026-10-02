@@ -7,12 +7,14 @@ import {
   IconPlus,
   IconExternal,
   IconEdit,
+  IconTrash,
 } from "./Icons";
 
 interface ShopsViewProps {
   shops: ExtendedShop[];
   onOpenCreateModal: () => void;
   onOpenEditModal: (shop: ExtendedShop) => void;
+  onOpenDeleteModal: (shop: ExtendedShop) => void;
   onToggleStatus: (shop: ExtendedShop) => void;
   globalPlatformFee: number;
 }
@@ -21,6 +23,7 @@ export function ShopsView({
   shops,
   onOpenCreateModal,
   onOpenEditModal,
+  onOpenDeleteModal,
   onToggleStatus,
   globalPlatformFee,
 }: ShopsViewProps) {
@@ -201,10 +204,11 @@ export function ShopsView({
 
                       {/* Action buttons */}
                       <td className="py-3.5 px-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => onOpenEditModal(s)}
                             className="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 text-zinc-700 hover:text-black border border-zinc-200 text-xs transition flex items-center gap-1 font-medium"
+                            title="Edit shop details"
                           >
                             <IconEdit size={11} />
                             <span>Edit</span>
@@ -214,10 +218,19 @@ export function ShopsView({
                             target="_blank"
                             rel="noreferrer"
                             className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-black border border-zinc-200 text-xs transition flex items-center gap-1 font-medium"
+                            title="Open customer counter"
                           >
                             <span>Open</span>
                             <IconExternal size={11} />
                           </a>
+                          <button
+                            onClick={() => onOpenDeleteModal(s)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 border border-rose-200 text-xs transition flex items-center gap-1 font-medium cursor-pointer"
+                            title="Offboard shop and wipe Google Auth credentials"
+                          >
+                            <IconTrash size={11} />
+                            <span>Offboard</span>
+                          </button>
                         </div>
                       </td>
                     </tr>

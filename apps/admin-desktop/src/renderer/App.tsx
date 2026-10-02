@@ -11,6 +11,7 @@ import { PricingView } from "./components/PricingView";
 import { HealthView } from "./components/HealthView";
 import { CreateShopModal } from "./components/CreateShopModal";
 import { EditShopModal } from "./components/EditShopModal";
+import { DeleteShopModal } from "./components/DeleteShopModal";
 import { IconMenu, IconRefresh, IconPlus } from "./components/Icons";
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingShop, setEditingShop] = useState<ExtendedShop | null>(null);
+  const [deletingShop, setDeletingShop] = useState<ExtendedShop | null>(null);
 
   const handleGlobalFeeChange = (val: number) => {
     const fee = Math.max(0, Number(val) || 0);
@@ -341,6 +343,7 @@ export default function App() {
               shops={shops}
               onOpenCreateModal={() => setShowCreateModal(true)}
               onOpenEditModal={(shop) => setEditingShop(shop)}
+              onOpenDeleteModal={(shop) => setDeletingShop(shop)}
               onToggleStatus={handleToggleStatus}
               globalPlatformFee={globalPlatformFee}
             />
@@ -383,8 +386,18 @@ export default function App() {
         shop={editingShop}
         onClose={() => setEditingShop(null)}
         onSuccess={loadPlatformData}
+        onOpenDeleteModal={(shop) => setDeletingShop(shop)}
         globalPlatformFee={globalPlatformFee}
         globalGstPercentage={globalGstPercentage}
+      />
+
+      <DeleteShopModal
+        shop={deletingShop}
+        onClose={() => setDeletingShop(null)}
+        onSuccess={() => {
+          setDeletingShop(null);
+          loadPlatformData();
+        }}
       />
     </div>
   );

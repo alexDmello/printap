@@ -49,9 +49,9 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const emailCheck = validateEmail(emailInput);
-    if (!emailCheck.valid) {
-      setErrorMessage(emailCheck.reason || "Please enter a valid email address.");
+    const cleanId = emailInput.trim();
+    if (!cleanId) {
+      setErrorMessage("Please enter your email address or shop handle.");
       return;
     }
     if (!passwordInput) {
@@ -62,13 +62,13 @@ export const Login: React.FC = () => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const result = await login(emailCheck.normalizedEmail, passwordInput);
+    const result = await login(cleanId, passwordInput);
     if (!result.success) {
       setErrorMessage(result.error || "Terminal authentication failed.");
       setIsSubmitting(false);
     } else {
       if (rememberEmail) {
-        localStorage.setItem(SAVED_EMAIL_KEY, emailCheck.normalizedEmail);
+        localStorage.setItem(SAVED_EMAIL_KEY, cleanId);
       } else {
         localStorage.removeItem(SAVED_EMAIL_KEY);
       }
@@ -158,13 +158,13 @@ export const Login: React.FC = () => {
                 display: "block",
               }}
             >
-              Shop Owner Email
+              Shop Email or Subdomain Handle
             </label>
           </div>
           <input
-            type="email"
+            type="text"
             className="login-input"
-            placeholder="e.g. rahul@apexprints.com"
+            placeholder="e.g. rahul@gmail.com or apex-prints"
             value={emailInput}
             onChange={(e) => {
               setEmailInput(e.target.value);

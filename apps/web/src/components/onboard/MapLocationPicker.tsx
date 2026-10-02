@@ -53,36 +53,23 @@ export function MapLocationPicker({
   const defaultLat = latitude ?? 12.9716;
   const defaultLng = longitude ?? 77.5946;
 
-  // Reverse geocode lat/lng to get address components
+  // Reverse geocode lat/lng via compliant internal API proxy
   const reverseGeocode = useCallback(
     async (lat: number, lng: number) => {
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-          {
-            headers: {
-              "Accept-Language": "en",
-            },
-          }
-        );
+        const res = await fetch(`/api/utils/geocode?action=reverse&lat=${lat}&lng=${lng}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data && data.address) {
-          const addr = data.address;
-          const road = addr.road || addr.neighbourhood || addr.suburb || "";
-          const city = addr.city || addr.town || addr.village || addr.county || "";
-          const state = addr.state || "";
-          const pincode = addr.postcode || "";
-          const formatted = data.display_name || [road, city, state, pincode].filter(Boolean).join(", ");
-
+        if (data && data.success) {
+          const formatted = data.displayName || "";
           setAddressPreview(formatted);
           onChange({
             lat,
             lng,
             address: formatted,
-            city,
-            state,
-            pincode,
+            city: data.city || "",
+            state: data.state || "",
+            pincode: data.pincode || "",
           });
         }
       } catch (err) {
@@ -298,7 +285,7 @@ export function MapLocationPicker({
     }
   };
 
-  // Search Address / Landmark
+  // Search Address / Landmark via compliant internal API proxy
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -307,18 +294,11 @@ export function MapLocationPicker({
     setSearchResults([]);
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery.trim()
-        )}&addressdetails=1&limit=5`,
-        {
-          headers: {
-            "Accept-Language": "en",
-          },
-        }
+        `/api/utils/geocode?action=search&q=${encodeURIComponent(searchQuery.trim())}`
       );
       if (res.ok) {
         const data = await res.json();
-        setSearchResults(data || []);
+        setSearchResults(data.results || []);
       }
     } catch (err) {
       console.error("[MapPicker] Search error:", err);

@@ -67,9 +67,15 @@ export function middleware(request: NextRequest) {
 
   // 4. Customer Subdomain Isolation: {shop_slug}.mellod.in
   if (sub.type === "customer") {
-    // Redirect onboarding flow to main marketing domain
-    if (pathname === "/onboard" || pathname.startsWith("/onboard/")) {
-      return NextResponse.redirect(new URL("/onboard", MARKETING_URL), 308);
+    // Redirect onboarding, auth callback, and download flows to main marketing domain
+    if (
+      pathname === "/onboard" ||
+      pathname.startsWith("/onboard/") ||
+      pathname === "/download" ||
+      pathname.startsWith("/download/") ||
+      pathname.startsWith("/auth/")
+    ) {
+      return NextResponse.redirect(new URL(pathname + request.nextUrl.search, MARKETING_URL), 308);
     }
 
     // If a request targets /customer/:other_slug on the wrong subdomain, redirect to canonical

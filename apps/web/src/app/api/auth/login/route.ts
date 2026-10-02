@@ -5,24 +5,30 @@ import { getServerSupabase, validateEmail } from "@/lib/server-auth";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
-
-    const emailCheck = validateEmail(email);
-    if (!emailCheck.valid) {
-      return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
+    const rawIdentifier = (body.email || body.identifier || "").trim();
+    const password = typeof body.password === "string" ? body.password : "";
+    if (!rawIdentifier) {
+      return NextResponse.json({ error: "Email or shop subdomain handle is required." }, { status: 400 });
     }
-    if (!password || typeof password !== "string") {
+    if (!password) {
       return NextResponse.json({ error: "Password is required." }, { status: 400 });
     }
 
-    const normalizedEmail = emailCheck.normalizedEmail;
+    const cleanIdentifier = rawIdentifier.toLowerCase();
     const supabase = getServerSupabase();
 
-    const { data: shop, error } = await supabase
-      .from("shops")
-      .select("*")
-      .eq("owner_email", normalizedEmail)
-      .maybeSingle();
+    let query = supabase.from("shops").select("*");
+    if (cleanIdentifier.includes("@")) {
+      const emailCheck = validateEmail(cleanIdentifier);
+      if (!emailCheck.valid) {
+        return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
+      }
+      query = query.eq("owner_email", emailCheck.normalizedEmail);
+    } else {
+      query = query.eq("slug", cleanIdentifier);
+    }
+
+    const { data: shop, error } = await query.maybeSingle();
 
     if (error) {
       console.error("[login] Database error:", error);

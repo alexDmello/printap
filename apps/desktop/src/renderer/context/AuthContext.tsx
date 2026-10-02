@@ -112,12 +112,12 @@ export function AuthProvider({
   }, [fetchShopDetails]);
 
   const login = async (
-    email: string,
+    identifier: string,
     password: string
   ): Promise<{ success: boolean; error?: string }> => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes("@")) {
-      return { success: false, error: "Please enter a valid email address." };
+    const cleanIdentifier = identifier.trim().toLowerCase();
+    if (!cleanIdentifier) {
+      return { success: false, error: "Please enter your email or shop subdomain handle." };
     }
     if (!password) {
       return { success: false, error: "Please enter your password." };
@@ -127,7 +127,7 @@ export function AuthProvider({
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: cleanEmail, password }),
+        body: JSON.stringify({ identifier: cleanIdentifier, password }),
       });
 
       const data = await res.json();

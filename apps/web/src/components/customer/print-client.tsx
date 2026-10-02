@@ -33,7 +33,6 @@ import PrintSettingsPanel from "./PrintSettings";
 import PagePreview from "./PagePreview";
 import BottomPriceBar from "./BottomPriceBar";
 import PrintAndPay from "./PrintAndPay";
-import Checkout from "./Checkout";
 import TransferView from "./TransferView";
 import TokenConfirmation from "./TokenConfirmation";
 import LiveQueueTracker from "./LiveQueueTracker";
@@ -46,7 +45,6 @@ type Step =
   | "settings"
   | "preview"
   | "print_pay"
-  | "checkout"
   | "transferring"
   | "token"
   | "queue"
@@ -235,7 +233,6 @@ export default function PrintClient({
       case "preview":
         return 2;
       case "print_pay":
-      case "checkout":
       case "transferring":
       case "token":
       case "queue":
@@ -453,65 +450,6 @@ export default function PrintClient({
     }
   }, [documents, shopId, totalAmount, activeFinishing]);
 
-  const handlePaymentConfirmed = useCallback(
-    async (method: PaymentMethod) => {
-      if (documents.length === 0) return;
-
-      const sessionId = crypto.randomUUID();
-      const hasColor = documents.some((d) => d.settings.colorMode === "color");
-      const newToken = await requestTokenFromShop(shopId, {
-        sessionId,
-        hasColor,
-        totalAmount,
-        fileCount: documents.length,
-      });
-
-      setToken(newToken);
-      setStep("transferring");
-
-      const totalBytes = documents.reduce((acc, d) => acc + d.file.size, 0);
-      setProgress({
-        status: "connecting",
-        percent: 0,
-        bytesSent: 0,
-        totalBytes,
-        totalFiles: documents.length,
-        currentFileIndex: 1,
-        currentFileName: documents[0]?.file.name,
-      });
-
-      try {
-        await sendOrderToShop(
-          {
-            shopId,
-            sessionId,
-            documents,
-            token: newToken,
-            paymentMethod: method,
-            paymentStatus:
-              method === "cash" ? "awaiting_cash_confirmation" : "confirmed",
-            totalAmount,
-            finishingServices: activeFinishing,
-          },
-          (p) => {
-            setProgress(p);
-            if (p.status === "complete") {
-              setJobStatus("queued");
-              setStep("token");
-            } else if (p.status === "error") {
-              setStep("error");
-              setErrorMsg(p.error || "Transfer failed");
-            }
-          }
-        );
-      } catch (err) {
-        setStep("error");
-        setErrorMsg(String(err));
-      }
-    },
-    [documents, shopId, totalAmount, activeFinishing]
-  );
-
   const handleReset = useCallback(() => {
     setStep("upload");
     setDocuments([]);
@@ -703,18 +641,6 @@ export default function PrintClient({
             progress={progress}
             isPaymentConfirmed={isPaymentConfirmedByShop}
             onPrintAnother={handleReset}
-          />
-        )}
-
-        {/* Legacy Checkout (Fallback) */}
-        {step === "checkout" && (
-          <Checkout
-            shopName={shopName}
-            shopId={shopId}
-            upiVpa={upiVpa}
-            totalAmount={totalAmount}
-            onPaymentConfirmed={handlePaymentConfirmed}
-            onBack={() => setStep("preview")}
           />
         )}
 

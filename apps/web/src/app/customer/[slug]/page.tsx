@@ -1,3 +1,4 @@
+import React, { cache } from "react";
 import { getSupabase, sanitizeSubdomain } from "@printap/shared";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -9,9 +10,9 @@ interface Props {
 
 /**
  * Resolves a shop strictly by its unique slug or UUID.
- * Never falls back to unrelated shops or loose name matches.
+ * Memoized per-request with React cache() to prevent redundant DB roundtrips.
  */
-async function fetchShopBySlugOrId(slugOrId: string) {
+const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
   const supabase = getSupabase();
   const clean = decodeURIComponent(slugOrId).toLowerCase().trim();
 
@@ -81,7 +82,7 @@ async function fetchShopBySlugOrId(slugOrId: string) {
   // If no exact match is found, the shop does NOT exist.
   // Never fall back to another shop!
   return null;
-}
+});
 
 /**
  * Dynamic SEO metadata for customer-facing shop subdomain.

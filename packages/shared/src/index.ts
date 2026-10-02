@@ -14,6 +14,7 @@ export {
   RESERVED_SUBDOMAINS,
   isReservedSubdomain,
   isValidSubdomainLabel,
+  isValidSubdomain,
   MARKETING_URL,
   sanitizeSubdomain,
   getCustomerPrintUrl,
@@ -86,6 +87,18 @@ export interface ShopInfo {
   gst_percentage?: number;
   gst_amount?: number;
   total_charge?: number;
+  /** Owner authentication & Contact */
+  owner_name?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  email_verified?: boolean;
+  /** Geolocation & Store Address */
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   created_at: string;
 }
 

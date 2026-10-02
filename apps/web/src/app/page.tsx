@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6">
@@ -67,10 +65,20 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="pt-2 pb-6">
+          <a
+            href="/onboard"
+            className="inline-flex items-center gap-2 py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl shadow-lg shadow-indigo-600/25 transition-all transform hover:-translate-y-0.5"
+          >
+            <span>Register Your Print Shop</span>
+            <span>→</span>
+          </a>
+        </div>
+
         <p className="text-xs text-[--color-muted]/70">
-          Are you a shop owner?{" "}
+          Already registered?{" "}
           <span className="text-[--color-accent-light] font-medium">
-            Counter queue, spooler, and UPI settlements are managed via the Printap Desktop App.
+            Launch the Printap Counter Agent on your PC to sign in.
           </span>
         </p>
       </div>

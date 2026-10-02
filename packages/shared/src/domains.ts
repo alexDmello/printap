@@ -148,6 +148,14 @@ export function isReservedSubdomain(slug: string): boolean {
   return (RESERVED_SUBDOMAINS as readonly string[]).includes(lower);
 }
 
+/**
+ * Checks both RFC-1035 label validity and that the slug is not a reserved subdomain.
+ */
+export function isValidSubdomain(slug: string): boolean {
+  if (!slug) return false;
+  return isValidSubdomainLabel(slug) && !isReservedSubdomain(slug);
+}
+
 export type SubdomainType =
   | { type: "marketing" }
   | { type: "customer"; slug: string }

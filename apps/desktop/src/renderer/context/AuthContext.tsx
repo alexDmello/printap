@@ -14,12 +14,20 @@ export interface AuthContextType {
   shopId: string | null;
   shop: ShopInfo | null;
   isLoading: boolean;
-  login: (shopId: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshShop: () => Promise<void>;
+  sendResetOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (
+    email: string,
+    otp: string,
+    newPassword: string
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 const STORAGE_KEY = "printap_shop_id";
+const SAVED_EMAIL_KEY = "printap_saved_email";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://www.mellod.in";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -104,36 +112,88 @@ export function AuthProvider({
   }, [fetchShopDetails]);
 
   const login = async (
-    rawInput: string
+    email: string,
+    password: string
   ): Promise<{ success: boolean; error?: string }> => {
-    const trimmed = rawInput.trim();
-    if (!trimmed) {
-      return { success: false, error: "Please enter your Shop ID or Slug" };
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { success: false, error: "Please enter a valid email address." };
+    }
+    if (!password) {
+      return { success: false, error: "Please enter your password." };
     }
 
     try {
-      const shopDetails = await fetchShopDetails(trimmed);
-      if (!shopDetails) {
-        return {
-          success: false,
-          error: "Shop not found in system. Please verify your Shop ID or Slug.",
-        };
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Authentication failed." };
       }
 
-      if (shopDetails.status === "suspended") {
-        return {
-          success: false,
-          error: "This shop account has been suspended.",
-        };
-      }
-
+      const shopDetails = data.shop as ShopInfo;
       localStorage.setItem(STORAGE_KEY, shopDetails.id);
       setShopId(shopDetails.id);
       setShop(shopDetails);
       return { success: true };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      return { success: false, error: `Authentication failed: ${msg}` };
+      return { success: false, error: `Connection failed: ${msg}` };
+    }
+  };
+
+  const sendResetOtp = async (
+    email: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { success: false, error: "Please enter a valid email address." };
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, purpose: "reset_password" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Failed to send reset code." };
+      }
+      return { success: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `Network error: ${msg}` };
+    }
+  };
+
+  const resetPassword = async (
+    email: string,
+    otp: string,
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          otp: otp.trim(),
+          newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Password reset failed." };
+      }
+      return { success: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `Network error: ${msg}` };
     }
   };
 
@@ -159,6 +219,8 @@ export function AuthProvider({
         login,
         logout,
         refreshShop,
+        sendResetOtp,
+        resetPassword,
       }}
     >
       {children}

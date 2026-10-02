@@ -14,7 +14,7 @@ import { discoverPrinters } from "./printer-discovery";
 import { setShopOnline } from "@printap/shared";
 
 // ─── Constants ───
-const TEMP_DIR = "C:\\Temp";
+const TEMP_DIR = path.join(os.tmpdir(), "printap_jobs");
 const FILE_PREFIX = "mellod_job_";
 
 let mainWindow: BrowserWindow | null = null;

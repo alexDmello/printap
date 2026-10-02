@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { extractSubdomain, ROOT_DOMAIN } from "@printap/shared";
+import { extractSubdomain, ROOT_DOMAIN, MARKETING_URL } from "@printap/shared";
 
 /**
  * Builds canonical URL for a shop's dedicated customer counter.
@@ -67,6 +67,11 @@ export function middleware(request: NextRequest) {
 
   // 4. Customer Subdomain Isolation: {shop_slug}.mellod.in
   if (sub.type === "customer") {
+    // Redirect onboarding flow to main marketing domain
+    if (pathname === "/onboard" || pathname.startsWith("/onboard/")) {
+      return NextResponse.redirect(new URL("/onboard", MARKETING_URL), 308);
+    }
+
     // If a request targets /customer/:other_slug on the wrong subdomain, redirect to canonical
     if (pathname.startsWith("/customer/")) {
       const pathSlug = pathname.replace(/^\/customer\/?/, "").split("/")[0];

@@ -6,7 +6,6 @@ import type { QueueToken, JobStatus } from "@printap/shared";
 interface LiveQueueTrackerProps {
   token: QueueToken;
   jobStatus: JobStatus;
-  onStatusChange: (status: JobStatus) => void;
   onPickupReady: () => void;
 }
 
@@ -48,7 +47,6 @@ function playChime() {
 export default function LiveQueueTracker({
   token,
   jobStatus,
-  onStatusChange,
   onPickupReady,
 }: LiveQueueTrackerProps) {
   const [currentPosition, setCurrentPosition] = useState(token.queuePosition);
@@ -185,43 +183,6 @@ export default function LiveQueueTracker({
             </p>
           </div>
         )}
-      </div>
-
-      {/* Dev controls for testing status transitions */}
-      <div className="glass rounded-xl p-3 glow-sm">
-        <p className="text-[10px] text-[--color-muted] mb-2">[Dev] Simulate Status</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onStatusChange("queued")}
-            className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
-              jobStatus === "queued"
-                ? "bg-[--color-accent]/20 text-[--color-accent-light]"
-                : "bg-[--color-surface-light] text-[--color-muted]"
-            }`}
-          >
-            Queued
-          </button>
-          <button
-            onClick={() => onStatusChange("printing")}
-            className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
-              jobStatus === "printing"
-                ? "bg-[--color-accent]/20 text-[--color-accent-light]"
-                : "bg-[--color-surface-light] text-[--color-muted]"
-            }`}
-          >
-            Printing
-          </button>
-          <button
-            onClick={() => onStatusChange("ready_for_pickup")}
-            className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
-              jobStatus === "ready_for_pickup"
-                ? "bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold"
-                : "bg-[--color-surface-light] text-[--color-muted]"
-            }`}
-          >
-            Ready
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -683,7 +683,6 @@ export default function PrintClient({
           <LiveQueueTracker
             token={token}
             jobStatus={jobStatus}
-            onStatusChange={handleJobStatusChange}
             onPickupReady={() => setStep("pickup")}
           />
         )}

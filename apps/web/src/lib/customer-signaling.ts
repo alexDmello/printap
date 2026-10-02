@@ -393,51 +393,6 @@ async function streamOrder(
   });
 }
 
-/**
- * Legacy single-file transfer wrapper for backwards compatibility.
- */
-export async function sendFileToShop(
-  shopId: string,
-  file: File,
-  sessionId: string,
-  onProgress: ProgressCallback
-): Promise<void> {
-  const dummyDoc: UploadedDocument = {
-    id: crypto.randomUUID(),
-    file,
-    type: file.type.includes("pdf") ? "pdf" : "image",
-    pageCount: 1,
-    settings: {
-      copies: 1,
-      colorMode: "bw",
-      duplex: "single",
-      pagesPerSheet: 1,
-      pageFit: "fit",
-      orientation: "portrait",
-    },
-  };
-
-  const dummyToken: QueueToken = {
-    tokenCode: "A-01",
-    pickupPin: "1234",
-    queuePosition: 1,
-    estimatedWaitMinutes: 2,
-  };
-
-  return sendOrderToShop(
-    {
-      shopId,
-      sessionId,
-      documents: [dummyDoc],
-      token: dummyToken,
-      paymentMethod: "upi",
-      paymentStatus: "confirmed",
-      totalAmount: 0,
-      finishingServices: [],
-    },
-    onProgress
-  );
-}
 
 /**
  * Request an authoritative, collision-free local token directly from the Shop Desktop App.

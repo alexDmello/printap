@@ -151,7 +151,11 @@ export default function PrintClient({
 
     checkStatus();
 
-    // 2. Subscribe to updates on shops table with a unique channel name
+    // 2. Pre-warm and subscribe to the shop's signaling channel immediately
+    // so token allocation and WebRTC negotiation are instant with zero handshake lag
+    joinSignalingChannel(shopId);
+
+    // 3. Subscribe to updates on shops table with a unique channel name
     const channelId = `customer-shop-${shopId}-${Math.random().toString(36).substring(2, 9)}`;
     const dbChannel = supabase
       .channel(channelId)

@@ -184,6 +184,9 @@ function ShopAdminShell(): React.ReactElement {
 
       if (!error && typeof count === "number") {
         setTodayPrintsCount(count);
+        if (fifoDispatcherRef.current && count > 0) {
+          fifoDispatcherRef.current.syncSequence(count);
+        }
       }
 
       // Also hydrate today's print_orders into recentJobs so pending payments & history remain visible
@@ -193,9 +196,14 @@ function ShopAdminShell(): React.ReactElement {
         .eq("shop_id", id)
         .gte("created_at", startOfToday.toISOString())
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(100);
 
       if (orders && orders.length > 0) {
+        if (!fifoDispatcherRef.current) {
+          fifoDispatcherRef.current = new FifoPrintDispatcher(id, count || orders.length);
+        }
+        fifoDispatcherRef.current.syncFromOrders(orders);
+
         setRecentJobs((prev) => {
           const map = new Map<string, LiveJob>();
           orders.forEach((o) => {
@@ -271,7 +279,7 @@ function ShopAdminShell(): React.ReactElement {
         todayPrintsCount
       );
     } else if (shopId) {
-      fifoDispatcherRef.current.setShopId(shopId);
+      fifoDispatcherRef.current.setShopId(shopId, todayPrintsCount);
     }
 
     fifoDispatcherRef.current.setCallbacks({

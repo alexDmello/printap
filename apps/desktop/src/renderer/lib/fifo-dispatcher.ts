@@ -96,9 +96,9 @@ export class FifoPrintDispatcher {
     this.callbacks = callbacks;
   }
 
-  public setShopId(shopId: string): void {
+  public setShopId(shopId: string, initialPrintsCount: number = 0): void {
     this.shopId = shopId;
-    this.initSequence();
+    this.initSequence(initialPrintsCount);
   }
 
   /**
@@ -113,11 +113,59 @@ export class FifoPrintDispatcher {
 
     if (saved !== null) {
       const parsed = parseInt(saved, 10);
-      this.dailySequence = Number.isFinite(parsed) ? Math.max(parsed, initialCount) : initialCount;
+      const higher = Number.isFinite(parsed)
+        ? Math.max(parsed, initialCount, this.dailySequence)
+        : Math.max(initialCount, this.dailySequence);
+      this.dailySequence = higher;
     } else {
-      this.dailySequence = initialCount;
-      localStorage.setItem(storageKey, String(this.dailySequence));
+      this.dailySequence = Math.max(this.dailySequence, initialCount);
+      try {
+        localStorage.setItem(storageKey, String(this.dailySequence));
+      } catch {}
     }
+  }
+
+  /**
+   * Synchronize the local sequence with the highest known sequence count
+   * from the database and existing orders. Ensures we never jump backwards.
+   */
+  public syncSequence(highestKnownSequence: number): void {
+    this.checkDayRollover();
+    if (highestKnownSequence > this.dailySequence) {
+      this.dailySequence = highestKnownSequence;
+      const storageKey = `printap_local_seq_${this.shopId || "default"}_${this.currentDateStr}`;
+      try {
+        localStorage.setItem(storageKey, String(this.dailySequence));
+      } catch {}
+      console.log(
+        `[FifoDispatcher] Synchronized daily token sequence forward to ${this.dailySequence}`
+      );
+    }
+  }
+
+  /**
+   * Helper to parse and sync sequence numbers from today's order history.
+   */
+  public syncFromOrders(orders: Array<{ token_code?: string | null }>): void {
+    let maxSeq = 0;
+    for (const order of orders) {
+      if (!order.token_code) continue;
+      const clean = order.token_code.replace(/^#/, "");
+      // Format #{printerNumber}{dailySequence}, e.g. "17" -> printer 1, sequence 7
+      if (/^\d{2,}$/.test(clean)) {
+        const seq = parseInt(clean.slice(1), 10);
+        if (Number.isFinite(seq) && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      } else {
+        const num = parseInt(clean, 10);
+        if (Number.isFinite(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    }
+    const targetSeq = maxSeq > 0 ? maxSeq : orders.length;
+    this.syncSequence(targetSeq);
   }
 
   /**
@@ -130,7 +178,9 @@ export class FifoPrintDispatcher {
       this.dailySequence = 0;
       this.allocatedTokens.clear();
       const storageKey = `printap_local_seq_${this.shopId || "default"}_${today}`;
-      localStorage.setItem(storageKey, "0");
+      try {
+        localStorage.setItem(storageKey, "0");
+      } catch {}
       console.log(`[FifoDispatcher] Day rolled over to ${today}, local token counter reset to 0`);
     }
   }

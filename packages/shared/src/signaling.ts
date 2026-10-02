@@ -61,15 +61,57 @@ export function channelName(shopId: string): string {
  * broadcast(ch, "webrtc-answer", { sessionId, data: answer });
  * ```
  */
+const activeChannels = new Map<string, RealtimeChannel>();
+
+/**
+ * Joins or retrieves the cached signaling channel for `shopId`.
+ */
 export function joinSignalingChannel(shopId: string): RealtimeChannel {
+  const existing = activeChannels.get(shopId);
+  if (existing && existing.state !== "closed") {
+    return existing;
+  }
+
   const supabase = getSupabase();
   const channel = supabase.channel(channelName(shopId), {
     config: { broadcast: { self: false } },
   });
+
   channel.subscribe((status) => {
     console.log(`[signaling:${shopId}] channel status → ${status}`);
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      activeChannels.delete(shopId);
+    }
   });
+
+  activeChannels.set(shopId, channel);
   return channel;
+}
+
+/**
+ * Await channel readiness (state === "joined" / SUBSCRIBED).
+ */
+export async function waitForChannelReady(
+  channel: RealtimeChannel,
+  timeoutMs: number = 3000
+): Promise<boolean> {
+  if (channel.state === "joined") {
+    return true;
+  }
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve(channel.state === "joined");
+    }, timeoutMs);
+
+    const checkInterval = setInterval(() => {
+      if (channel.state === "joined") {
+        clearTimeout(timer);
+        clearInterval(checkInterval);
+        resolve(true);
+      }
+    }, 40);
+  });
 }
 
 /**
@@ -79,13 +121,21 @@ export async function broadcast(
   channel: RealtimeChannel,
   event: SignalEvent,
   payload: SignalPayload
-): Promise<void> {
-  const res = await channel.send({
-    type: "broadcast",
-    event,
-    payload,
-  });
-  if (res !== "ok") {
-    console.error(`[signaling] broadcast ${event} failed:`, res);
+): Promise<boolean> {
+  try {
+    const res = await channel.send({
+      type: "broadcast",
+      event,
+      payload,
+    });
+    if (res !== "ok") {
+      console.warn(`[signaling] broadcast ${event} returned status:`, res);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn(`[signaling] broadcast ${event} exception:`, err);
+    return false;
   }
 }
+

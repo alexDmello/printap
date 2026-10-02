@@ -12,6 +12,7 @@
 
 import {
   joinSignalingChannel,
+  waitForChannelReady,
   broadcast,
   type SignalPayload,
   type UploadedDocument,
@@ -394,17 +395,29 @@ export async function requestTokenFromShop(
     totalAmount?: number;
     fileCount?: number;
   },
-  timeoutMs: number = 2500
+  timeoutMs: number = 3000
 ): Promise<QueueToken> {
+  const channel = joinSignalingChannel(shopId);
+
+  // 1. Ensure channel is in SUBSCRIBED state before transmitting
+  await waitForChannelReady(channel, 1200);
+
   return new Promise((resolve) => {
     let settled = false;
-    const channel = joinSignalingChannel(shopId);
+    let retryInterval: any = null;
+    let timeoutTimer: any = null;
+
+    const cleanup = () => {
+      if (retryInterval) clearInterval(retryInterval);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+    };
 
     const onTokenAssigned = ({ payload }: { payload: Record<string, unknown> }) => {
       const p = payload as unknown as SignalPayload;
       if (p.sessionId === params.sessionId && p.tokenCode) {
         if (!settled) {
           settled = true;
+          cleanup();
           console.log(`[customer] Received authoritative local token from shop: ${p.tokenCode}`);
           resolve({
             tokenCode: p.tokenCode,
@@ -418,18 +431,28 @@ export async function requestTokenFromShop(
     channel.on("broadcast", { event: "assign-token" }, onTokenAssigned);
     channel.on("broadcast", { event: "order-status" }, onTokenAssigned);
 
-    // Broadcast request-token event
-    broadcast(channel, "request-token", {
-      sessionId: params.sessionId,
-      hasColor: params.hasColor,
-      totalAmount: params.totalAmount,
-      fileCount: params.fileCount,
-    });
+    const transmit = () => {
+      if (!settled) {
+        broadcast(channel, "request-token", {
+          sessionId: params.sessionId,
+          hasColor: params.hasColor,
+          totalAmount: params.totalAmount,
+          fileCount: params.fileCount,
+        });
+      }
+    };
 
-    // Fallback if shop desktop takes longer than timeoutMs to respond
-    setTimeout(() => {
+    // 2. Immediate transmit
+    transmit();
+
+    // 3. Rapid retry every 250ms in case first packet was dropped during connection
+    retryInterval = setInterval(transmit, 250);
+
+    // 4. Fallback if shop desktop takes longer than timeoutMs to respond
+    timeoutTimer = setTimeout(() => {
       if (!settled) {
         settled = true;
+        cleanup();
         console.warn("[customer] request-token timeout, using provisional local token");
         resolve({
           tokenCode: `#${params.hasColor ? 2 : 1}1`,

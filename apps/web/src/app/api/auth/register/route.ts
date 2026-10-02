@@ -112,7 +112,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Incorrect verification code." }, { status: 400 });
     }
 
-    // Check if Slug is already registered
+    // Guarantee unique slug (auto-resolve collision if already taken)
+    let finalSlug = targetSlug;
     const { data: existingSlug } = await supabase
       .from("shops")
       .select("id")
@@ -120,10 +121,23 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingSlug) {
-      return NextResponse.json(
-        { error: `The subdomain "${targetSlug}.mellod.in" is already taken. Please choose another.` },
-        { status: 409 }
-      );
+      let counter = 2;
+      while (counter <= 50) {
+        const candidate = `${targetSlug.slice(0, 58)}-${counter}`;
+        const { data: candidateExists } = await supabase
+          .from("shops")
+          .select("id")
+          .eq("slug", candidate)
+          .maybeSingle();
+        if (!candidateExists) {
+          finalSlug = candidate;
+          break;
+        }
+        counter += 1;
+      }
+      if (finalSlug === targetSlug) {
+        finalSlug = `${targetSlug.slice(0, 57)}-${Math.random().toString(36).substring(2, 6)}`;
+      }
     }
 
     // Check if Email is already registered
@@ -149,7 +163,7 @@ export async function POST(request: Request) {
     // Insert new shop
     const newShopData = {
       name: cleanShopName,
-      slug: targetSlug,
+      slug: finalSlug,
       owner_name: cleanOwnerName,
       owner_email: normalizedEmail,
       owner_phone: cleanPhone,

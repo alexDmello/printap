@@ -185,34 +185,117 @@ export function MapLocationPicker({
     }
   }, [latitude, longitude]);
 
-  // Handle GPS Auto-detect
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
+  const [detectStatus, setDetectStatus] = useState<string | null>(null);
+
+  // Fallback to server-side IP geolocation (bypasses browser GPS restrictions & adblockers)
+  const detectLocationViaServer = async () => {
+    try {
+      const res = await fetch("/api/auth/detect-location");
+      if (res.ok) {
+        const data = await res.json();
+        if (
+          data &&
+          data.success &&
+          typeof data.latitude === "number" &&
+          typeof data.longitude === "number"
+        ) {
+          const lat = data.latitude;
+          const lng = data.longitude;
+          if (mapInstanceRef.current && markerRef.current) {
+            markerRef.current.setLatLng([lat, lng]);
+            mapInstanceRef.current.setView([lat, lng], 14);
+          }
+          onChange({
+            lat,
+            lng,
+            city: data.city || "",
+            state: data.state || "",
+            pincode: data.pincode || "",
+          });
+          reverseGeocode(lat, lng);
+          return {
+            ok: true,
+            city: data.city || "your area",
+            source: data.source,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("[MapPicker] Server geolocation fallback failed:", e);
+    }
+    return { ok: false };
+  };
+
+  // Handle Location Auto-detect with graceful server-side network IP fallback
+  const handleDetectLocation = async () => {
+    setIsLocating(true);
+    setDetectStatus("Detecting location...");
+
+    // Check browser permission status beforehand if available
+    let permState: string | null = null;
+    try {
+      if (typeof window !== "undefined" && navigator.permissions?.query) {
+        const perm = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+        permState = perm.state;
+      }
+    } catch {
+      // Ignore
+    }
+
+    // If permission is already blocked/denied, bypass GPS wait and use server IP directly
+    if (permState === "denied") {
+      setDetectStatus("Browser GPS permission is blocked. Locating via network...");
+      const serverRes = await detectLocationViaServer();
+      setIsLocating(false);
+      if (serverRes.ok) {
+        setDetectStatus(
+          `📍 Centered to ${serverRes.city} via network. Drag pin onto your shop rooftop.`
+        );
+      } else {
+        setDetectStatus("Please search your area or click on the map to place your pin.");
+      }
       return;
     }
 
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false);
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setIsLocating(false);
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
 
-        if (mapInstanceRef.current && markerRef.current) {
-          markerRef.current.setLatLng([lat, lng]);
-          mapInstanceRef.current.setView([lat, lng], 17);
-        }
-        onChange({ lat, lng });
-        reverseGeocode(lat, lng);
-      },
-      (err) => {
-        setIsLocating(false);
-        console.warn("[MapPicker] Geolocation failed:", err);
-        alert("Unable to detect current location. Please check your browser location permissions.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+          if (mapInstanceRef.current && markerRef.current) {
+            markerRef.current.setLatLng([lat, lng]);
+            mapInstanceRef.current.setView([lat, lng], 17);
+          }
+          onChange({ lat, lng });
+          reverseGeocode(lat, lng);
+          setDetectStatus("✓ High-accuracy device GPS detected! Drag pin if needed.");
+        },
+        async (err) => {
+          console.warn("[MapPicker] Device GPS unavailable (" + err.message + "). Falling back to server network location.");
+          setDetectStatus("Locating via network...");
+          const serverRes = await detectLocationViaServer();
+          setIsLocating(false);
+          if (serverRes.ok) {
+            setDetectStatus(
+              `📍 Centered near ${serverRes.city} via network. Drag pin onto your shop rooftop.`
+            );
+          } else {
+            setDetectStatus("Please search your area or click on the map to place your pin.");
+          }
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+      );
+    } else {
+      const serverRes = await detectLocationViaServer();
+      setIsLocating(false);
+      if (serverRes.ok) {
+        setDetectStatus(`📍 Centered near ${serverRes.city} via network. Drag pin onto your shop rooftop.`);
+      } else {
+        setDetectStatus("Please search your area or click on the map to place your pin.");
+      }
+    }
   };
 
   // Search Address / Landmark
@@ -312,6 +395,14 @@ export function MapLocationPicker({
           <span>{isLocating ? "Locating..." : "Detect My Location"}</span>
         </button>
       </div>
+
+      {/* Detection status message */}
+      {detectStatus && (
+        <div className="flex items-center gap-2 px-3.5 py-2 bg-indigo-50/90 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-medium">
+          <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0 animate-pulse"></span>
+          <span className="flex-1">{detectStatus}</span>
+        </div>
+      )}
 
       {/* Search Results Dropdown */}
       {searchResults.length > 0 && (

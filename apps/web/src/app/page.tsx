@@ -133,13 +133,15 @@ export default function Home() {
               <span className="text-zinc-500 font-semibold">100% Free</span>
             </div>
 
-            {/* Editorial Headline with Animated Word Cycler */}
+            {/* Editorial Headline with Animated Word Cycler (Strictly 1 line to eliminate layout shift) */}
             <div className="space-y-3">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-zinc-950 tracking-tight leading-[1.08]">
-                Print any document. <br />
-                From your phone. <br />
-                <span className="relative inline-block text-zinc-400 font-extrabold transition-all duration-300 underline decoration-zinc-300 underline-offset-8">
-                  {rotatingWords[wordIndex]}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[40px] xl:text-[46px] 2xl:text-5xl font-black text-zinc-950 tracking-tight leading-[1.14]">
+                <span className="block">Print any document.</span>
+                <span className="block">From your phone.</span>
+                <span className="block h-[1.28em] overflow-visible">
+                  <span className="relative inline-block text-zinc-400 font-extrabold transition-all duration-300 underline decoration-zinc-300 underline-offset-8 whitespace-nowrap">
+                    {rotatingWords[wordIndex]}
+                  </span>
                 </span>
               </h1>
 

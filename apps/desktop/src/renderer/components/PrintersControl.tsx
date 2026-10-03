@@ -43,7 +43,6 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
   const [internalPrinters, setInternalPrinters] = useState<PrinterInfo[]>([]);
   const [internalIsLoading, setInternalIsLoading] = useState(false);
   const [assignments, setAssignments] = useState<Record<string, PrinterAssignment>>({});
-  const [activeTab, setActiveTab] = useState<"physical" | "all">("physical");
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     text: string;
@@ -154,9 +153,9 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
             shop_id: shopId || "",
             printer_name: p.name,
             printer_number: idx + 1,
-            role: p.isPhysical ? (idx === 0 ? "both" : "bw") : "disabled",
-            is_default: p.isPhysical && (idx === 0 || p.isDefault),
-            is_active: p.isPhysical,
+            role: idx === 0 ? "both" : "bw",
+            is_default: idx === 0 || p.isDefault,
+            is_active: true,
           };
         } else if (!next[p.name].printer_number) {
           hasChanges = true;
@@ -176,16 +175,6 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
   const physicalPrinters = useMemo(
     () => printers.filter((p) => p.isPhysical),
     [printers]
-  );
-
-  const virtualPrinters = useMemo(
-    () => printers.filter((p) => !p.isPhysical),
-    [printers]
-  );
-
-  const displayedPrinters = useMemo(
-    () => (activeTab === "all" ? printers : physicalPrinters),
-    [activeTab, printers, physicalPrinters]
   );
 
   const handlePrinterNumberChange = (printerName: string, num: number) => {
@@ -260,12 +249,20 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
     setIsSaving(true);
     setStatusMessage(null);
 
-    localStorage.setItem(getStorageKey(), JSON.stringify(assignments));
-    onAssignmentsSaved?.(assignments);
+    const physicalPrinterNames = new Set(physicalPrinters.map((p) => p.name));
+    const cleanedAssignments: Record<string, PrinterAssignment> = {};
+    Object.entries(assignments).forEach(([name, assignment]) => {
+      if (physicalPrinterNames.has(name)) {
+        cleanedAssignments[name] = assignment;
+      }
+    });
+
+    localStorage.setItem(getStorageKey(), JSON.stringify(cleanedAssignments));
+    onAssignmentsSaved?.(cleanedAssignments);
 
     try {
       const supabase = getSupabase();
-      const records = Object.values(assignments).map((a, idx) => ({
+      const records = Object.values(cleanedAssignments).map((a, idx) => ({
         shop_id: shopId,
         printer_name: a.printer_name,
         printer_number: a.printer_number || (idx + 1),
@@ -274,29 +271,36 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
         is_active: a.role !== "disabled",
       }));
 
-      const { error } = await supabase
-        .from("printer_assignments")
-        .upsert(records, { onConflict: "shop_id,printer_name" });
+      if (records.length > 0) {
+        const { error } = await supabase
+          .from("printer_assignments")
+          .upsert(records, { onConflict: "shop_id,printer_name" });
 
-      if (error) {
-        setStatusMessage({
-          text: "Saved locally! (Database sync ready)",
-          type: "success",
-        });
+        if (error) {
+          setStatusMessage({
+            text: "Saved locally! (Database sync ready)",
+            type: "success",
+          });
+        } else {
+          setStatusMessage({
+            text: "Printer assignments saved successfully.",
+            type: "success",
+          });
+        }
       } else {
         setStatusMessage({
-          text: "Printer assignments saved successfully.",
+          text: "Printer assignments updated.",
           type: "success",
         });
       }
-      initialAssignmentsRef.current = JSON.stringify(assignments);
+      initialAssignmentsRef.current = JSON.stringify(cleanedAssignments);
       return true;
     } catch {
       setStatusMessage({
         text: "Saved locally in terminal storage.",
         type: "success",
       });
-      initialAssignmentsRef.current = JSON.stringify(assignments);
+      initialAssignmentsRef.current = JSON.stringify(cleanedAssignments);
       return true;
     } finally {
       setIsSaving(false);
@@ -340,10 +344,20 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
           icon: <IconNetwork size={14} />,
           label: "Network Shared",
         };
+      case "Bluetooth":
+        return {
+          icon: <IconWifi size={14} />,
+          label: "Bluetooth Wireless",
+        };
+      case "Parallel (LPT)":
+        return {
+          icon: <IconUsb size={14} />,
+          label: `Parallel Port: ${p.portName}`,
+        };
       default:
         return {
           icon: <IconPrinter size={14} />,
-          label: "Software Driver",
+          label: `Hardware Port: ${p.portName}`,
         };
     }
   };
@@ -412,23 +426,12 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
         </div>
       )}
 
-      {/* Filter Segmented Control Bar */}
+      {/* Hardware Status Bar */}
       <div className="hardware-filter-bar">
-        <div className="segmented-tabs">
-          <button
-            type="button"
-            className={`segmented-tab ${activeTab === "physical" ? "active" : ""}`}
-            onClick={() => setActiveTab("physical")}
-          >
-            Physical Printers ({physicalPrinters.length})
-          </button>
-          <button
-            type="button"
-            className={`segmented-tab ${activeTab === "all" ? "active" : ""}`}
-            onClick={() => setActiveTab("all")}
-          >
-            All & Virtual Drivers ({printers.length})
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>
+            Physical Hardware Printers ({physicalPrinters.length})
+          </span>
         </div>
 
         <div
@@ -445,22 +448,25 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
               ● {physicalPrinters.filter((p) => p.isOnline).length} Online
             </span>
           )}
-          <span>•</span>
-          <span>{virtualPrinters.length} Virtual drivers filtered</span>
+          {physicalPrinters.filter((p) => !p.isOnline).length > 0 && (
+            <span style={{ color: "var(--text-muted)" }}>
+              ○ {physicalPrinters.filter((p) => !p.isOnline).length} Offline
+            </span>
+          )}
         </div>
       </div>
 
       {/* Printer List */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {displayedPrinters.length > 0 ? (
-          displayedPrinters.map((p, idx) => {
+        {physicalPrinters.length > 0 ? (
+          physicalPrinters.map((p, idx) => {
             const assignment = assignments[p.name] || {
               shop_id: shopId || "",
               printer_name: p.name,
               printer_number: idx + 1,
-              role: p.isPhysical ? ("both" as PrinterRole) : ("disabled" as PrinterRole),
+              role: "both" as PrinterRole,
               is_default: false,
-              is_active: p.isPhysical,
+              is_active: true,
             };
 
             const conn = getConnectionDisplay(p);
@@ -470,7 +476,6 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                 key={p.name}
                 className="printer-card"
                 style={{
-                  opacity: p.isPhysical ? 1 : 0.85,
                   border: assignment.is_default
                     ? "2px solid #09090b"
                     : "1px solid var(--border-glass)",
@@ -511,15 +516,6 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                       <span>{conn.label}</span>
                     </span>
 
-                    {!p.isPhysical && (
-                      <span
-                        className="status-badge"
-                        style={{ fontSize: 10, padding: "2px 8px" }}
-                      >
-                        Software Driver
-                      </span>
-                    )}
-
                     {assignment.is_default && (
                       <span
                         className="status-badge"
@@ -539,23 +535,17 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                   <div className="printer-sub-row">
                     <span
                       className={`job-status-dot ${
-                        !p.isPhysical
-                          ? "pending"
-                          : p.isOnline
-                          ? "success"
-                          : "error"
+                        p.isOnline ? "success" : "error"
                       }`}
                     />
                     <span>
-                      {p.isPhysical
-                        ? p.isOnline
-                          ? "Ready for printing"
-                          : "Offline or turned off"
-                        : "Virtual software queue"}
+                      {p.isOnline
+                        ? "Ready for printing"
+                        : "Offline or turned off"}
                     </span>
                     <span>•</span>
                     <span style={{ color: "var(--text-muted)" }}>
-                      {p.details || "Standard queue"}
+                      {p.details || "Direct hardware connection"}
                     </span>
                   </div>
                 </div>
@@ -695,7 +685,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                 lineHeight: 1.5,
               }}
             >
-              Printap isolates virtual software drivers (such as OneNote, Microsoft Print to PDF, and disconnected COM ports). Connect your physical Xerox or laser printer to link it.
+              Printap operates exclusively with physical hardware printers (USB, Network, or Wireless). Connect your Xerox, Canon, HP, or Epson printer to link it.
             </p>
 
             <div
@@ -737,13 +727,6 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
               >
                 <IconRefresh size={14} />
                 <span>{isLoading ? "Scanning..." : "Scan for Connected Printers"}</span>
-              </button>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setActiveTab("all")}
-              >
-                Show Virtual Drivers
               </button>
             </div>
           </div>

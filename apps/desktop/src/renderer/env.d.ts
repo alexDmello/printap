@@ -45,8 +45,7 @@ interface PrinterInfo {
     | "Network (Shared)"
     | "Network (IPP)"
     | "Bluetooth"
-    | "Parallel (LPT)"
-    | "Virtual / Software";
+    | "Parallel (LPT)";
   portName: string;
   driverName: string;
   hostAddress?: string | null;

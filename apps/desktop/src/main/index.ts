@@ -194,15 +194,15 @@ function sendStatus(
   console.log(`[main] [${sessionId.slice(0, 8)}] ${stage}: ${detail}`);
 }
 
-// ─── IPC: List available printers (with physical vs virtual classification) ───
+// ─── IPC: List available printers (Physical hardware machines only) ───
 ipcMain.handle("list-printers", async () => {
   try {
     const printers = await discoverPrinters();
-    const physicalCount = printers.filter((p) => p.isPhysical).length;
+    const physicalPrinters = printers.filter((p) => p.isPhysical);
     console.log(
-      `[main] Discovered ${printers.length} printer(s) (${physicalCount} physical hardware)`
+      `[main] Discovered ${physicalPrinters.length} physical hardware printer(s)`
     );
-    return { success: true, printers };
+    return { success: true, printers: physicalPrinters };
   } catch (err) {
     console.error("[main] Failed to list printers:", err);
     return { success: false, printers: [], error: String(err) };

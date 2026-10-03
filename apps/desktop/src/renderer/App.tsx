@@ -177,15 +177,16 @@ function ShopAdminShell(): React.ReactElement {
   // FIFO Print Dispatcher with Local Atomic Token Allocator
   const fifoDispatcherRef = useRef<FifoPrintDispatcher | null>(null);
 
-  // Manual or initial printer detection
+  // Manual or initial printer detection (physical hardware only)
   const rescanPrinters = useCallback(async () => {
     setIsLoadingPrinters(true);
     try {
       const result = await window.electronAPI.listPrinters();
       if (result.success && result.printers) {
-        setPrinters(result.printers);
+        const physicalOnly = result.printers.filter((p) => p.isPhysical);
+        setPrinters(physicalOnly);
         try {
-          localStorage.setItem("printap_cached_printers", JSON.stringify(result.printers));
+          localStorage.setItem("printap_cached_printers", JSON.stringify(physicalOnly));
         } catch {}
       }
     } catch (err) {
@@ -306,7 +307,9 @@ function ShopAdminShell(): React.ReactElement {
     if (Object.keys(assignmentsRef.current).length === 0 && window.electronAPI?.listPrinters) {
       window.electronAPI.listPrinters().then((res) => {
         if (res?.success && res.printers && res.printers.length > 0) {
-          const defaultP = res.printers.find((p) => p.isDefault) || res.printers[0];
+          const physicalPrinters = res.printers.filter((p) => p.isPhysical);
+          if (physicalPrinters.length === 0) return;
+          const defaultP = physicalPrinters.find((p) => p.isDefault) || physicalPrinters[0];
           const autoMap: Record<string, PrinterAssignment> = {
             [defaultP.name]: {
               shop_id: id,
@@ -321,7 +324,7 @@ function ShopAdminShell(): React.ReactElement {
           try {
             localStorage.setItem(`printap_printers_${id}`, JSON.stringify(autoMap));
           } catch {}
-          console.log(`[App] Auto-assigned default printer "${defaultP.name}" as Printer #1`);
+          console.log(`[App] Auto-assigned default physical printer "${defaultP.name}" as Printer #1`);
         }
       }).catch(() => {});
     }

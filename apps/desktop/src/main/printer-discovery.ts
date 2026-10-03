@@ -8,8 +8,7 @@ export type ConnectionType =
   | "Network (Shared)"
   | "Network (IPP)"
   | "Bluetooth"
-  | "Parallel (LPT)"
-  | "Virtual / Software";
+  | "Parallel (LPT)";
 
 export interface PrinterHardwareInfo {
   name: string;
@@ -47,7 +46,9 @@ $knownVirtualDrivers = @(
     "*doPDF*",
     "*PDFCreator*",
     "*Nitro*",
-    "*Generic / Text Only*"
+    "*Generic / Text Only*",
+    "*Virtual*",
+    "*PDF*"
 )
 
 $knownVirtualPorts = @(
@@ -72,7 +73,7 @@ $results = foreach ($p in $printers) {
     }
     
     $isVirtualPort = $false
-    if ($knownVirtualPorts -contains $p.PortName -or $p.PortName -like "*OneNote*" -or $p.PortName -like "*Microsoft.Office*") {
+    if ($knownVirtualPorts -contains $p.PortName -or $p.PortName -like "*OneNote*" -or $p.PortName -like "*Microsoft.Office*" -or $p.PortName -like "*PDF*") {
         $isVirtualPort = $true
     }
 
@@ -82,47 +83,46 @@ $results = foreach ($p in $printers) {
         $isDummyQueue = $true
     }
 
-    $connectionType = "Virtual / Software"
-    $isPhysical = $false
-    $details = "Software / Virtual printer driver"
+    # Exclude virtual queues, print-to-file converters, and dummy queues completely
+    if ($isDummyQueue -or $isVirtualPort -or $isVirtualDriver) {
+        continue
+    }
 
-    if (-not $isDummyQueue -and -not $isVirtualPort -and -not $isVirtualDriver) {
-        if ($p.PortName -like "USB*" -or $p.PortName -like "DOT4*") {
-            $connectionType = "USB"
-            $isPhysical = $true
-            $details = "Direct USB connection ($($p.PortName))"
-        }
-        elseif ($p.PortName -like "WSD*") {
-            $connectionType = "Network (WSD)"
-            $isPhysical = $true
-            $details = "Network Plug & Play printer (WSD)"
-        }
-        elseif ($port.PrinterHostAddress -or $p.PortName -match '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}' -or $p.PortName -like "IP_*") {
-            $connectionType = "Network (TCP/IP)"
-            $isPhysical = $true
-            $addr = if ($port.PrinterHostAddress) { $port.PrinterHostAddress } else { $p.PortName }
-            $details = "Local Network printer at $addr"
-        }
-        elseif ($p.PortName -like "http*" -or $p.PortName -like "ipp*") {
-            $connectionType = "Network (IPP)"
-            $isPhysical = $true
-            $details = "Network IPP print service"
-        }
-        elseif ($p.Type -eq "Connection" -or $p.Shared) {
-            $connectionType = "Network (Shared)"
-            $isPhysical = $true
-            $details = "Shared LAN printer queue"
-        }
-        elseif ($p.PortName -like "BTH*" -or $p.PortName -like "Bluetooth*") {
-            $connectionType = "Bluetooth"
-            $isPhysical = $true
-            $details = "Wireless Bluetooth connection"
-        }
-        elseif ($p.PortName -like "LPT*") {
-            $connectionType = "Parallel (LPT)"
-            $isPhysical = $true
-            $details = "Parallel port connection ($($p.PortName))"
-        }
+    $connectionType = "USB"
+    $details = "Direct USB connection ($($p.PortName))"
+
+    if ($p.PortName -like "USB*" -or $p.PortName -like "DOT4*") {
+        $connectionType = "USB"
+        $details = "Direct USB connection ($($p.PortName))"
+    }
+    elseif ($p.PortName -like "WSD*") {
+        $connectionType = "Network (WSD)"
+        $details = "Network Plug & Play printer (WSD)"
+    }
+    elseif ($port.PrinterHostAddress -or $p.PortName -match '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}' -or $p.PortName -like "IP_*") {
+        $connectionType = "Network (TCP/IP)"
+        $addr = if ($port.PrinterHostAddress) { $port.PrinterHostAddress } else { $p.PortName }
+        $details = "Local Network printer at $addr"
+    }
+    elseif ($p.PortName -like "http*" -or $p.PortName -like "ipp*") {
+        $connectionType = "Network (IPP)"
+        $details = "Network IPP print service"
+    }
+    elseif ($p.Type -eq "Connection" -or $p.Shared) {
+        $connectionType = "Network (Shared)"
+        $details = "Shared LAN printer queue"
+    }
+    elseif ($p.PortName -like "BTH*" -or $p.PortName -like "Bluetooth*") {
+        $connectionType = "Bluetooth"
+        $details = "Wireless Bluetooth connection"
+    }
+    elseif ($p.PortName -like "LPT*") {
+        $connectionType = "Parallel (LPT)"
+        $details = "Parallel port connection ($($p.PortName))"
+    }
+    else {
+        $connectionType = "USB"
+        $details = "Hardware printer connection ($($p.PortName))"
     }
 
     $isOnline = $true
@@ -143,7 +143,7 @@ $results = foreach ($p in $printers) {
     [PSCustomObject]@{
         name = $p.Name
         isDefault = $isDefault
-        isPhysical = $isPhysical
+        isPhysical = $true
         connectionType = $connectionType
         portName = $p.PortName
         driverName = $p.DriverName
@@ -154,13 +154,17 @@ $results = foreach ($p in $printers) {
     }
 }
 
-$results | ConvertTo-Json -Depth 3
+if ($results) {
+    $results | ConvertTo-Json -Depth 3
+} else {
+    "[]"
+}
 `;
 
 /**
  * Discover printers using Windows Management Instrumentation & PowerShell.
- * Returns detailed hardware connection info (USB, Network, WSD) and separates
- * physical machines from virtual / software drivers.
+ * Discovers and returns exclusively physical hardware machines (USB, Network, WSD, Bluetooth).
+ * Virtual software drivers and print-to-file queues are completely excluded.
  */
 export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
   return new Promise((resolve) => {
@@ -172,9 +176,10 @@ export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
         if (!err && stdout && stdout.trim()) {
           try {
             const parsed = JSON.parse(stdout.trim());
-            const list: PrinterHardwareInfo[] = Array.isArray(parsed)
+            const list: PrinterHardwareInfo[] = (Array.isArray(parsed)
               ? parsed
-              : [parsed];
+              : [parsed]
+            ).filter((p) => p && p.isPhysical);
             return resolve(list);
           } catch (jsonErr) {
             console.warn(
@@ -189,26 +194,25 @@ export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
         // Fallback to basic pdf-to-printer list if PowerShell fails
         try {
           const basicPrinters = await ptp.getPrinters();
-          const fallbackList: PrinterHardwareInfo[] = basicPrinters.map((p) => {
-            const isVirtual =
-              /pdf|xps|onenote|fax|printspot/i.test(p.name) ||
-              /pdf|xps|onenote|fax/i.test(p.deviceId || "");
-
-            return {
+          const fallbackList: PrinterHardwareInfo[] = basicPrinters
+            .filter((p) => {
+              const isVirtual =
+                /pdf|xps|onenote|fax|printspot|virtual/i.test(p.name) ||
+                /pdf|xps|onenote|fax|virtual/i.test(p.deviceId || "");
+              return !isVirtual;
+            })
+            .map((p) => ({
               name: p.name,
               isDefault: false,
-              isPhysical: !isVirtual,
-              connectionType: isVirtual ? "Virtual / Software" : "USB",
+              isPhysical: true,
+              connectionType: "USB" as ConnectionType,
               portName: "Unknown",
               driverName: "Unknown",
               hostAddress: null,
               status: "Online",
               isOnline: true,
-              details: isVirtual
-                ? "Software / Virtual printer driver"
-                : "Hardware printer driver",
-            };
-          });
+              details: "Direct hardware connection",
+            }));
           resolve(fallbackList);
         } catch (fallbackErr) {
           console.error("[printer-discovery] Complete failure to discover printers:", fallbackErr);

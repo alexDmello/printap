@@ -4,7 +4,6 @@ import logoImg from "../assets/logo.png";
 import type { ExtendedShop } from "../types";
 import {
   IconSearch,
-  IconPlus,
   IconExternal,
   IconEdit,
   IconTrash,
@@ -12,7 +11,6 @@ import {
 
 interface ShopsViewProps {
   shops: ExtendedShop[];
-  onOpenCreateModal: () => void;
   onOpenEditModal: (shop: ExtendedShop) => void;
   onOpenDeleteModal: (shop: ExtendedShop) => void;
   onToggleStatus: (shop: ExtendedShop) => void;
@@ -21,7 +19,6 @@ interface ShopsViewProps {
 
 export function ShopsView({
   shops,
-  onOpenCreateModal,
   onOpenEditModal,
   onOpenDeleteModal,
   onToggleStatus,
@@ -72,14 +69,6 @@ export function ShopsView({
             Manage terminal subdomains, settlement UPI VPAs, custom surcharges, and emergency kill-switches.
           </p>
         </div>
-
-        <button
-          onClick={onOpenCreateModal}
-          className="wabi-btn-primary px-4 py-2 rounded-xl text-xs flex items-center gap-1.5"
-        >
-          <IconPlus size={14} />
-          <span>Register New Shop</span>
-        </button>
       </div>
 
       {/* Filter and Search Bar */}

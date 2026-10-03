@@ -10,7 +10,6 @@ import {
   IconTrendingUp,
   IconExternal,
   IconChevronRight,
-  IconPlus,
   IconShield,
 } from "./Icons";
 
@@ -24,7 +23,6 @@ interface OverviewViewProps {
   globalGstAmount: number;
   globalTotalCharge: number;
   setActiveTab: (tab: NavigationTab) => void;
-  onOpenCreateModal: () => void;
   onToggleStatus: (shop: ExtendedShop) => void;
 }
 
@@ -38,7 +36,6 @@ export function OverviewView({
   globalGstAmount,
   globalTotalCharge,
   setActiveTab,
-  onOpenCreateModal,
   onToggleStatus,
 }: OverviewViewProps) {
   const recentEvents = events.slice(0, 5);
@@ -72,13 +69,6 @@ export function OverviewView({
           >
             <span>View Deep Analytics</span>
             <IconChevronRight size={13} />
-          </button>
-          <button
-            onClick={onOpenCreateModal}
-            className="wabi-btn-primary px-4 py-2 rounded-xl text-xs flex items-center gap-1.5"
-          >
-            <IconPlus size={14} />
-            <span>Deploy Shop</span>
           </button>
         </div>
       </div>

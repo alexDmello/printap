@@ -9,7 +9,6 @@ import {
   IconLedger,
   IconPricing,
   IconHealth,
-  IconPlus,
   IconRefresh,
   IconClose,
 } from "./Icons";
@@ -21,7 +20,6 @@ interface SidebarProps {
   activeCount: number;
   eventsCount: number;
   globalTotalCharge: number;
-  onOpenCreateModal: () => void;
   onRefresh: () => void;
   loading: boolean;
   mobileOpen: boolean;
@@ -35,7 +33,6 @@ export function Sidebar({
   activeCount,
   eventsCount,
   globalTotalCharge,
-  onOpenCreateModal,
   onRefresh,
   loading,
   mobileOpen,
@@ -151,18 +148,6 @@ export function Sidebar({
             </button>
           </div>
 
-          {/* Quick Action Button: Register Shop */}
-          <div className="p-4 pb-2">
-            <button
-              onClick={onOpenCreateModal}
-              className="w-full py-2.5 px-3 rounded-xl bg-black hover:bg-zinc-800 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition group"
-            >
-              <span className="w-4 h-4 rounded-md bg-white text-black flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
-                <IconPlus size={12} />
-              </span>
-              <span>Register New Shop</span>
-            </button>
-          </div>
 
           {/* Navigation Section */}
           <div className="px-3 py-3">

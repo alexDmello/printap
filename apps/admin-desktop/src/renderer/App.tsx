@@ -9,10 +9,9 @@ import { ShopsView } from "./components/ShopsView";
 import { LedgerView } from "./components/LedgerView";
 import { PricingView } from "./components/PricingView";
 import { HealthView } from "./components/HealthView";
-import { CreateShopModal } from "./components/CreateShopModal";
 import { EditShopModal } from "./components/EditShopModal";
 import { DeleteShopModal } from "./components/DeleteShopModal";
-import { IconMenu, IconRefresh, IconPlus } from "./components/Icons";
+import { IconMenu, IconRefresh } from "./components/Icons";
 
 export default function App() {
   const [shops, setShops] = useState<ExtendedShop[]>([]);
@@ -30,7 +29,6 @@ export default function App() {
   const [globalPricingMsg, setGlobalPricingMsg] = useState("");
 
   // Modals state
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingShop, setEditingShop] = useState<ExtendedShop | null>(null);
   const [deletingShop, setDeletingShop] = useState<ExtendedShop | null>(null);
 
@@ -235,7 +233,6 @@ export default function App() {
         activeCount={activeCount}
         eventsCount={events.length}
         globalTotalCharge={globalTotalCharge}
-        onOpenCreateModal={() => setShowCreateModal(true)}
         onRefresh={loadPlatformData}
         loading={loading}
         mobileOpen={mobileOpen}
@@ -297,15 +294,6 @@ export default function App() {
               </span>
               <span className="hidden md:inline text-xs">Sync</span>
             </button>
-
-            {/* Quick Action: Register Shop */}
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="wabi-btn-primary px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-semibold bg-black text-white hover:bg-zinc-800 transition"
-            >
-              <IconPlus size={13} />
-              <span className="hidden sm:inline">New Shop</span>
-            </button>
           </div>
         </header>
 
@@ -322,7 +310,6 @@ export default function App() {
               globalGstAmount={globalGstAmount}
               globalTotalCharge={globalTotalCharge}
               setActiveTab={setActiveTab}
-              onOpenCreateModal={() => setShowCreateModal(true)}
               onToggleStatus={handleToggleStatus}
             />
           )}
@@ -341,7 +328,6 @@ export default function App() {
           {activeTab === "shops" && (
             <ShopsView
               shops={shops}
-              onOpenCreateModal={() => setShowCreateModal(true)}
               onOpenEditModal={(shop) => setEditingShop(shop)}
               onOpenDeleteModal={(shop) => setDeletingShop(shop)}
               onToggleStatus={handleToggleStatus}
@@ -376,12 +362,6 @@ export default function App() {
       </div>
 
       {/* Floating Modals */}
-      <CreateShopModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={loadPlatformData}
-      />
-
       <EditShopModal
         shop={editingShop}
         onClose={() => setEditingShop(null)}

@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 
 interface StoredDesktopSession {
   sessionId: string;
-  shopId: string;
-  shop: Record<string, unknown>;
+  status: "authenticated" | "unregistered";
+  shopId?: string;
+  shop?: Record<string, unknown>;
+  error?: string;
   createdAt: number;
 }
 
@@ -23,17 +25,29 @@ export async function POST(request: Request) {
   try {
     sweepExpiredSessions();
     const body = await request.json();
-    const { sessionId, shopId, shop } = body;
+    const { sessionId, status = "authenticated", shopId, shop, error } = body;
 
     if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
     }
+
+    if (status === "unregistered") {
+      sessions.set(sessionId.trim(), {
+        sessionId: sessionId.trim(),
+        status: "unregistered",
+        error: error || "No registered shop found",
+        createdAt: Date.now(),
+      });
+      return NextResponse.json({ success: true });
+    }
+
     if (!shopId || typeof shopId !== "string") {
       return NextResponse.json({ error: "Missing shopId" }, { status: 400 });
     }
 
     sessions.set(sessionId.trim(), {
       sessionId: sessionId.trim(),
+      status: "authenticated",
       shopId: shopId.trim(),
       shop: shop || {},
       createdAt: Date.now(),
@@ -61,8 +75,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ status: "pending" });
     }
 
-    // Return authenticated session and consume it
+    // Return session and consume it
     sessions.delete(sessionId.trim());
+
+    if (session.status === "unregistered") {
+      return NextResponse.json({
+        status: "unregistered",
+        error: session.error || "No registered shop found for this account.",
+      });
+    }
 
     return NextResponse.json({
       status: "authenticated",

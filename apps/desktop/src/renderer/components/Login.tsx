@@ -359,7 +359,38 @@ export const Login: React.FC = () => {
             </button>
           </div>
 
-          {errorMessage && <div className="login-error" style={{ marginTop: 14 }}>{errorMessage}</div>}
+          {errorMessage && (
+            <div className="login-error" style={{ marginTop: 14 }}>
+              <div>{errorMessage}</div>
+              {errorMessage.toLowerCase().includes("onboard") && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const onboardUrl = "https://www.mellod.in/onboard";
+                      if (window.electronAPI?.openExternal) {
+                        window.electronAPI.openExternal(onboardUrl);
+                      } else {
+                        window.open(onboardUrl, "_blank");
+                      }
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#fff",
+                      textDecoration: "underline",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Open Onboarding in Browser →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Connect Button */}
           <button

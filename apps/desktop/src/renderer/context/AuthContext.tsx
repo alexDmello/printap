@@ -141,6 +141,18 @@ export function AuthProvider({
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.unregistered) {
+          const onboardUrl = `${API_BASE_URL}/onboard`;
+          if (window.electronAPI?.openExternal) {
+            window.electronAPI.openExternal(onboardUrl);
+          } else {
+            window.open(onboardUrl, "_blank");
+          }
+          return {
+            success: false,
+            error: "No registered shop found. Redirected to complete onboarding in your browser.",
+          };
+        }
         return { success: false, error: data.error || "Authentication failed." };
       }
 
@@ -280,6 +292,11 @@ export function AuthProvider({
             const data = await res.json();
             if (data.status === "authenticated" && data.shop) {
               onSuccess(data.shop as ShopInfo);
+            } else if (data.status === "unregistered") {
+              onError(
+                data.error ||
+                  "No registered shop found. Redirected to complete onboarding in your browser."
+              );
             }
           }
         } catch {}

@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       if (!emailCheck.valid) {
         return NextResponse.json({ error: emailCheck.reason }, { status: 400 });
       }
-      query = query.eq("owner_email", emailCheck.normalizedEmail);
+      query = query.ilike("owner_email", emailCheck.normalizedEmail);
     } else {
       query = query.eq("slug", cleanIdentifier);
     }
@@ -36,7 +36,16 @@ export async function POST(request: Request) {
     }
 
     if (!shop) {
-      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+      if (cleanIdentifier.includes("@")) {
+        return NextResponse.json(
+          {
+            error: "No registered shop found for this email. Redirecting to onboarding...",
+            unregistered: true,
+          },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json({ error: "Invalid shop handle or password." }, { status: 401 });
     }
 
     if (shop.status === "suspended") {

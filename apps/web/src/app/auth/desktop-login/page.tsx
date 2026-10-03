@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-client";
 import type { ShopInfo } from "@printap/shared";
 
@@ -14,6 +14,7 @@ type AuthState =
   | "error";
 
 function DesktopLoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session") || "";
 
@@ -81,7 +82,8 @@ function DesktopLoginContent() {
         const { data: foundShop, error: shopError } = await supabase
           .from("shops")
           .select("*")
-          .eq("owner_email", email.toLowerCase().trim())
+          .ilike("owner_email", email.toLowerCase().trim())
+          .limit(1)
           .maybeSingle();
 
         if (!isMounted) return;
@@ -95,17 +97,38 @@ function DesktopLoginContent() {
 
         if (!foundShop) {
           setState("no_shop");
-          // Notify desktop of no shop
+          // Notify desktop of unregistered user
           const ch = supabase.channel(`desktop-auth:${sessionId}`);
           ch.subscribe((st) => {
             if (st === "SUBSCRIBED") {
               ch.send({
                 type: "broadcast",
                 event: "login-error",
-                payload: { error: `No registered shop found for ${email}` },
+                payload: {
+                  error: `No registered shop found for ${email}. Please complete registration in your browser.`,
+                  unregistered: true,
+                },
               });
             }
           });
+
+          // Post unregistered state to API for desktop polling
+          await fetch("/api/auth/desktop-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId,
+              status: "unregistered",
+              error: `No registered shop found for ${email}.`,
+            }),
+          }).catch((e) => console.warn("[desktop-login] Cache POST error:", e));
+
+          // Immediately redirect browser to onboarding page!
+          setTimeout(() => {
+            if (isMounted) {
+              router.replace("/onboard");
+            }
+          }, 350);
           return;
         }
 
@@ -321,15 +344,16 @@ function DesktopLoginContent() {
         {/* State: No Shop Found for this email */}
         {state === "no_shop" && (
           <div className="space-y-4 py-2">
-            <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <div className="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">No Shop Registered</h2>
+              <h2 className="text-base font-semibold text-white">Redirecting to Registration...</h2>
               <p className="text-xs text-slate-400 mt-1">
-                There is no Printap shop registered with <span className="text-indigo-400 font-medium">{userEmail}</span>.
+                No shop is registered for <span className="text-indigo-400 font-medium">{userEmail}</span>. Opening onboarding page in your browser...
               </p>
             </div>
 
@@ -338,7 +362,7 @@ function DesktopLoginContent() {
                 href="/onboard"
                 className="w-full block py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition-colors"
               >
-                Register This Shop on Printap →
+                Go to Onboard Now →
               </a>
               <button
                 type="button"

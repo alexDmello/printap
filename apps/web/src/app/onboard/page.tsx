@@ -331,12 +331,12 @@ function OnboardContent() {
     }) => {
       setLatitude(coords.lat);
       setLongitude(coords.lng);
-      if (coords.address && !address) setAddress(coords.address);
-      if (coords.city && !city) setCity(coords.city);
-      if (coords.state && !state) setState(coords.state);
-      if (coords.pincode && !pincode) setPincode(coords.pincode);
+      if (coords.address) setAddress(coords.address);
+      if (coords.city) setCity(coords.city);
+      if (coords.state) setState(coords.state);
+      if (coords.pincode) setPincode(coords.pincode);
     },
-    [address, city, state, pincode]
+    []
   );
 
   // Validate Step 1 (Store details & counter password)

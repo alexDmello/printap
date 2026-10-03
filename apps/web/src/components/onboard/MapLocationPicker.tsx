@@ -48,16 +48,56 @@ export function MapLocationPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [addressPreview, setAddressPreview] = useState<string>("");
+  const [detectStatus, setDetectStatus] = useState<string | null>(null);
 
   // Default coordinate (Bangalore, India center if none specified)
   const defaultLat = latitude ?? 12.9716;
   const defaultLng = longitude ?? 77.5946;
 
+  // Helper to apply location coordinates to map & notify parent
+  const applyCoordinates = useCallback(
+    (
+      lat: number,
+      lng: number,
+      zoom = 16,
+      meta?: { city?: string; state?: string; pincode?: string; address?: string }
+    ) => {
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.invalidateSize();
+          mapInstanceRef.current.setView([lat, lng], zoom);
+        } catch {}
+      }
+      if (markerRef.current) {
+        try {
+          markerRef.current.setLatLng([lat, lng]);
+        } catch {}
+      }
+      onChange({
+        lat,
+        lng,
+        city: meta?.city || "",
+        state: meta?.state || "",
+        pincode: meta?.pincode || "",
+        address: meta?.address || "",
+      });
+      reverseGeocode(lat, lng);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onChange]
+  );
+
   // Reverse geocode lat/lng via compliant internal API proxy
   const reverseGeocode = useCallback(
     async (lat: number, lng: number) => {
       try {
-        const res = await fetch(`/api/utils/geocode?action=reverse&lat=${lat}&lng=${lng}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(`/api/utils/geocode?action=reverse&lat=${lat}&lng=${lng}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
         if (!res.ok) return;
         const data = await res.json();
         if (data && data.success) {
@@ -73,7 +113,7 @@ export function MapLocationPicker({
           });
         }
       } catch (err) {
-        console.warn("[MapPicker] Reverse geocode error:", err);
+        console.warn("[MapPicker] Reverse geocode notice:", err);
       }
     },
     [onChange]
@@ -84,7 +124,18 @@ export function MapLocationPicker({
     let isMounted = true;
 
     async function initMap() {
-      if (!mapContainerRef.current || mapInstanceRef.current) return;
+      if (!mapContainerRef.current) return;
+
+      // Clean up previous Leaflet instance if present on container
+      if ((mapContainerRef.current as any)._leaflet_id && mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch {}
+        mapInstanceRef.current = null;
+      }
+      if ((mapContainerRef.current as any)._leaflet_id) {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      }
 
       const L = await import("leaflet");
       if (!isMounted || !mapContainerRef.current) return;
@@ -106,44 +157,55 @@ export function MapLocationPicker({
         iconAnchor: [18, 42],
       });
 
-      const map = L.map(mapContainerRef.current, {
-        center: [defaultLat, defaultLng],
-        zoom: latitude && longitude ? 16 : 13,
-        zoomControl: true,
-      });
+      try {
+        const map = L.map(mapContainerRef.current, {
+          center: [defaultLat, defaultLng],
+          zoom: latitude && longitude ? 16 : 13,
+          zoomControl: true,
+        });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map);
 
-      // Create Draggable Marker
-      const marker = L.marker([defaultLat, defaultLng], {
-        icon: customPinIcon,
-        draggable: true,
-      }).addTo(map);
+        // Create Draggable Marker
+        const marker = L.marker([defaultLat, defaultLng], {
+          icon: customPinIcon,
+          draggable: true,
+        }).addTo(map);
 
-      // Marker drag event
-      marker.on("dragend", () => {
-        const pos = marker.getLatLng();
-        onChange({ lat: pos.lat, lng: pos.lng });
-        reverseGeocode(pos.lat, pos.lng);
-      });
+        // Marker drag event
+        marker.on("dragend", () => {
+          const pos = marker.getLatLng();
+          onChange({ lat: pos.lat, lng: pos.lng });
+          reverseGeocode(pos.lat, pos.lng);
+        });
 
-      // Map click event
-      map.on("click", (e: any) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        onChange({ lat, lng });
-        reverseGeocode(lat, lng);
-      });
+        // Map click event
+        map.on("click", (e: any) => {
+          const { lat, lng } = e.latlng;
+          marker.setLatLng([lat, lng]);
+          onChange({ lat, lng });
+          reverseGeocode(lat, lng);
+        });
 
-      mapInstanceRef.current = map;
-      markerRef.current = marker;
+        mapInstanceRef.current = map;
+        markerRef.current = marker;
 
-      // Initial reverse geocode if initial lat/lng provided
-      if (latitude && longitude) {
-        reverseGeocode(latitude, longitude);
+        // Invalidate size once DOM layout settles
+        setTimeout(() => {
+          if (isMounted && mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 300);
+
+        // Initial reverse geocode if initial lat/lng provided
+        if (latitude && longitude) {
+          reverseGeocode(latitude, longitude);
+        }
+      } catch (err) {
+        console.warn("[MapPicker] Init map warning:", err);
       }
     }
 
@@ -152,8 +214,13 @@ export function MapLocationPicker({
     return () => {
       isMounted = false;
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          mapInstanceRef.current.remove();
+        } catch {}
         mapInstanceRef.current = null;
+      }
+      if (mapContainerRef.current) {
+        delete (mapContainerRef.current as any)._leaflet_id;
       }
     };
   }, []); // Run on mount
@@ -172,10 +239,31 @@ export function MapLocationPicker({
     }
   }, [latitude, longitude]);
 
-  const [detectStatus, setDetectStatus] = useState<string | null>(null);
+  // Fast client-side IP fallback
+  const detectViaIp = async (): Promise<{ ok: boolean; city?: string }> => {
+    // 1. Try GeoJS client-side directly (CORS enabled, instant, free, reliable in India & globally)
+    try {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch("https://get.geojs.io/v1/ip/geo.json", {
+        signal: controller.signal,
+      });
+      clearTimeout(tId);
+      if (res.ok) {
+        const data = await res.json();
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          applyCoordinates(lat, lng, 14, {
+            city: data.city || "",
+            state: data.region || "",
+          });
+          return { ok: true, city: data.city || "your area" };
+        }
+      }
+    } catch {}
 
-  // Fallback to server-side IP geolocation (bypasses browser GPS restrictions & adblockers)
-  const detectLocationViaServer = async () => {
+    // 2. Try server-side detect-location API endpoint
     try {
       const res = await fetch("/api/auth/detect-location");
       if (res.ok) {
@@ -186,102 +274,111 @@ export function MapLocationPicker({
           typeof data.latitude === "number" &&
           typeof data.longitude === "number"
         ) {
-          const lat = data.latitude;
-          const lng = data.longitude;
-          if (mapInstanceRef.current && markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
-            mapInstanceRef.current.setView([lat, lng], 14);
-          }
-          onChange({
-            lat,
-            lng,
+          applyCoordinates(data.latitude, data.longitude, 14, {
             city: data.city || "",
             state: data.state || "",
             pincode: data.pincode || "",
           });
-          reverseGeocode(lat, lng);
-          return {
-            ok: true,
-            city: data.city || "your area",
-            source: data.source,
-          };
+          return { ok: true, city: data.city || "your area" };
         }
       }
-    } catch (e) {
-      console.warn("[MapPicker] Server geolocation fallback failed:", e);
-    }
+    } catch {}
+
+    // 3. Try ipwho.is client-side
+    try {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch("https://ipwho.is/", { signal: controller.signal });
+      clearTimeout(tId);
+      if (res.ok) {
+        const data = await res.json();
+        if (
+          data &&
+          data.success !== false &&
+          typeof data.latitude === "number" &&
+          typeof data.longitude === "number"
+        ) {
+          applyCoordinates(data.latitude, data.longitude, 14, {
+            city: data.city || "",
+            state: data.region || "",
+            pincode: data.postal || "",
+          });
+          return { ok: true, city: data.city || "your area" };
+        }
+      }
+    } catch {}
+
     return { ok: false };
   };
 
-  // Handle Location Auto-detect with graceful server-side network IP fallback
+  // Handle Location Auto-detect with graceful 2-stage GPS and multi-source network fallback
   const handleDetectLocation = async () => {
     setIsLocating(true);
-    setDetectStatus("Detecting location...");
+    setDetectStatus("Detecting your location...");
 
-    // Check browser permission status beforehand if available
-    let permState: string | null = null;
+    // Helper to query navigator.geolocation with a promise
+    const tryBrowserGeo = (
+      highAccuracy: boolean,
+      timeoutMs: number
+    ): Promise<{ lat: number; lng: number } | null> => {
+      return new Promise((resolve) => {
+        if (typeof window === "undefined" || !navigator.geolocation) {
+          return resolve(null);
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            });
+          },
+          () => {
+            resolve(null);
+          },
+          {
+            enableHighAccuracy: highAccuracy,
+            timeout: timeoutMs,
+            maximumAge: highAccuracy ? 10000 : 120000,
+          }
+        );
+      });
+    };
+
     try {
-      if (typeof window !== "undefined" && navigator.permissions?.query) {
-        const perm = await navigator.permissions.query({ name: "geolocation" as PermissionName });
-        permState = perm.state;
-      }
-    } catch {
-      // Ignore
-    }
+      // 1. First attempt: Device high-accuracy GPS (10s timeout to allow user to click 'Allow')
+      let coords = await tryBrowserGeo(true, 10000);
 
-    // If permission is already blocked/denied, bypass GPS wait and use server IP directly
-    if (permState === "denied") {
-      setDetectStatus("Browser GPS permission is blocked. Locating via network...");
-      const serverRes = await detectLocationViaServer();
+      // 2. Second attempt: If high accuracy failed (e.g. desktop PC without GPS chip), try Wi-Fi/network geolocation
+      if (!coords) {
+        setDetectStatus("Connecting via Wi-Fi/network location...");
+        coords = await tryBrowserGeo(false, 6000);
+      }
+
+      if (coords) {
+        setIsLocating(false);
+        applyCoordinates(coords.lat, coords.lng, 17);
+        setDetectStatus("✓ Device location detected! Drag pin onto your exact shop rooftop.");
+        return;
+      }
+
+      // 3. Fallback: IP-based geolocation
+      setDetectStatus("Device GPS unavailable. Locating via internet network...");
+      const ipResult = await detectViaIp();
       setIsLocating(false);
-      if (serverRes.ok) {
+
+      if (ipResult.ok) {
         setDetectStatus(
-          `📍 Centered to ${serverRes.city} via network. Drag pin onto your shop rooftop.`
+          `📍 Centered near ${ipResult.city || "your area"}. Drag pin onto your shop rooftop.`
         );
       } else {
-        setDetectStatus("Please search your area or click on the map to place your pin.");
+        setDetectStatus(
+          "Could not detect automatically. Please search your area above or click on the map."
+        );
       }
-      return;
-    }
-
-    if (typeof window !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setIsLocating(false);
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-
-          if (mapInstanceRef.current && markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
-            mapInstanceRef.current.setView([lat, lng], 17);
-          }
-          onChange({ lat, lng });
-          reverseGeocode(lat, lng);
-          setDetectStatus("✓ High-accuracy device GPS detected! Drag pin if needed.");
-        },
-        async (err) => {
-          console.warn("[MapPicker] Device GPS unavailable (" + err.message + "). Falling back to server network location.");
-          setDetectStatus("Locating via network...");
-          const serverRes = await detectLocationViaServer();
-          setIsLocating(false);
-          if (serverRes.ok) {
-            setDetectStatus(
-              `📍 Centered near ${serverRes.city} via network. Drag pin onto your shop rooftop.`
-            );
-          } else {
-            setDetectStatus("Please search your area or click on the map to place your pin.");
-          }
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
-      );
-    } else {
-      const serverRes = await detectLocationViaServer();
+    } catch (err) {
+      console.warn("[MapPicker] Location detection error:", err);
       setIsLocating(false);
-      if (serverRes.ok) {
-        setDetectStatus(`📍 Centered near ${serverRes.city} via network. Drag pin onto your shop rooftop.`);
-      } else {
-        setDetectStatus("Please search your area or click on the map to place your pin.");
-      }
+      setDetectStatus("Could not detect automatically. Please search your area or click on the map.");
     }
   };
 
@@ -317,6 +414,7 @@ export function MapLocationPicker({
     const lng = parseFloat(result.lon);
 
     if (mapInstanceRef.current && markerRef.current) {
+      mapInstanceRef.current.invalidateSize();
       markerRef.current.setLatLng([lat, lng]);
       mapInstanceRef.current.setView([lat, lng], 16);
     }
@@ -351,12 +449,7 @@ export function MapLocationPicker({
   ];
 
   const handleJumpCity = (cLat: number, cLng: number) => {
-    if (mapInstanceRef.current && markerRef.current) {
-      markerRef.current.setLatLng([cLat, cLng]);
-      mapInstanceRef.current.setView([cLat, cLng], 14);
-    }
-    onChange({ lat: cLat, lng: cLng });
-    reverseGeocode(cLat, cLng);
+    applyCoordinates(cLat, cLng, 14);
   };
 
   return (

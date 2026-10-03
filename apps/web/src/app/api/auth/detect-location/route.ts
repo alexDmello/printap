@@ -36,14 +36,43 @@ export async function GET(req: NextRequest) {
       rawIp.startsWith("10.") ||
       rawIp.startsWith("172.16.");
 
-    // Target URL: if private/local, query ipwho.is without an IP so it resolves the server's public gateway IP
-    const targetUrl = isPrivate
-      ? "https://ipwho.is/"
-      : `https://ipwho.is/${encodeURIComponent(rawIp)}`;
-
+    // 3. Provider A: GeoJS (High availability, no API key, works with IPv4 & IPv6)
     try {
+      const geojsUrl = isPrivate
+        ? "https://get.geojs.io/v1/ip/geo.json"
+        : `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(rawIp)}.json`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const gRes = await fetch(geojsUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        const lat = parseFloat(gData.latitude);
+        const lng = parseFloat(gData.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return NextResponse.json({
+            success: true,
+            latitude: lat,
+            longitude: lng,
+            city: gData.city || "",
+            state: gData.region || "",
+            pincode: "",
+            source: "geojs",
+          });
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+
+    // 4. Provider B: ipwho.is
+    try {
+      const targetUrl = isPrivate
+        ? "https://ipwho.is/"
+        : `https://ipwho.is/${encodeURIComponent(rawIp)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       const res = await fetch(targetUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
 
@@ -70,13 +99,13 @@ export async function GET(req: NextRequest) {
       // Fallback below
     }
 
-    // 3. Fallback: ipapi.co
+    // 5. Provider C: ipapi.co
     try {
       const fallbackUrl = isPrivate
         ? "https://ipapi.co/json/"
         : `https://ipapi.co/${encodeURIComponent(rawIp)}/json/`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       const fallbackRes = await fetch(fallbackUrl, {
         headers: { "User-Agent": "printap-backend/1.0" },
         signal: controller.signal,
@@ -101,7 +130,7 @@ export async function GET(req: NextRequest) {
       // Ignore
     }
 
-    // Default center (Bangalore center fallback if all network lookups fail)
+    // 6. Default center (Bangalore center fallback if all network lookups fail)
     return NextResponse.json({
       success: true,
       latitude: 12.9716,

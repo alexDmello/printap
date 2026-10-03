@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "path";
 import fs from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
@@ -13,11 +13,50 @@ import srm from "secure-rm";
 import { discoverPrinters } from "./printer-discovery";
 import { setShopOnline } from "@printap/shared";
 
+// ─── Register Custom Protocol for Deep-Linking (printap://) ───
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("printap", process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("printap");
+}
+
 // ─── Constants ───
 const TEMP_DIR = path.join(os.tmpdir(), "printap_jobs");
 const FILE_PREFIX = "mellod_job_";
 
 let mainWindow: BrowserWindow | null = null;
+
+function handleDeepLink(urlStr: string): void {
+  try {
+    const parsed = new URL(urlStr);
+    const sessionId = parsed.searchParams.get("session");
+    const shopId = parsed.searchParams.get("shopId");
+    if (sessionId && shopId && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("deep-link-auth", { sessionId, shopId });
+    }
+  } catch (err) {
+    console.warn("[main] Failed to parse deep link URL:", urlStr, err);
+  }
+}
+
+// Single instance lock to prevent duplicate hardware agents & handle deep links
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, commandLine) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    const deepLinkUrl = commandLine.find((arg) => arg.startsWith("printap://"));
+    if (deepLinkUrl) {
+      handleDeepLink(deepLinkUrl);
+    }
+  });
+}
 
 // ─── Window Setup ───
 function createWindow(): void {
@@ -54,6 +93,14 @@ function createWindow(): void {
       app.quit();
     }
   });
+
+  // Check initial startup args for deep link
+  const initialDeepLink = process.argv.find((arg) => arg.startsWith("printap://"));
+  if (initialDeepLink) {
+    mainWindow.webContents.once("did-finish-load", () => {
+      handleDeepLink(initialDeepLink);
+    });
+  }
 }
 
 let activeShopId: string | null = null;
@@ -100,6 +147,17 @@ app.on("before-quit", async (e) => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+// ─── IPC: Open External System Browser (for Google OAuth) ───
+ipcMain.handle("open-external", async (_event, url: string) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    console.error("[main] Failed to open external URL:", err);
+    return { success: false, error: String(err) };
+  }
 });
 
 // ─── IPC: Set Active Shop for cleanup tracking ───

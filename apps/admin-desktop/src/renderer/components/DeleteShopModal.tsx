@@ -1,7 +1,26 @@
 import React, { useState } from "react";
-import { ROOT_DOMAIN, getSupabase } from "@printap/shared";
+import { ROOT_DOMAIN } from "@printap/shared";
 import type { ExtendedShop } from "../types";
 import { IconClose, IconTrash } from "./Icons";
+
+/** Admin secret must match the server-side env var PRINTAP_ADMIN_SECRET */
+const ADMIN_SECRET = "printap-admin-2024-secret";
+
+/** Base URL where the Next.js web app is hosted.
+ *  In dev (Electron localhost), we target the local Next.js dev server.
+ *  In production, we target the deployed domain. */
+const WEB_API_BASE = (() => {
+  // Check if running in dev mode (Electron loads from localhost or Vite dev server)
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.protocol === "file:")
+  ) {
+    return "http://localhost:3000";
+  }
+  return `https://www.${ROOT_DOMAIN}`;
+})();
 
 interface DeleteShopModalProps {
   shop: ExtendedShop | null;
@@ -30,49 +49,25 @@ export function DeleteShopModal({ shop, onClose, onSuccess }: DeleteShopModalPro
     setError(null);
 
     try {
-      const supabase = getSupabase();
-
-      // 1. Try atomic PostgreSQL RPC function (purges shops, orders, OTPs, and auth.users)
-      const { data: rpcData, error: rpcErr } = await supabase.rpc("admin_delete_shop", {
-        p_shop_id: shop.id,
+      // Call the server-side API route which has service_role access
+      const res = await fetch(`${WEB_API_BASE}/api/admin/offboard-shop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shop_id: shop.id,
+          admin_secret: ADMIN_SECRET,
+        }),
       });
 
-      if (!rpcErr && rpcData?.success) {
-        console.log("[DeleteShop] Successfully purged shop via RPC:", rpcData);
-        onSuccess();
-        onClose();
-        return;
-      }
+      const data = await res.json();
 
-      if (rpcErr) {
-        console.warn("[DeleteShop] RPC unavailable or failed, falling back to table delete:", rpcErr);
-      }
-
-      // 2. Fallback: Direct table cascade delete
-      // Delete orders, events, OTPs, then shop
-      try {
-        await supabase.from("print_events").delete().eq("shop_id", shop.id);
-        await supabase.from("print_orders").delete().eq("shop_id", shop.id);
-        await supabase.from("shop_daily_analytics").delete().eq("shop_id", shop.id);
-        if (ownerEmail) {
-          await supabase.from("email_otps").delete().eq("email", ownerEmail.toLowerCase().trim());
-        }
-      } catch (cascadeErr) {
-        console.warn("[DeleteShop] Cascade cleanup warning:", cascadeErr);
-      }
-
-      const { error: shopDelErr } = await supabase
-        .from("shops")
-        .delete()
-        .eq("id", shop.id);
-
-      if (shopDelErr) {
+      if (!res.ok || !data.success) {
         throw new Error(
-          shopDelErr.message +
-            " (Please run migration 012 in Supabase SQL Editor to grant offboarding permissions)."
+          data.error || `Server returned ${res.status}. Please check the web app is running.`
         );
       }
 
+      console.log("[DeleteShop] Successfully offboarded shop:", data);
       onSuccess();
       onClose();
     } catch (err) {

@@ -107,7 +107,7 @@ export interface ShopInfo {
   city?: string;
   state?: string;
   pincode?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface PlatformSettings {

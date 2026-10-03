@@ -68,11 +68,37 @@ $$;
 -- Grant execution to all roles (anon, authenticated, service_role)
 GRANT EXECUTE ON FUNCTION public.admin_delete_shop(UUID) TO anon, authenticated, service_role;
 
--- 2. ALLOW DELETE POLICY ON SHOPS
+-- 2. ALLOW DELETE POLICIES ON ALL TABLES INVOLVED IN OFFBOARDING
+
+-- Shops delete policy
 DROP POLICY IF EXISTS "shops_delete_service_role" ON public.shops;
 DROP POLICY IF EXISTS "shops_delete_all" ON public.shops;
 CREATE POLICY "shops_delete_all"
   ON public.shops FOR DELETE
+  USING (true);
+
+-- Print events delete policy
+DROP POLICY IF EXISTS "print_events_delete_all" ON public.print_events;
+CREATE POLICY "print_events_delete_all"
+  ON public.print_events FOR DELETE
+  USING (true);
+
+-- Print orders delete policy
+DROP POLICY IF EXISTS "print_orders_delete_all" ON public.print_orders;
+CREATE POLICY "print_orders_delete_all"
+  ON public.print_orders FOR DELETE
+  USING (true);
+
+-- Shop daily analytics delete policy
+DROP POLICY IF EXISTS "shop_daily_analytics_delete_all" ON public.shop_daily_analytics;
+CREATE POLICY "shop_daily_analytics_delete_all"
+  ON public.shop_daily_analytics FOR DELETE
+  USING (true);
+
+-- Email OTPs delete policy
+DROP POLICY IF EXISTS "email_otps_delete_all" ON public.email_otps;
+CREATE POLICY "email_otps_delete_all"
+  ON public.email_otps FOR DELETE
   USING (true);
 
 COMMENT ON FUNCTION public.admin_delete_shop IS 'Permanently deletes a shop and all associated Google OAuth credentials, orders, and OTPs as if they never onboarded.';

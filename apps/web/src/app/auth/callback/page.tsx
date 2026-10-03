@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-client";
 
 function CallbackHandler() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const desktopSession = searchParams.get("desktop_session") || searchParams.get("session");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -16,6 +18,11 @@ function CallbackHandler() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSession = async (user: any) => {
       if (!user || !user.email) return;
+
+      if (desktopSession) {
+        router.replace(`/auth/desktop-login?session=${encodeURIComponent(desktopSession)}`);
+        return;
+      }
 
       const normalizedEmail = user.email.toLowerCase().trim();
       try {

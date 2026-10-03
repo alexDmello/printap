@@ -97,6 +97,10 @@ interface ElectronAPI {
   setActiveShopId: (shopId: string | null) => Promise<{ success: boolean }>;
 
   onAppWillQuit: (callback: () => void) => () => void;
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+  onDeepLinkAuth: (
+    callback: (data: { sessionId: string; shopId: string }) => void
+  ) => () => void;
 }
 
 interface Window {

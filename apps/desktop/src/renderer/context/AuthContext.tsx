@@ -14,7 +14,11 @@ export interface AuthContextType {
   shopId: string | null;
   shop: ShopInfo | null;
   isLoading: boolean;
+  isGoogleSigningIn: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  cancelGoogleLogin: () => void;
+  reopenGoogleBrowser: () => void;
   logout: () => void;
   refreshShop: () => Promise<void>;
   sendResetOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -39,6 +43,11 @@ export function AuthProvider({
   const [shopId, setShopId] = useState<string | null>(null);
   const [shop, setShop] = useState<ShopInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+  const activeGoogleSessionRef = React.useRef<{
+    cancel: () => void;
+    reopenBrowser: () => void;
+  } | null>(null);
 
   const fetchShopDetails = useCallback(async (idOrSlug: string): Promise<ShopInfo | null> => {
     try {
@@ -197,6 +206,133 @@ export function AuthProvider({
     }
   };
 
+  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+    const sessionId = crypto.randomUUID();
+    setIsGoogleSigningIn(true);
+
+    const authUrl = `${API_BASE_URL}/auth/desktop-login?session=${encodeURIComponent(sessionId)}`;
+
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const cleanup = () => {
+        if (channel) {
+          try {
+            channel.unsubscribe();
+          } catch {}
+        }
+        if (pollTimer) clearInterval(pollTimer);
+        if (deepLinkCleanup) deepLinkCleanup();
+        setIsGoogleSigningIn(false);
+        activeGoogleSessionRef.current = null;
+      };
+
+      const onSuccess = async (shopData: ShopInfo) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        localStorage.setItem(STORAGE_KEY, shopData.id);
+        setShopId(shopData.id);
+        setShop(shopData);
+        resolve({ success: true });
+      };
+
+      const onError = (error: string) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve({ success: false, error });
+      };
+
+      // 1. Listen via Supabase Realtime Broadcast Channel
+      const supabase = getSupabase();
+      const channel = supabase.channel(`desktop-auth:${sessionId}`, {
+        config: { broadcast: { self: false } },
+      });
+
+      channel.on("broadcast", { event: "login-success" }, async ({ payload }) => {
+        console.log("[Auth] Google login broadcast success:", payload);
+        const p = payload as { shopId?: string; shop?: ShopInfo };
+        if (p.shop) {
+          onSuccess(p.shop);
+        } else if (p.shopId) {
+          const s = await fetchShopDetails(p.shopId);
+          if (s) onSuccess(s);
+          else onError("Failed to load shop details after login.");
+        }
+      });
+
+      channel.on("broadcast", { event: "login-error" }, ({ payload }) => {
+        const p = payload as { error?: string };
+        onError(p.error || "Google authentication failed.");
+      });
+
+      channel.subscribe();
+
+      // 2. Secondary Fallback: Poll desktop-session API every 1.5s
+      const pollTimer = setInterval(async () => {
+        if (settled) return;
+        try {
+          const res = await fetch(
+            `${API_BASE_URL}/api/auth/desktop-session?session=${encodeURIComponent(sessionId)}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === "authenticated" && data.shop) {
+              onSuccess(data.shop as ShopInfo);
+            }
+          }
+        } catch {}
+      }, 1500);
+
+      // 3. Tertiary: Deep-link listener from Electron main process
+      let deepLinkCleanup: (() => void) | null = null;
+      if (window.electronAPI?.onDeepLinkAuth) {
+        deepLinkCleanup = window.electronAPI.onDeepLinkAuth(
+          async ({ sessionId: linkSession, shopId: linkShopId }) => {
+            if (linkSession === sessionId && linkShopId) {
+              const s = await fetchShopDetails(linkShopId);
+              if (s) onSuccess(s);
+            }
+          }
+        );
+      }
+
+      // Open external system browser
+      if (window.electronAPI?.openExternal) {
+        window.electronAPI.openExternal(authUrl);
+      } else {
+        window.open(authUrl, "_blank");
+      }
+
+      // Store controller for cancellation or re-opening
+      activeGoogleSessionRef.current = {
+        cancel: () => {
+          if (!settled) {
+            settled = true;
+            cleanup();
+            resolve({ success: false, error: "Login cancelled by user." });
+          }
+        },
+        reopenBrowser: () => {
+          if (window.electronAPI?.openExternal) {
+            window.electronAPI.openExternal(authUrl);
+          } else {
+            window.open(authUrl, "_blank");
+          }
+        },
+      };
+    });
+  };
+
+  const cancelGoogleLogin = () => {
+    activeGoogleSessionRef.current?.cancel();
+  };
+
+  const reopenGoogleBrowser = () => {
+    activeGoogleSessionRef.current?.reopenBrowser();
+  };
+
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY);
     setShopId(null);
@@ -216,7 +352,11 @@ export function AuthProvider({
         shopId,
         shop,
         isLoading,
+        isGoogleSigningIn,
         login,
+        loginWithGoogle,
+        cancelGoogleLogin,
+        reopenGoogleBrowser,
         logout,
         refreshShop,
         sendResetOtp,

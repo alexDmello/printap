@@ -1176,6 +1176,94 @@ body {
   box-shadow: none;
 }
 
+/* ─── Google Sign In Button & Divider ─── */
+.login-google-btn {
+  width: 100%;
+  padding: 10px 18px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: #09090b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.login-google-btn:hover {
+  background: #f8fafc;
+  border-color: rgba(0, 0, 0, 0.24);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.login-google-btn:active {
+  transform: translateY(0);
+}
+
+.login-google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  margin: 18px 0 14px 0;
+  text-align: center;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.login-divider span {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.login-waiting-card {
+  padding: 10px 14px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: var(--radius-md);
+  background: rgba(99, 102, 241, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-waiting-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid #6366f1;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .btn-ghost {
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--border-subtle);

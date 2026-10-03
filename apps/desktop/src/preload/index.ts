@@ -52,6 +52,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("app-will-quit", handler);
     };
   },
+
+  openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
+
+  onDeepLinkAuth: (
+    callback: (data: { sessionId: string; shopId: string }) => void
+  ) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { sessionId: string; shopId: string }
+    ) => callback(data);
+
+    ipcRenderer.on("deep-link-auth", handler);
+
+    return () => {
+      ipcRenderer.removeListener("deep-link-auth", handler);
+    };
+  },
 });
 
 

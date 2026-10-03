@@ -62,25 +62,15 @@ function DownloadContent() {
     loadShop();
   }, [slugParam]);
 
-  // Trigger file download in the background via hidden iframe so the main window is NEVER displaced
+  // Trigger file download in the current page via programmatic anchor click
   const triggerDownload = (type: "setup" | "portable" = "setup") => {
     const downloadUrl = `/api/download/setup${type === "portable" ? "?type=portable" : ""}`;
-    
-    // Create an invisible iframe to initiate file download in the background
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = downloadUrl;
-    document.body.appendChild(iframe);
-
-    // Clean up iframe after 20 seconds
-    setTimeout(() => {
-      try {
-        if (iframe.parentNode) {
-          document.body.removeChild(iframe);
-        }
-      } catch {}
-    }, 20000);
-
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = type === "portable" ? "Printap-Portable.exe" : "Printap-Setup.exe";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     setDownloadStarted(true);
   };
 

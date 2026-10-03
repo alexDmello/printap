@@ -9,6 +9,7 @@ import { ServicesRates, type DirtyHandler } from "./components/ServicesRates";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
 import { PrintHistory } from "./components/PrintHistory";
+import { IconSidebarToggle } from "./components/Icons";
 import {
   startShopSignaling,
   stopShopSignaling,
@@ -28,6 +29,36 @@ import logoImg from "./assets/logo.png";
 function ShopAdminShell(): React.ReactElement {
   const { isAuthenticated, isLoading, shopId, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AdminPage>("live");
+
+  // Sidebar visibility state (persisted)
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("printap_sidebar_visible");
+      return saved !== null ? saved === "true" : true;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("printap_sidebar_visible", String(isSidebarOpen));
+    } catch {}
+  }, [isSidebarOpen]);
+
+  // Keyboard shortcut Alt+S or Ctrl+B to toggle sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.altKey && (e.key === "s" || e.key === "S")) ||
+        ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B"))
+      ) {
+        e.preventDefault();
+        setIsSidebarOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Live session state
   const [isListening, setIsListening] = useState(false);
@@ -1019,32 +1050,48 @@ function ShopAdminShell(): React.ReactElement {
 
   // Authenticated -> Full Shop Admin Shell
   return (
-    <div className="app-shell">
-      <Sidebar
-        currentPage={currentPage}
-        onSelectPage={handleSelectPage}
-        isOnline={isShopOnline}
-        onToggleOnline={handleToggleOnline}
-        isTogglingOnline={isTogglingOnline}
-        onLogoutRequest={handleLogoutRequest}
-      />
+    <div className={`app-shell ${!isSidebarOpen ? "sidebar-collapsed" : ""}`}>
+      {isSidebarOpen && (
+        <Sidebar
+          currentPage={currentPage}
+          onSelectPage={handleSelectPage}
+          isOnline={isShopOnline}
+          onToggleOnline={handleToggleOnline}
+          isTogglingOnline={isTogglingOnline}
+          onLogoutRequest={handleLogoutRequest}
+          onHideSidebar={() => setIsSidebarOpen(false)}
+        />
+      )}
 
       <div className="main-workspace">
         <div className="window-drag-strip">
-          <div className="window-drag-title">
-            <span style={{ fontWeight: 700, color: "#09090b" }}>Printap Agent</span>
-            <span style={{ color: "var(--text-faint)" }}>•</span>
-            <span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
-              {currentPage === "live"
-                ? "Live Monitor"
-                : currentPage === "printers"
-                ? "Printers Control"
-                : currentPage === "analytics"
-                ? "Revenue & Analytics"
-                : currentPage === "qr"
-                ? "Counter QR Stand"
-                : "Shop Profile"}
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              type="button"
+              className="no-drag sidebar-toggle-btn"
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              title={isSidebarOpen ? "Hide sidebar (Alt+S)" : "Show sidebar (Alt+S)"}
+              aria-label={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            >
+              <IconSidebarToggle size={15} />
+              <span className="sidebar-toggle-text">{isSidebarOpen ? "Hide Menu" : "Show Menu"}</span>
+            </button>
+
+            <div className="window-drag-title">
+              <span style={{ fontWeight: 700, color: "#09090b" }}>Printap Agent</span>
+              <span style={{ color: "var(--text-faint)" }}>•</span>
+              <span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
+                {currentPage === "live"
+                  ? "Live Monitor"
+                  : currentPage === "printers"
+                  ? "Printers Control"
+                  : currentPage === "analytics"
+                  ? "Revenue & Analytics"
+                  : currentPage === "qr"
+                  ? "Counter QR Stand"
+                  : "Shop Profile"}
+              </span>
+            </div>
           </div>
           <div
             className="no-drag"

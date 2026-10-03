@@ -167,8 +167,22 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   const settledPayments = allJobs.filter(
     (j) => j.paymentStatus === "confirmed" || j.paymentStatus === "handed_over"
   );
-  // Only the last 7 are displayed on the live monitor; the rest are in History
-  const displayedSettled = settledPayments.slice(0, 7);
+  // Only the last 10 are displayed on the live monitor; the rest are in History
+  const displayedSettled = settledPayments.slice(0, 10);
+
+  // Combine active job + recent jobs for print queue table
+  const printQueueJobs = React.useMemo(() => {
+    const list: LiveJob[] = [];
+    if (currentJob) {
+      list.push(currentJob);
+    }
+    recentJobs.forEach((rj) => {
+      if (!currentJob || rj.sessionId !== currentJob.sessionId) {
+        list.push(rj);
+      }
+    });
+    return list;
+  }, [currentJob, recentJobs]);
 
   return (
     <div className="content fade-in">
@@ -183,7 +197,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
         </p>
       </div>
 
-      {/* Top Stat Cards */}
+      {/* Top Stat Cards (Terminal Gateway removed -> 3 balanced cards) */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">
@@ -192,27 +206,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
           </div>
           <div className="stat-value">{todayPrintsCount}</div>
           <div className="stat-footnote">Direct peer-to-peer queue</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            <span>Terminal Gateway</span>
-            <IconLive size={16} color="var(--text-muted)" />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <span className="beacon-dot" />
-            <span
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                letterSpacing: "-0.01em",
-                color: isListening ? "var(--accent-emerald)" : "var(--accent-amber)",
-              }}
-            >
-              {isListening ? "Direct P2P Online" : "Connecting..."}
-            </span>
-          </div>
-          <div className="stat-footnote">Zero cloud storage • Direct WebRTC</div>
         </div>
 
         <div className="stat-card">
@@ -241,321 +234,186 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
           </div>
           <div className="stat-footnote">
             {pendingPayments.length > 0
-              ? `${pendingPayments.length} awaiting cash/UPI confirmation`
+              ? `${pendingPayments.length} awaiting verification`
               : "All counter payments verified"}
           </div>
         </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════
-          TWO-SECTION SPLIT LAYOUT:
-          LEFT: Print Queue with Dropdown Filenames
-          RIGHT: Payment Counter Confirmation
+          THREE-PANEL TABLE SYSTEM:
+          1. Current Print Queue (Table)
+          2. Payment Counter (Pending Verification - Table)
+          3. Done Payments (Settled/Verified Orders - Table)
       ══════════════════════════════════════════════════════════ */}
-      <div className="live-monitor-grid">
-        {/* ─── SECTION 1: Current Queue Details (Left Side) ─── */}
-        <section className="monitor-section">
-          <div className="monitor-section-header">
-            <h2 className="monitor-section-title">
-              <IconPrinter size={18} color="var(--text-primary)" />
+      <div className="live-monitor-tables-grid">
+        {/* ─── TABLE 1: Current Print Queue ─── */}
+        <div className="monitor-table-card">
+          <div className="monitor-table-header">
+            <div className="monitor-table-title">
+              <IconPrinter size={16} color="var(--text-primary)" />
               <span>Current Print Queue</span>
-            </h2>
-            <span className="status-badge">
-              {currentJob ? "1 Active Processing" : `${recentJobs.length} Logged Today`}
+            </div>
+            <span className="status-badge active">
+              {currentJob ? "1 Processing" : `${printQueueJobs.length} Today`}
             </span>
           </div>
 
-          {/* Active Job in Progress (if any) */}
-          {currentJob && (
-            currentJob.status === "error" ? (
-              <div
-                className="queue-job-card fade-in"
-                style={{
-                  background: "#fff5f5",
-                  border: "1px solid #fecaca",
-                  borderRadius: "var(--radius-lg)",
-                  padding: 16,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {currentJob.tokenCode && (
-                      <span className="token-pill" style={{ background: "#fee2e2", color: "#b91c1c", borderColor: "#fca5a5" }}>
-                        {currentJob.tokenCode}
-                      </span>
-                    )}
-                    <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
-                      ● Hardware Print Failed
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 11, color: "#991b1b" }}>
-                    {currentJob.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
+          <div className="monitor-table-container">
+            <table className="monitor-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 68 }}>Token</th>
+                  <th>Document & Specs</th>
+                  <th style={{ width: 110 }}>Status</th>
+                  <th style={{ width: 60, textAlign: "right" }}>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printQueueJobs.length > 0 ? (
+                  printQueueJobs.map((job) => {
+                    const isActive = currentJob?.sessionId === job.sessionId;
+                    const docCount = job.files?.length || job.fileCount || 1;
+                    const totalPages =
+                      job.files && job.files.length > 0
+                        ? job.files.reduce(
+                            (sum, f) => sum + (f.pageCount || 1) * (f.settings?.copies || 1),
+                            0
+                          )
+                        : 1;
+                    const isExpanded = !!expandedJobs[job.sessionId];
+                    const hasMultiFiles = job.files && job.files.length > 1;
 
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#991b1b" }}>
-                  {currentJob.detail || "Printer error or paper jam detected."}
-                </div>
-
-                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                  <button
-                    type="button"
-                    className="login-btn"
-                    style={{
-                      width: "auto",
-                      padding: "7px 16px",
-                      fontSize: 12,
-                      background: "#dc2626",
-                    }}
-                    onClick={() => onRetryJob?.(currentJob.sessionId)}
-                  >
-                    Retry Print
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    style={{ padding: "7px 14px", fontSize: 12 }}
-                    onClick={() => onDismissJob?.(currentJob.sessionId)}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="queue-job-card active-job fade-in">
-                <div className="queue-job-header">
-                  <div className="queue-badges">
-                    {currentJob.tokenCode && (
-                      <span className="token-pill">{currentJob.tokenCode}</span>
-                    )}
-                    <span className={getStatusBadge(currentJob.status).className} />
-                    <span className="status-badge active">
-                      {getStatusBadge(currentJob.status).label}
-                    </span>
-                  </div>
-
-                  {/* Dropdown toggle button for filenames */}
-                  <button
-                    type="button"
-                    className={`queue-files-dropdown-btn ${expandedJobs[currentJob.sessionId] ? "open" : ""}`}
-                    onClick={() => toggleJobExpanded(currentJob.sessionId)}
-                    title="Click to view file details"
-                  >
-                    <IconFileText size={14} />
-                    <span>
-                      {currentJob.files?.length || currentJob.fileCount || 1} file(s)
-                    </span>
-                    <span className="chevron">
-                      <IconChevronDown size={14} />
-                    </span>
-                  </button>
-                </div>
-
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#09090b" }}>
-                  {currentJob.fileName || "Customer Document.pdf"}
-                </div>
-
-                {/* Progress bar if receiving */}
-                {typeof currentJob.progressPct === "number" && currentJob.status === "receiving" && (
-                  <div>
-                    <div className="progress-track">
-                      <div className="progress-fill" style={{ width: `${currentPct}%` }} />
-                    </div>
-                    <div className="progress-labels">
-                      <span>Direct WebRTC Transfer Stream</span>
-                      <span>{currentPct}%</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* 4-Stage Hardware Spool Pipeline */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: 8,
-                    padding: "10px 12px",
-                    background: "rgba(0, 0, 0, 0.03)",
-                    borderRadius: "var(--radius-md)",
-                  }}
-                >
-                  {stages.map((st, idx) => {
-                    const isPassed = activeStageIdx > idx;
-                    const isCurrent = activeStageIdx === idx;
                     return (
-                      <div
-                        key={st.id}
-                        style={{
-                          fontSize: 11,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                          opacity: isCurrent ? 1 : isPassed ? 0.8 : 0.4,
-                          color: isCurrent ? "var(--accent-emerald)" : "var(--text-primary)",
-                        }}
-                      >
-                        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)" }}>
-                          Step {st.num}
-                        </span>
-                        <span style={{ fontWeight: isCurrent ? 700 : 500 }}>{st.label}</span>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 600,
-                            color: isCurrent ? "var(--accent-emerald)" : "var(--text-muted)",
-                          }}
-                        >
-                          {isCurrent ? "● Active" : isPassed ? "✓ Done" : "Wait"}
-                        </span>
-                      </div>
+                      <React.Fragment key={job.sessionId}>
+                        <tr className={isActive ? "table-row-active" : ""}>
+                          <td>
+                            <span className="token-pill">{job.tokenCode || "#--"}</span>
+                          </td>
+                          <td>
+                            <div className="table-doc-cell">
+                              <span className="table-file-title" title={job.fileName || "Customer Document.pdf"}>
+                                {job.fileName || "Customer Document.pdf"}
+                              </span>
+                              <div className="table-file-subtext">
+                                <span>
+                                  {docCount} {docCount === 1 ? "doc" : "docs"} • {totalPages} {totalPages === 1 ? "pg" : "pgs"}
+                                </span>
+                                {hasMultiFiles && (
+                                  <button
+                                    type="button"
+                                    className={`table-expand-btn ${isExpanded ? "open" : ""}`}
+                                    onClick={() => toggleJobExpanded(job.sessionId)}
+                                    title="View files"
+                                  >
+                                    <span>{isExpanded ? "Hide" : "Files"}</span>
+                                    <IconChevronDown size={11} />
+                                  </button>
+                                )}
+                              </div>
+                              {isActive && job.status === "receiving" && typeof job.progressPct === "number" && (
+                                <div className="table-progress-track">
+                                  <div
+                                    className="table-progress-fill"
+                                    style={{ width: `${Math.min(100, Math.max(0, job.progressPct))}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            {job.status === "receiving" ? (
+                              <span className="status-badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>
+                                Stream ({job.progressPct || 0}%)
+                              </span>
+                            ) : job.status === "printing" ? (
+                              <span className="status-badge active" style={{ background: "#fef3c7", color: "#b45309" }}>
+                                ● Printing
+                              </span>
+                            ) : job.status === "error" ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626" }}>
+                                  Failed
+                                </span>
+                                <div style={{ display: "flex", gap: 3 }}>
+                                  <button
+                                    type="button"
+                                    className="btn-retry-tiny"
+                                    onClick={() => onRetryJob?.(job.sessionId)}
+                                  >
+                                    Retry
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-dismiss-tiny"
+                                    onClick={() => onDismissJob?.(job.sessionId)}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="status-badge" style={{ background: "#ecfdf5", color: "#047857" }}>
+                                ✓ Spooled
+                              </span>
+                            )}
+                          </td>
+                          <td className="table-time-cell" style={{ textAlign: "right" }}>
+                            {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                        </tr>
+
+                        {/* Collapsible files row if expanded */}
+                        {isExpanded && job.files && job.files.length > 0 && (
+                          <tr className="table-expanded-row">
+                            <td colSpan={4}>
+                              <div className="table-expanded-files-list">
+                                {job.files.map((file, fIdx) => (
+                                  <div key={fIdx} className="table-expanded-file-row">
+                                    <IconFileText size={12} color="var(--text-muted)" />
+                                    <span className="file-name" title={file.fileName}>
+                                      {file.fileName}
+                                    </span>
+                                    <span className="file-meta">
+                                      {file.pageCount || 1} pg • {(file.settings?.colorMode || "bw").toUpperCase()} •{" "}
+                                      {file.settings?.copies || 1} cp
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
-                  })}
-                </div>
-
-                {/* Expandable Filenames List Accordion upon clicking */}
-                {expandedJobs[currentJob.sessionId] && (
-                  <div className="queue-files-list">
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Files in this print order:
-                    </div>
-                    {currentJob.files && currentJob.files.length > 0 ? (
-                      currentJob.files.map((file, idx) => (
-                        <div key={idx} className="queue-file-row">
-                          <div className="queue-file-name" title={file.fileName}>
-                            <IconFileText size={14} color="var(--text-secondary)" />
-                            <span>{file.fileName}</span>
-                          </div>
-                          <div className="queue-file-meta">
-                            {file.pageCount ? `${file.pageCount} pg` : "1 pg"}
-                            {file.settings?.colorMode ? ` • ${file.settings.colorMode.toUpperCase()}` : ""}
-                            {file.settings?.copies ? ` • ${file.settings.copies} copy` : ""}
-                          </div>
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="monitor-table-empty">
+                      <div className="empty-state-content">
+                        <IconPrinter size={26} color="var(--text-muted)" />
+                        <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginTop: 6 }}>
+                          Queue is idle
                         </div>
-                      ))
-                    ) : (
-                      <div className="queue-file-row">
-                        <div className="queue-file-name">
-                          <IconFileText size={14} color="var(--text-secondary)" />
-                          <span>{currentJob.fileName || "Customer Document"}</span>
-                        </div>
-                        <div className="queue-file-meta">1 document</div>
+                        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "3px 0 0" }}>
+                          New orders will appear here automatically.
+                        </p>
                       </div>
-                    )}
-                  </div>
+                    </td>
+                  </tr>
                 )}
-
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {currentJob.detail || "Processing document directly in hardware memory..."}
-                </div>
-              </div>
-            )
-          )}
-
-          {/* Recent Spooler Job (Single Container) */}
-          <div className="card" style={{ padding: 0 }}>
-            <div className="card-header" style={{ padding: "12px 16px" }}>
-              <span className="card-title" style={{ fontSize: 13, fontWeight: 700 }}>
-                <span>Recent Spooler Job</span>
-              </span>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                Latest completed print
-              </span>
-            </div>
-            <div style={{ padding: "12px 16px 16px" }}>
-              {recentJobs.length > 0 ? (
-                (() => {
-                  const latestJob = recentJobs[0];
-                  const docCount = latestJob.files?.length || latestJob.fileCount || 1;
-                  const totalPages =
-                    latestJob.files && latestJob.files.length > 0
-                      ? latestJob.files.reduce(
-                          (sum, f) => sum + (f.pageCount || 1) * (f.settings?.copies || 1),
-                          0
-                        )
-                      : 1;
-
-                  return (
-                    <div
-                      className="queue-job-card"
-                      style={{
-                        padding: "14px 16px",
-                        background: "rgba(255, 255, 255, 0.75)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-lg)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span
-                            className="token-pill"
-                            style={{
-                              fontSize: 14,
-                              fontWeight: 800,
-                              padding: "4px 10px",
-                              letterSpacing: "0.02em",
-                            }}
-                          >
-                            {latestJob.tokenCode || "#--"}
-                          </span>
-                          <span className={getStatusBadge(latestJob.status).className} />
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--accent-emerald)" }}>
-                            Printed & Spooled
-                          </span>
-                        </div>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                          {latestJob.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-
-                      {/* Small Details: Number of Documents and Number of Pages (No Price) */}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          fontSize: 12,
-                          color: "var(--text-secondary)",
-                          fontWeight: 500,
-                          paddingTop: 6,
-                          borderTop: "1px dashed var(--border-subtle)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <IconFileText size={13} color="var(--text-muted)" />
-                          <span>
-                            {docCount} {docCount === 1 ? "document" : "documents"}
-                          </span>
-                        </div>
-                        <span style={{ color: "var(--text-faint)" }}>•</span>
-                        <div>
-                          <strong style={{ color: "#09090b" }}>{totalPages}</strong> {totalPages === 1 ? "page" : "pages"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
-                  No recent print jobs yet today.
-                </div>
-              )}
-            </div>
+              </tbody>
+            </table>
           </div>
-        </section>
+        </div>
 
-        {/* ─── SECTION 2: Payment Counter & Confirmation (Right Side) ─── */}
-        <section className="monitor-section">
-          <div className="monitor-section-header">
-            <h2 className="monitor-section-title">
-              <IconCash size={18} color="var(--text-primary)" />
+        {/* ─── TABLE 2: Payment Counter (Pending Verification) ─── */}
+        <div className="monitor-table-card">
+          <div className="monitor-table-header">
+            <div className="monitor-table-title">
+              <IconCash size={16} color="var(--text-primary)" />
               <span>Payment Counter</span>
-            </h2>
+            </div>
             <span
               className="status-badge"
               style={{
@@ -564,192 +422,155 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 borderColor: pendingPayments.length > 0 ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)",
               }}
             >
-              {pendingPayments.length > 0
-                ? `${pendingPayments.length} Awaiting Verification`
-                : "All Settled ✓"}
+              {pendingPayments.length > 0 ? `${pendingPayments.length} Due` : "All Settled ✓"}
             </span>
           </div>
 
-          {/* Pending Payment Orders (Need Shop Confirmation) */}
-          {pendingPayments.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {pendingPayments.map((job) => {
-                const amount = job.totalAmount ?? 0;
-                return (
-                  <div key={job.sessionId} className="payment-order-card pending fade-in">
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className="token-pill">{job.tokenCode || "#--"}</span>
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: "var(--radius-full)",
-                          background: "rgba(245, 158, 11, 0.2)",
-                          color: "#b45309",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {job.paymentMethod ? `${job.paymentMethod.toUpperCase()} Pending` : "Payment Due"}
-                      </span>
-                    </div>
+          <div className="monitor-table-container">
+            <table className="monitor-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 68 }}>Token</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th style={{ width: 85, textAlign: "right" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingPayments.length > 0 ? (
+                  pendingPayments.map((job) => {
+                    const amount = job.totalAmount ?? 0;
+                    const docCount = job.files?.length || job.fileCount || 1;
 
-                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>
-                          COLLECT FROM CUSTOMER
+                    return (
+                      <tr key={job.sessionId}>
+                        <td>
+                          <span className="token-pill">{job.tokenCode || "#--"}</span>
+                        </td>
+                        <td>
+                          <span className="table-amount-due">₹{amount.toFixed(2)}</span>
+                        </td>
+                        <td>
+                          <div className="table-method-cell">
+                            <span className="method-pill">{job.paymentMethod?.toUpperCase() || "CASH"}</span>
+                            <span className="subtext">{docCount} {docCount === 1 ? "doc" : "docs"}</span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            type="button"
+                            className="table-confirm-btn"
+                            onClick={() => onConfirmPayment(job.sessionId)}
+                            title={`Confirm payment of ₹${amount.toFixed(2)}`}
+                          >
+                            <IconCheck size={13} />
+                            <span>Confirm</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="monitor-table-empty">
+                      <div className="empty-state-content">
+                        <IconCheck size={26} color="var(--accent-emerald)" />
+                        <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginTop: 6 }}>
+                          All Settled
                         </div>
-                        <div className="payment-amount-hero">₹{amount.toFixed(2)}</div>
+                        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "3px 0 0" }}>
+                          Pending payments will appear here for 1-click verification.
+                        </p>
                       </div>
-
-                      <div style={{ textAlign: "right", fontSize: 12, color: "var(--text-secondary)" }}>
-                        <div>{job.files?.length || job.fileCount || 1} document(s)</div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                          {job.status === "printing" ? "🖨️ Printing right now..." : "✓ Paper ready on tray"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Shop Confirmation Action Button */}
-                    <button
-                      type="button"
-                      className="confirm-payment-action-btn"
-                      onClick={() => onConfirmPayment(job.sessionId)}
-                      title="Click to confirm payment and notify customer for handover"
-                    >
-                      <IconCheck size={16} />
-                      <span>Confirm Payment Received (₹{amount.toFixed(2)})</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Settled Orders: Only show the last 7, and link to History */}
-          {displayedSettled.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 8,
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
-                  Recent Settled Orders ({displayedSettled.length}{settledPayments.length > 7 ? ` of ${settledPayments.length}` : ""}):
-                </div>
-                {onNavigateToHistory && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToHistory}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-secondary)",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    View All History →
-                  </button>
+                    </td>
+                  </tr>
                 )}
-              </div>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {displayedSettled.map((job) => (
-                  <div
-                    key={job.sessionId}
-                    className="payment-order-card confirmed fade-in"
-                    style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className="token-pill">{job.tokenCode || "#--"}</span>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "#09090b" }}>
-                          ₹{(job.totalAmount ?? 0).toFixed(2)} received
-                        </span>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                          {job.paymentMethod ? job.paymentMethod.toUpperCase() : "UPI"} • {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
+        {/* ─── TABLE 3: Done Payments (Towards Right of Payment Counter) ─── */}
+        <div className="monitor-table-card">
+          <div className="monitor-table-header">
+            <div className="monitor-table-title">
+              <IconCheck size={16} color="var(--accent-emerald)" />
+              <span>Done Payments</span>
+            </div>
+            <span className="status-badge" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#059669" }}>
+              {settledPayments.length} Settled
+            </span>
+          </div>
+
+          <div className="monitor-table-container">
+            <table className="monitor-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 68 }}>Token</th>
+                  <th>Received</th>
+                  <th>Method & Time</th>
+                  <th style={{ width: 85, textAlign: "right" }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedSettled.length > 0 ? (
+                  displayedSettled.map((job) => {
+                    const amount = job.totalAmount ?? 0;
+
+                    return (
+                      <tr key={job.sessionId}>
+                        <td>
+                          <span className="token-pill">{job.tokenCode || "#--"}</span>
+                        </td>
+                        <td>
+                          <span className="table-amount-settled">₹{amount.toFixed(2)}</span>
+                        </td>
+                        <td>
+                          <div className="table-method-cell">
+                            <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+                              {job.paymentMethod ? job.paymentMethod.toUpperCase() : "UPI"}
+                            </span>
+                            <span className="subtext">
+                              {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <span className="table-verified-badge">
+                            <IconCheck size={12} />
+                            <span>Verified</span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="monitor-table-empty">
+                      <div className="empty-state-content">
+                        <IconCash size={26} color="var(--text-muted)" />
+                        <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginTop: 6 }}>
+                          No settled orders yet
+                        </div>
+                        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "3px 0 0" }}>
+                          Completed orders will be logged here.
+                        </p>
                       </div>
-                    </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#059669",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <IconCheck size={13} />
-                      <span>Verified ✓</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {settledPayments.length > 7 && onNavigateToHistory && (
-                <div style={{ marginTop: 10, textAlign: "center" }}>
-                  <button
-                    type="button"
-                    onClick={onNavigateToHistory}
-                    style={{
-                      background: "rgba(0, 0, 0, 0.04)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-md)",
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--text-secondary)",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span>Showing last 7. View all {settledPayments.length} in History →</span>
-                  </button>
-                </div>
-              )}
+          {settledPayments.length > 7 && onNavigateToHistory && (
+            <div className="monitor-table-footer">
+              <button type="button" onClick={onNavigateToHistory} className="table-history-link">
+                <span>View all {settledPayments.length} in History →</span>
+              </button>
             </div>
           )}
-
-          {/* Handed Over Archive / Empty State */}
-          {pendingPayments.length === 0 && displayedSettled.length === 0 && (
-            <div className="card" style={{ padding: "32px 20px", textAlign: "center" }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  background: "rgba(16, 185, 129, 0.1)",
-                  color: "var(--accent-emerald)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 12px",
-                }}
-              >
-                <IconCheck size={22} />
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#09090b" }}>
-                All Payments Confirmed
-              </div>
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, maxWidth: 280, margin: "4px auto 0" }}>
-                When a customer sends a document to print, their payment confirmation card will appear here for 1-click verification.
-              </p>
-            </div>
-          )}
-        </section>
+        </div>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   IconQr,
   IconTag,
   IconHistory,
+  IconChevronLeft,
 } from "./Icons";
 
 export type AdminPage = "live" | "history" | "printers" | "services" | "analytics" | "qr" | "profile";
@@ -20,6 +21,7 @@ interface SidebarProps {
   onToggleOnline: (value: boolean) => void;
   isTogglingOnline?: boolean;
   onLogoutRequest?: () => void;
+  onHideSidebar?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -29,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleOnline,
   isTogglingOnline = false,
   onLogoutRequest,
+  onHideSidebar,
 }) => {
   const { shop, logout } = useAuth();
   const [showOfflineConfirm, setShowOfflineConfirm] = React.useState(false);
@@ -86,9 +89,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Top Shop Header & Online/Offline Control */}
         <div className="sidebar-header">
           <div className="sidebar-top-shop">
-            <h1 className="sidebar-top-shop-name" title={shop?.name || "Print Shop"}>
-              {shop?.name || "Print Shop"}
-            </h1>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+              <h1 className="sidebar-top-shop-name" title={shop?.name || "Print Shop"}>
+                {shop?.name || "Print Shop"}
+              </h1>
+              {onHideSidebar && (
+                <button
+                  type="button"
+                  className="sidebar-collapse-btn"
+                  onClick={onHideSidebar}
+                  title="Hide sidebar (Alt+S)"
+                  aria-label="Hide sidebar"
+                >
+                  <IconChevronLeft size={15} />
+                </button>
+              )}
+            </div>
             <div className="sidebar-status-beacon">
               <span className={`beacon-dot ${isOnline ? "online" : "offline"}`} />
               <span>{isOnline ? "Terminal Online" : "Terminal Offline"}</span>

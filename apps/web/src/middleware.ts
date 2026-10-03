@@ -45,6 +45,12 @@ export function middleware(request: NextRequest) {
   const host = rawHost.split(":")[0].toLowerCase().trim().replace(/\.+$/, "");
   const sub = extractSubdomain(rawHost);
 
+  // 0. Apex domain canonicalization: mellod.in -> www.mellod.in
+  if (!isLocalOrPrivateHost(rawHost) && host === ROOT_DOMAIN) {
+    const canonicalUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, MARKETING_URL);
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
+
   // 1. Reserved, brand, or invalid subdomains (e.g. mello, shop, admin, api)
   // Terminate immediately with empty 404 at the edge (zero database queries)
   if (sub.type === "not-found") {

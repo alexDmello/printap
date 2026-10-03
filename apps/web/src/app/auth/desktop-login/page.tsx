@@ -188,7 +188,15 @@ function DesktopLoginContent() {
     setErrorMessage(null);
     try {
       const supabase = getBrowserSupabase();
-      const redirectUri = `${window.location.origin}/auth/desktop-login?session=${encodeURIComponent(sessionId)}`;
+      const isLocal =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname.endsWith(".localhost"));
+
+      const redirectUri = isLocal
+        ? `${window.location.origin}/auth/desktop-login?session=${encodeURIComponent(sessionId)}`
+        : `https://www.mellod.in/auth/desktop-login?session=${encodeURIComponent(sessionId)}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",

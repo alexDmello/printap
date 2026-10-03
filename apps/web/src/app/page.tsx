@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { getBrowserSupabase } from "@/lib/supabase-client";
 
 interface DemoDoc {
   name: string;
@@ -18,6 +19,46 @@ const DEMO_DOCS: DemoDoc[] = [
 
 export default function Home() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [userShopSlug, setUserShopSlug] = useState<string | null>(null);
+
+  // 1. If user landed on root with OAuth tokens/code, immediately forward to /auth/callback
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      if (
+        hash.includes("access_token") ||
+        hash.includes("error") ||
+        search.includes("code=") ||
+        search.includes("error=")
+      ) {
+        window.location.replace(`/auth/callback${search}${hash}`);
+      }
+    }
+  }, []);
+
+  // 2. Check if logged-in user already has an onboarded shop
+  useEffect(() => {
+    try {
+      const supabase = getBrowserSupabase();
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (session?.user?.email) {
+          const { data: existingShop } = await supabase
+            .from("shops")
+            .select("slug")
+            .ilike("owner_email", session.user.email.toLowerCase().trim())
+            .limit(1)
+            .maybeSingle();
+
+          if (existingShop?.slug) {
+            setUserShopSlug(existingShop.slug);
+          }
+        }
+      });
+    } catch {
+      // Ignore background check failure
+    }
+  }, []);
 
   // Rotating Headline Words
   const rotatingWords = [
@@ -106,10 +147,10 @@ export default function Home() {
           {/* Single Clear Action CTA */}
           <div className="flex items-center">
             <Link
-              href="/onboard"
+              href={userShopSlug ? `/download?shop=${encodeURIComponent(userShopSlug)}` : "/onboard"}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
             >
-              <span>Open Your Shop</span>
+              <span>{userShopSlug ? "My Shop Terminal" : "Open Your Shop"}</span>
               <span>→</span>
             </Link>
           </div>
@@ -154,10 +195,10 @@ export default function Home() {
             {/* CTA Button Row (No test button) */}
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
               <Link
-                href="/onboard"
+                href={userShopSlug ? `/download?shop=${encodeURIComponent(userShopSlug)}` : "/onboard"}
                 className="w-full sm:w-auto px-8 py-4 bg-zinc-950 hover:bg-zinc-800 text-white text-base font-black rounded-2xl shadow-lg shadow-zinc-950/15 hover:shadow-xl transition-all cursor-pointer hover:scale-[1.02] flex items-center justify-center gap-2 group"
               >
-                <span>Open Your Free Shop</span>
+                <span>{userShopSlug ? "Go to Shop Terminal" : "Open Your Free Shop"}</span>
                 <span className="group-hover:translate-x-1 transition-transform">→</span>
               </Link>
 
@@ -492,10 +533,10 @@ export default function Home() {
 
         <div className="mt-10 text-center">
           <Link
-            href="/onboard"
+            href={userShopSlug ? `/download?shop=${encodeURIComponent(userShopSlug)}` : "/onboard"}
             className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-950 hover:bg-zinc-800 text-white text-base font-black rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]"
           >
-            <span>Open Your Shop in 2 Minutes</span>
+            <span>{userShopSlug ? "Open Counter Terminal" : "Open Your Shop in 2 Minutes"}</span>
             <span>→</span>
           </Link>
         </div>

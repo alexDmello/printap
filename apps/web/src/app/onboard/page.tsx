@@ -131,41 +131,69 @@ function OnboardContent() {
   // 1. Initialize Supabase Auth & Listen for Google Sign-In
   useEffect(() => {
     const supabase = getBrowserSupabase();
+    let isMounted = true;
+    let isProcessing = false;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const processUser = async (user: any) => {
-      if (!user || !user.email) return;
+      if (!user || !user.email || isProcessing || !isMounted) return;
+      isProcessing = true;
 
-      const profile: GoogleAuthUser = {
-        id: user.id,
-        email: user.email.toLowerCase().trim(),
-        name:
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email.split("@")[0],
-        avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-      };
+      try {
+        const profile: GoogleAuthUser = {
+          id: user.id,
+          email: user.email.toLowerCase().trim(),
+          name:
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email.split("@")[0],
+          avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        };
 
-      setGoogleUser(profile);
+        // Check if user already has an onboarded shop (case-insensitive)
+        const { data: existingShop } = await supabase
+          .from("shops")
+          .select("slug")
+          .ilike("owner_email", profile.email)
+          .limit(1)
+          .maybeSingle();
 
-      // Check if user already has an onboarded shop
-      const { data: existingShop } = await supabase
-        .from("shops")
-        .select("slug")
-        .eq("owner_email", profile.email)
-        .maybeSingle();
+        if (!isMounted) return;
 
-      if (existingShop?.slug) {
-        router.push(`/download?shop=${encodeURIComponent(existingShop.slug)}`);
+        if (existingShop?.slug) {
+          // Already onboarded → redirect immediately to counter terminal download
+          router.replace(`/download?shop=${encodeURIComponent(existingShop.slug)}`);
+          return;
+        }
+
+        // New user → display the onboarding stepper
+        setGoogleUser(profile);
+      } catch (err) {
+        console.warn("[Onboard] Failed checking shop status:", err);
+      } finally {
+        isProcessing = false;
+        if (isMounted) {
+          setIsAuthLoading(false);
+        }
       }
     };
 
     // Check active session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
       if (session?.user) {
-        processUser(session.user);
+        await processUser(session.user);
+      } else {
+        // If OAuth hash or code is present in URL, keep loading spinner active
+        // so the user does NOT see the sign-in showcase flash while Supabase exchanges tokens
+        const hasAuthInUrl =
+          typeof window !== "undefined" &&
+          (window.location.hash.includes("access_token") ||
+            window.location.search.includes("code="));
+        if (!hasAuthInUrl) {
+          setIsAuthLoading(false);
+        }
       }
-      setIsAuthLoading(false);
     });
 
     // Listen for auth state change (e.g. after Google OAuth redirect)
@@ -174,11 +202,23 @@ function OnboardContent() {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         await processUser(session.user);
+      } else {
+        if (isMounted && !isProcessing) {
+          setIsAuthLoading(false);
+        }
       }
-      setIsAuthLoading(false);
     });
 
+    // Fallback: Ensure loading screen dismisses even if auth hangs
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && !isProcessing) {
+        setIsAuthLoading(false);
+      }
+    }, 6000);
+
     return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, [router]);
@@ -197,7 +237,6 @@ function OnboardContent() {
           redirectTo: redirectUri,
           queryParams: {
             access_type: "offline",
-            prompt: "consent",
           },
         },
       });
@@ -211,16 +250,6 @@ function OnboardContent() {
       console.error(err);
       setIsSigningIn(false);
     }
-  };
-
-  // Dev Preview Login (allows testing immediately on localhost without live Google Cloud credentials)
-  const handleDevPreviewLogin = () => {
-    setGoogleUser({
-      id: "dev-preview-user",
-      email: "alex.printshop@gmail.com",
-      name: "Alex Store Owner",
-      avatarUrl: "https://lh3.googleusercontent.com/a/default-user=s96-c",
-    });
   };
 
   // Sign out / switch Google account
@@ -568,16 +597,6 @@ function OnboardContent() {
                   <span>{isSigningIn ? "Connecting to Google..." : "Continue with Google"}</span>
                 </button>
 
-                {/* Instant Dev / Preview Mode */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleDevPreviewLogin}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-950 text-xs font-bold transition-all cursor-pointer"
-                  >
-                    <span>⚡ Instant Demo Mode (No Google Login Needed)</span>
-                  </button>
-                </div>
               </div>
 
               {/* Trust Badge Footer */}

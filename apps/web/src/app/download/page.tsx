@@ -49,7 +49,8 @@ function DownloadContent() {
         const { data } = await supabase
           .from("shops")
           .select("name, slug, owner_email")
-          .eq("owner_email", email)
+          .ilike("owner_email", email)
+          .limit(1)
           .maybeSingle();
 
         if (data) {

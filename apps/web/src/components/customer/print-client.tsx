@@ -33,10 +33,6 @@ import PrintSettingsPanel from "./PrintSettings";
 import PagePreview from "./PagePreview";
 import BottomPriceBar from "./BottomPriceBar";
 import PrintAndPay from "./PrintAndPay";
-import TransferView from "./TransferView";
-import TokenConfirmation from "./TokenConfirmation";
-import LiveQueueTracker from "./LiveQueueTracker";
-import PickupReady from "./PickupReady";
 
 // ─── Step definitions ───
 
@@ -45,10 +41,6 @@ type Step =
   | "settings"
   | "preview"
   | "print_pay"
-  | "transferring"
-  | "token"
-  | "queue"
-  | "pickup"
   | "error";
 
 const MILESTONE_STEPS = [
@@ -233,10 +225,6 @@ export default function PrintClient({
       case "preview":
         return 2;
       case "print_pay":
-      case "transferring":
-      case "token":
-      case "queue":
-      case "pickup":
         return 3;
       default:
         return 0;
@@ -244,58 +232,35 @@ export default function PrintClient({
   }, [step]);
   const isError = step === "error";
 
-  // ─── Session Recovery (Tokens reset daily) ───
+  // Clean state on mount / refresh (ensures user is never trapped in stale session)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SESSION_STORAGE_KEY(shopId));
-      if (saved) {
-        const session = JSON.parse(saved);
-        // Verify session was created TODAY (tokens reset every day)
-        const isFromToday =
-          session.createdAt &&
-          new Date(session.createdAt).toDateString() === new Date().toDateString();
-
-        if (isFromToday && session.token && session.status !== "picked_up") {
-          setToken(session.token);
-          setJobStatus(session.status);
-          setStep(session.status === "ready_for_pickup" ? "pickup" : "queue");
-        } else if (!isFromToday) {
-          // Token from a previous day - purge it so customer gets a fresh token for today
-          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
+      localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+    } catch {}
   }, [shopId]);
 
-  // ─── Persist session when token is set ───
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem(
-        SESSION_STORAGE_KEY(shopId),
-        JSON.stringify({
-          orderId: crypto.randomUUID(),
-          shopId,
-          token,
-          status: jobStatus,
-          createdAt: new Date().toISOString(),
-        })
-      );
-    }
-  }, [token, jobStatus, shopId]);
+  // Refs to allow broadcast listeners to read latest state without re-subscribing
+  const tokenRef = React.useRef(token);
+  tokenRef.current = token;
+  const sessionIdRef = React.useRef(currentSessionId);
+  sessionIdRef.current = currentSessionId;
 
   // ─── Realtime Payment Confirmation & Order Status Listeners ───
+  // IMPORTANT: Subscribe ONCE per shopId — never destroy the channel on
+  // token/session changes, or it kills the WebRTC signaling mid-negotiation.
   useEffect(() => {
     if (!shopId) return;
 
     const channel = joinSignalingChannel(shopId);
+
     channel.on("broadcast", { event: "payment-confirmed" }, ({ payload }) => {
       console.log("[PrintClient] Broadcast payment-confirmed received:", payload);
       const p = payload as { sessionId?: string; tokenCode?: string };
+      const tok = tokenRef.current;
+      const sid = sessionIdRef.current;
       if (
-        (p.tokenCode && token && p.tokenCode === token.tokenCode) ||
-        (currentSessionId && p.sessionId === currentSessionId)
+        (p.tokenCode && tok && p.tokenCode === tok.tokenCode) ||
+        (sid && p.sessionId === sid)
       ) {
         setIsPaymentConfirmedByShop(true);
         setJobStatus("ready_for_pickup");
@@ -310,9 +275,11 @@ export default function PrintClient({
         status?: string;
         errorDetail?: string;
       };
+      const tok = tokenRef.current;
+      const sid = sessionIdRef.current;
       if (
-        (currentSessionId && p.sessionId === currentSessionId) ||
-        (token && p.tokenCode && p.tokenCode === token.tokenCode)
+        (sid && p.sessionId === sid) ||
+        (tok && p.tokenCode && p.tokenCode === tok.tokenCode)
       ) {
         if (p.tokenCode) {
           setToken((prev) => (prev ? { ...prev, tokenCode: p.tokenCode! } : prev));
@@ -334,6 +301,8 @@ export default function PrintClient({
       }
     });
 
+    // Only remove the channel when the component fully unmounts (shopId change),
+    // NOT on token/session changes — those are handled by refs.
     return () => {
       try {
         getSupabase().removeChannel(channel);
@@ -341,7 +310,7 @@ export default function PrintClient({
         console.warn("[PrintClient] Cleanup error:", err);
       }
     };
-  }, [shopId, token, currentSessionId]);
+  }, [shopId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!currentSessionId) return;
@@ -481,33 +450,8 @@ export default function PrintClient({
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
   }, [shopId, initialFinishing]);
 
-  const handleJobStatusChange = useCallback(
-    (status: JobStatus) => {
-      setJobStatus(status);
-      if (token) {
-        localStorage.setItem(
-          SESSION_STORAGE_KEY(shopId),
-          JSON.stringify({
-            orderId: crypto.randomUUID(),
-            shopId,
-            token,
-            status,
-            createdAt: new Date().toISOString(),
-          })
-        );
-      }
-    },
-    [shopId, token]
-  );
-
   // If the shop goes offline and there is no active transfer/order in flight, show offline screen
-  const isOrderActive = [
-    "print_pay",
-    "transferring",
-    "token",
-    "queue",
-    "pickup",
-  ].includes(step);
+  const isOrderActive = step === "print_pay";
   if (!isShopOnline && !isOrderActive) {
     return (
       <ShopOffline
@@ -662,38 +606,6 @@ export default function PrintClient({
           />
         )}
 
-        {/* STEP 5 — Transferring */}
-        {step === "transferring" && progress && (
-          <TransferView
-            progress={progress}
-            fileCount={documents.length}
-          />
-        )}
-
-        {/* STEP 6 — Token Confirmation */}
-        {step === "token" && token && (
-          <TokenConfirmation
-            token={token}
-            onContinue={() => setStep("queue")}
-          />
-        )}
-
-        {/* STEP 7 — Live Queue Tracker */}
-        {step === "queue" && token && (
-          <LiveQueueTracker
-            token={token}
-            jobStatus={jobStatus}
-            onPickupReady={() => setStep("pickup")}
-          />
-        )}
-
-        {/* STEP 8 — Pickup Ready */}
-        {step === "pickup" && token && (
-          <PickupReady
-            token={token}
-            onPrintAnother={handleReset}
-          />
-        )}
 
         {/* ERROR STATE */}
         {step === "error" && (

@@ -67,11 +67,19 @@ const activeChannels = new Map<string, RealtimeChannel>();
 
 /**
  * Joins or retrieves the cached signaling channel for `shopId`.
+ * Handles externally-removed channels (e.g. by React cleanup) by
+ * detecting unhealthy state and creating a fresh subscription.
  */
 export function joinSignalingChannel(shopId: string): RealtimeChannel {
   const existing = activeChannels.get(shopId);
-  if (existing && existing.state !== "closed") {
-    return existing;
+  if (existing) {
+    // Supabase channel states: "joined" | "joining" | "leaving" | "closed" | "errored"
+    const state = existing.state;
+    if (state === "joined" || state === "joining") {
+      return existing;
+    }
+    // Channel was removed or errored — evict from cache
+    activeChannels.delete(shopId);
   }
 
   const supabase = getSupabase();
@@ -92,6 +100,7 @@ export function joinSignalingChannel(shopId: string): RealtimeChannel {
 
 /**
  * Await channel readiness (state === "joined" / SUBSCRIBED).
+ * Resolves `true` when joined, `false` if timeout or channel is dead.
  */
 export async function waitForChannelReady(
   channel: RealtimeChannel,
@@ -101,16 +110,31 @@ export async function waitForChannelReady(
     return true;
   }
 
+  // Dead channel — no point waiting
+  if (channel.state === "closed" || channel.state === "errored") {
+    return false;
+  }
+
   return new Promise((resolve) => {
+    let resolved = false;
+
+    const done = (result: boolean) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      clearInterval(checkInterval);
+      resolve(result);
+    };
+
     const timer = setTimeout(() => {
-      resolve(channel.state === "joined");
+      done(channel.state === "joined");
     }, timeoutMs);
 
     const checkInterval = setInterval(() => {
       if (channel.state === "joined") {
-        clearTimeout(timer);
-        clearInterval(checkInterval);
-        resolve(true);
+        done(true);
+      } else if (channel.state === "closed" || channel.state === "errored") {
+        done(false);
       }
     }, 40);
   });

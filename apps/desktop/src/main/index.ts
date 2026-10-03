@@ -507,6 +507,14 @@ async function convertBufferToPdf(
     uint8[2] === 0x03 &&
     uint8[3] === 0x04;
 
+  if (!existsSync(TEMP_DIR)) {
+    mkdirSync(TEMP_DIR, { recursive: true });
+  }
+
+  const renderId = `render_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const tempHtmlPath = path.join(TEMP_DIR, `${renderId}.html`);
+  let tempImagePath: string | null = null;
+
   const printWin = new BrowserWindow({
     show: false,
     width: 1024,
@@ -514,26 +522,31 @@ async function convertBufferToPdf(
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,
+      webSecurity: false,
     },
   });
 
   try {
     let htmlContent = "";
     if (isImage) {
-      const base64 = nodeBuf.toString("base64");
       const mime = detectImageMime(uint8);
+      const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+      tempImagePath = path.join(TEMP_DIR, `${renderId}.${ext}`);
+      await fs.writeFile(tempImagePath, nodeBuf);
+
+      const imgFileName = path.basename(tempImagePath);
       htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <style>
     @page { size: ${orientation === "landscape" ? "landscape" : "portrait"}; margin: 0; }
     html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: white; }
-    img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    img { max-width: 100%; max-height: 100%; object-fit: contain; image-orientation: from-image; }
   </style>
 </head>
 <body>
-  <img src="data:${mime};base64,${base64}" />
+  <img src="${imgFileName}" />
 </body>
 </html>`;
     } else if (isZip) {
@@ -596,8 +609,23 @@ async function convertBufferToPdf(
 </html>`;
     }
 
-    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-    await new Promise((r) => setTimeout(r, 150));
+    await fs.writeFile(tempHtmlPath, htmlContent, "utf8");
+    await printWin.loadFile(tempHtmlPath);
+
+    if (isImage) {
+      await printWin.webContents.executeJavaScript(`
+        new Promise((resolve) => {
+          const img = document.querySelector('img');
+          if (!img) return resolve(true);
+          if (img.complete && img.naturalWidth > 0) return resolve(true);
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(true);
+          setTimeout(() => resolve(true), 2500);
+        });
+      `);
+    } else {
+      await new Promise((r) => setTimeout(r, 200));
+    }
 
     const pdfData = await printWin.webContents.printToPDF({
       landscape: orientation === "landscape",
@@ -609,6 +637,14 @@ async function convertBufferToPdf(
   } finally {
     if (!printWin.isDestroyed()) {
       printWin.destroy();
+    }
+    try {
+      await fs.unlink(tempHtmlPath);
+    } catch {}
+    if (tempImagePath) {
+      try {
+        await fs.unlink(tempImagePath);
+      } catch {}
     }
   }
 }

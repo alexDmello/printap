@@ -239,33 +239,14 @@ export function MapLocationPicker({
     }
   }, [latitude, longitude]);
 
-  // Fast client-side IP fallback
+  // Fast multi-source IP fallback (Prioritizes internal server API which is never blocked by adblockers)
   const detectViaIp = async (): Promise<{ ok: boolean; city?: string }> => {
-    // 1. Try GeoJS client-side directly (CORS enabled, instant, free, reliable in India & globally)
+    // 1. Try server-side detect-location API endpoint FIRST (same-origin, zero CORS issues, uses Vercel edge IP in prod)
     try {
       const controller = new AbortController();
       const tId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch("https://get.geojs.io/v1/ip/geo.json", {
-        signal: controller.signal,
-      });
+      const res = await fetch("/api/auth/detect-location", { signal: controller.signal });
       clearTimeout(tId);
-      if (res.ok) {
-        const data = await res.json();
-        const lat = parseFloat(data.latitude);
-        const lng = parseFloat(data.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          applyCoordinates(lat, lng, 14, {
-            city: data.city || "",
-            state: data.region || "",
-          });
-          return { ok: true, city: data.city || "your area" };
-        }
-      }
-    } catch {}
-
-    // 2. Try server-side detect-location API endpoint
-    try {
-      const res = await fetch("/api/auth/detect-location");
       if (res.ok) {
         const data = await res.json();
         if (
@@ -274,7 +255,7 @@ export function MapLocationPicker({
           typeof data.latitude === "number" &&
           typeof data.longitude === "number"
         ) {
-          applyCoordinates(data.latitude, data.longitude, 14, {
+          applyCoordinates(data.latitude, data.longitude, 15, {
             city: data.city || "",
             state: data.state || "",
             pincode: data.pincode || "",
@@ -284,10 +265,32 @@ export function MapLocationPicker({
       }
     } catch {}
 
+    // 2. Try GeoJS client-side directly
+    try {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch("https://get.geojs.io/v1/ip/geo.json", {
+        signal: controller.signal,
+      });
+      clearTimeout(tId);
+      if (res.ok) {
+        const data = await res.json();
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          applyCoordinates(lat, lng, 15, {
+            city: data.city || "",
+            state: data.region || "",
+          });
+          return { ok: true, city: data.city || "your area" };
+        }
+      }
+    } catch {}
+
     // 3. Try ipwho.is client-side
     try {
       const controller = new AbortController();
-      const tId = setTimeout(() => controller.abort(), 4000);
+      const tId = setTimeout(() => controller.abort(), 3500);
       const res = await fetch("https://ipwho.is/", { signal: controller.signal });
       clearTimeout(tId);
       if (res.ok) {
@@ -298,7 +301,7 @@ export function MapLocationPicker({
           typeof data.latitude === "number" &&
           typeof data.longitude === "number"
         ) {
-          applyCoordinates(data.latitude, data.longitude, 14, {
+          applyCoordinates(data.latitude, data.longitude, 15, {
             city: data.city || "",
             state: data.region || "",
             pincode: data.postal || "",
@@ -311,52 +314,99 @@ export function MapLocationPicker({
     return { ok: false };
   };
 
-  // Handle Location Auto-detect with graceful 2-stage GPS and multi-source network fallback
+  // Handle Location Auto-detect with graceful GPS and multi-source network fallback
   const handleDetectLocation = async () => {
     setIsLocating(true);
     setDetectStatus("Detecting your location...");
 
-    // Helper to query navigator.geolocation with a promise
+    // Helper to query navigator.geolocation with error reporting
     const tryBrowserGeo = (
       highAccuracy: boolean,
       timeoutMs: number
-    ): Promise<{ lat: number; lng: number } | null> => {
+    ): Promise<{
+      success: boolean;
+      coords?: { lat: number; lng: number };
+      code?: number;
+      message?: string;
+    }> => {
       return new Promise((resolve) => {
         if (typeof window === "undefined" || !navigator.geolocation) {
-          return resolve(null);
+          return resolve({ success: false, message: "Geolocation not supported" });
         }
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             resolve({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
+              success: true,
+              coords: {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              },
             });
           },
-          () => {
-            resolve(null);
+          (err) => {
+            resolve({
+              success: false,
+              code: err.code,
+              message: err.message,
+            });
           },
           {
             enableHighAccuracy: highAccuracy,
             timeout: timeoutMs,
-            maximumAge: highAccuracy ? 10000 : 120000,
+            maximumAge: highAccuracy ? 5000 : 60000,
           }
         );
       });
     };
 
     try {
-      // 1. First attempt: Device high-accuracy GPS (10s timeout to allow user to click 'Allow')
-      let coords = await tryBrowserGeo(true, 10000);
-
-      // 2. Second attempt: If high accuracy failed (e.g. desktop PC without GPS chip), try Wi-Fi/network geolocation
-      if (!coords) {
-        setDetectStatus("Connecting via Wi-Fi/network location...");
-        coords = await tryBrowserGeo(false, 6000);
+      // Pre-check permissions if supported
+      if (typeof navigator !== "undefined" && navigator.permissions?.query) {
+        try {
+          const perm = await navigator.permissions.query({ name: "geolocation" });
+          if (perm.state === "denied") {
+            setDetectStatus(
+              "⚠️ Location blocked in your browser. Click the lock/settings icon in the address bar to allow location."
+            );
+            const ipRes = await detectViaIp();
+            setIsLocating(false);
+            if (ipRes.ok) {
+              setDetectStatus(
+                `📍 Location permission blocked. Centered near ${ipRes.city || "your area"} via network. Drag pin to your shop.`
+              );
+            }
+            return;
+          }
+        } catch {}
       }
 
-      if (coords) {
+      // 1. First attempt: High accuracy GPS / Wi-Fi (7s timeout to allow user to click 'Allow')
+      let geo = await tryBrowserGeo(true, 7000);
+
+      // If user explicitly denied permission, don't waste time on second attempt
+      if (!geo.success && geo.code === 1) {
+        setDetectStatus(
+          "⚠️ Location permission denied. Please allow location in your browser site settings."
+        );
+        const ipRes = await detectViaIp();
         setIsLocating(false);
-        applyCoordinates(coords.lat, coords.lng, 17);
+        if (ipRes.ok) {
+          setDetectStatus(
+            `📍 Permission denied. Centered near ${ipRes.city || "your area"} via network. Drag pin to your shop.`
+          );
+        }
+        return;
+      }
+
+      // 2. Second attempt: If high accuracy failed (e.g. PC without GPS chip), try Wi-Fi/network location
+      if (!geo.success) {
+        setDetectStatus("Connecting via Wi-Fi/network location...");
+        geo = await tryBrowserGeo(false, 5000);
+      }
+
+      if (geo.success && geo.coords) {
+        setIsLocating(false);
+        applyCoordinates(geo.coords.lat, geo.coords.lng, 17);
         setDetectStatus("✓ Device location detected! Drag pin onto your exact shop rooftop.");
         return;
       }
@@ -368,11 +418,11 @@ export function MapLocationPicker({
 
       if (ipResult.ok) {
         setDetectStatus(
-          `📍 Centered near ${ipResult.city || "your area"}. Drag pin onto your shop rooftop.`
+          `📍 Centered near ${ipResult.city || "your area"}. Drag pin onto your shop rooftop, or search your street above.`
         );
       } else {
         setDetectStatus(
-          "Could not detect automatically. Please search your area above or click on the map."
+          "Could not detect automatically. Please search your area or street name above."
         );
       }
     } catch (err) {

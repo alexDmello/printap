@@ -278,22 +278,28 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
       </div>
 
       {/* ══════════════════════════════════════════════════════════
-          THREE-PANEL TABLE SYSTEM:
-          1. Current Print Queue (Table)
-          2. Payment Counter (Pending Verification - Table)
-          3. Done Payments (Settled/Verified Orders - Table)
+          TWO-PANEL TABLE SYSTEM:
+          1. Live Orders (Unified Print Queue & Action Required)
+          2. Settled Orders (Done Payments - Table)
       ══════════════════════════════════════════════════════════ */}
       <div className="live-monitor-tables-grid">
-        {/* ─── TABLE 1: Current Print Queue ─── */}
+        {/* ─── TABLE 1: Live Orders (Unified Print Queue & Action Required) ─── */}
         <div className="monitor-table-card">
           <div className="monitor-table-header">
             <div className="monitor-table-title">
               <IconPrinter size={16} color="var(--text-primary)" />
-              <span>Current Print Queue</span>
+              <span>Live Orders</span>
             </div>
-            <span className="status-badge active">
-              {currentJob ? "1 Processing" : `${printQueueJobs.length} Today`}
-            </span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {pendingQueue.length > 0 && (
+                <span className="status-badge" style={{ background: "rgba(245, 158, 11, 0.15)", color: "#b45309" }}>
+                  {pendingQueue.length} Action Required
+                </span>
+              )}
+              <span className="status-badge active">
+                {currentJob ? "1 Processing" : `${printQueueJobs.length} Today`}
+              </span>
+            </div>
           </div>
 
           <div className="monitor-table-container">
@@ -302,15 +308,17 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 <tr>
                   <th style={{ width: 68 }}>Token</th>
                   <th>Document & Specs</th>
-                  <th style={{ width: 110 }}>Status</th>
-                  <th style={{ width: 60, textAlign: "right" }}>Time</th>
+                  <th>Amount</th>
+                  <th style={{ width: 140, textAlign: "right" }}>Status / Action</th>
                 </tr>
               </thead>
               <tbody>
-                {printQueueJobs.length > 0 ? (
-                  printQueueJobs.map((job) => {
+                {printQueueJobs.length > 0 || pendingQueue.length > 0 ? (
+                  Array.from(new Set([...printQueueJobs, ...pendingQueue])).map((job) => {
                     const isActive = currentJob?.sessionId === job.sessionId;
+                    const isPendingPayment = !job.paymentStatus || job.paymentStatus === "pending";
                     const docCount = job.files?.length || job.fileCount || 1;
+                    const amount = job.totalAmount ?? 0;
                     const totalPages =
                       job.files && job.files.length > 0
                         ? job.files.reduce(
@@ -323,14 +331,14 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
 
                     return (
                       <React.Fragment key={job.sessionId}>
-                        <tr className={isActive ? "table-row-active" : ""}>
+                        <tr className={isActive || isPendingPayment ? "table-row-active" : ""}>
                           <td>
                             <span className="token-pill">{job.tokenCode || "#--"}</span>
                           </td>
                           <td>
                             <div className="table-doc-cell">
-                              <span className="table-file-title" title={job.fileName || "Customer Document.pdf"}>
-                                {job.fileName || "Customer Document.pdf"}
+                              <span className="table-file-title" title={job.fileName || "Customer Document"}>
+                                {job.fileName || "Customer Document"}
                               </span>
                               <div className="table-file-subtext">
                                 <span>
@@ -359,7 +367,36 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                             </div>
                           </td>
                           <td>
-                            {job.status === "receiving" ? (
+                            <div className="table-amount-due" style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                              ₹{amount.toFixed(2)}
+                            </div>
+                            <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px", fontWeight: 500 }}>
+                              {job.paymentMethod?.toUpperCase() || "UPI"}
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            {isPendingPayment ? (
+                              <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", alignItems: "center" }}>
+                                <button
+                                  type="button"
+                                  className="table-confirm-btn hover-pop"
+                                  style={{ padding: "6px 12px", background: "var(--accent-emerald)", color: "white", borderRadius: "6px", fontWeight: 700, fontSize: "11px", border: "none", cursor: "pointer", boxShadow: "0 2px 4px rgba(16, 185, 129, 0.2)" }}
+                                  onClick={() => onConfirmPayment(job.sessionId)}
+                                  title={`Confirm Payment & Print (₹${amount.toFixed(2)})`}
+                                >
+                                  Print
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-dismiss-tiny hover-pop"
+                                  style={{ padding: "6px", borderRadius: "6px", background: "#fee2e2", color: "#dc2626", border: "none", cursor: "pointer" }}
+                                  onClick={() => onCancelOrder(job.sessionId)}
+                                  title="Cancel Order & Refund"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : job.status === "receiving" ? (
                               <span className="status-badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>
                                 Stream ({job.progressPct || 0}%)
                               </span>
@@ -368,25 +405,13 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                                 ● Printing
                               </span>
                             ) : job.status === "error" ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-end" }}>
                                 <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626" }}>
                                   Failed
                                 </span>
                                 <div style={{ display: "flex", gap: 3 }}>
-                                  <button
-                                    type="button"
-                                    className="btn-retry-tiny"
-                                    onClick={() => onRetryJob?.(job.sessionId)}
-                                  >
-                                    Retry
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-dismiss-tiny"
-                                    onClick={() => onDismissJob?.(job.sessionId)}
-                                  >
-                                    ✕
-                                  </button>
+                                  <button type="button" className="btn-retry-tiny" onClick={() => onRetryJob?.(job.sessionId)}>Retry</button>
+                                  <button type="button" className="btn-dismiss-tiny" onClick={() => onDismissJob?.(job.sessionId)}>✕</button>
                                 </div>
                               </div>
                             ) : (
@@ -394,9 +419,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                                 ✓ Spooled
                               </span>
                             )}
-                          </td>
-                          <td className="table-time-cell" style={{ textAlign: "right" }}>
-                            {job.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </td>
                         </tr>
 
@@ -434,99 +456,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                         </div>
                         <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "3px 0 0" }}>
                           New orders will appear here automatically.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* ─── TABLE 2: Pending Orders (Action Required) ─── */}
-        <div className="monitor-table-card">
-          <div className="monitor-table-header">
-            <div className="monitor-table-title">
-              <IconCash size={16} color="var(--text-primary)" />
-              <span>Pending Orders (Action Required)</span>
-            </div>
-            <span
-              className="status-badge"
-              style={{
-                background: pendingQueue.length > 0 ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.12)",
-                color: pendingQueue.length > 0 ? "#b45309" : "#059669",
-                borderColor: pendingQueue.length > 0 ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)",
-              }}
-            >
-              {pendingQueue.length > 0 ? `${pendingQueue.length} Waiting` : "All Clear ✓"}
-            </span>
-          </div>
-
-          <div className="monitor-table-container">
-            <table className="monitor-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 68 }}>Token</th>
-                  <th>Amount</th>
-                  <th>Method</th>
-                  <th style={{ width: 85, textAlign: "right" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingQueue.length > 0 ? (
-                  pendingQueue.map((job) => {
-                    const amount = job.totalAmount ?? 0;
-                    const docCount = job.files?.length || 1;
-
-                    return (
-                      <tr key={job.sessionId}>
-                        <td>
-                          <span className="token-pill">{job.tokenCode || "#--"}</span>
-                        </td>
-                        <td>
-                          <span className="table-amount-due">₹{amount.toFixed(2)}</span>
-                        </td>
-                        <td>
-                          <div className="table-method-cell">
-                            <span className="method-pill">{job.paymentMethod?.toUpperCase() || "UPI"}</span>
-                            <span className="subtext">{docCount} {docCount === 1 ? "doc" : "docs"}</span>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
-                            <button
-                              type="button"
-                              className="table-confirm-btn"
-                              style={{ padding: "4px 8px", background: "var(--accent-emerald)", color: "white", borderRadius: "4px", fontWeight: 600 }}
-                              onClick={() => onConfirmPayment(job.sessionId)}
-                              title={`Confirm & Print order of ₹${amount.toFixed(2)}`}
-                            >
-                              Print
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-dismiss-tiny"
-                              onClick={() => onCancelOrder(job.sessionId)}
-                              title="Cancel this order"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="monitor-table-empty">
-                      <div className="empty-state-content">
-                        <IconCheck size={26} color="var(--accent-emerald)" />
-                        <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginTop: 6 }}>
-                          All Clear
-                        </div>
-                        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "3px 0 0" }}>
-                          Incoming print orders will appear here for confirmation.
                         </p>
                       </div>
                     </td>

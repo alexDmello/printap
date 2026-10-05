@@ -615,35 +615,34 @@ export default function PrintSettingsPanel({
 
           {/* Unified Image Settings Panel */}
           {expandedIds["images-batch"] && (
-            <div className="px-4 pb-4 pt-4 border-t border-indigo-100/70 bg-indigo-50/20 animate-fade-in flex flex-col md:flex-row gap-4">
+            <div className="p-3 border-t border-indigo-100/70 bg-indigo-50/20 animate-fade-in flex flex-row gap-3">
               {/* Left Column: Live Preview & Grid Layout */}
-              <div className="flex-1 flex flex-col gap-3">
-
+              <div className="w-[45%] flex flex-col gap-2">
 
                 {/* ── Live Sheet Preview ── */}
-                <div className="bg-white p-3 rounded-3xl border-2 border-indigo-50 shadow-sm flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-3 px-1">
-                    <span className="text-[12px] font-extrabold text-zinc-900 uppercase tracking-wider">
-                      Live Paper Preview
+                <div className="bg-white p-2.5 rounded-2xl border-2 border-indigo-50 shadow-sm flex flex-col h-full justify-between">
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <span className="text-[10px] font-extrabold text-zinc-900 uppercase tracking-wider leading-tight">
+                      Paper Preview
                     </span>
                     {totalImagePreviewSheets > 1 && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         <button
                           type="button"
                           onClick={() => setImagePreviewSheet((s) => Math.max(0, s - 1))}
                           disabled={currentPreviewSheetClamped === 0}
-                          className="w-4 h-4 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[10px] font-bold cursor-pointer"
+                          className="w-4 h-4 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[9px] font-bold cursor-pointer"
                         >
                           ‹
                         </button>
-                        <span className="text-[9px] font-mono font-bold text-zinc-600">
+                        <span className="text-[8px] font-mono font-bold text-zinc-600 px-0.5">
                           {currentPreviewSheetClamped + 1}/{totalImagePreviewSheets}
                         </span>
                         <button
                           type="button"
                           onClick={() => setImagePreviewSheet((s) => Math.min(totalImagePreviewSheets - 1, s + 1))}
                           disabled={currentPreviewSheetClamped >= totalImagePreviewSheets - 1}
-                          className="w-4 h-4 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[10px] font-bold cursor-pointer"
+                          className="w-4 h-4 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[9px] font-bold cursor-pointer"
                         >
                           ›
                         </button>
@@ -652,12 +651,12 @@ export default function PrintSettingsPanel({
                   </div>
 
                   {/* Compact Simulation Frame */}
-                  <div className="w-full flex items-center justify-center py-2 bg-zinc-100/70 rounded-lg border border-zinc-200/80 overflow-hidden shadow-inner">
+                  <div className="w-full flex flex-1 items-center justify-center py-2 bg-zinc-100/70 rounded-lg border border-zinc-200/80 overflow-hidden shadow-inner">
                     <div
                       className={`relative bg-white transition-all duration-200 overflow-hidden rounded-xs flex flex-col ${
                         imageBatchSettings.orientation === "landscape"
-                          ? "w-[160px] h-[113px]"
-                          : "w-[113px] h-[160px]"
+                          ? "w-[120px] h-[85px]"
+                          : "w-[85px] h-[120px]"
                       }`}
                       style={{
                         boxShadow: "0 4px 10px -2px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.2)",
@@ -668,21 +667,15 @@ export default function PrintSettingsPanel({
                     >
                       <div
                         className={`w-full h-full flex items-center justify-center overflow-hidden ${
-                          imageBatchGrid === 1 && imageBatchSettings.pageFit === "fill" ? "p-0" : "p-1.5"
+                          imageBatchGrid === 1 && imageBatchSettings.pageFit === "fill" ? "p-0" : "p-1"
                         }`}
                       >
                         {/* 1-in-1 */}
                         {imageBatchGrid === 1 && currentSheetPhotos[0] && (
-                          <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                            <img
-                              src={currentSheetPhotos[0].thumbnailUrl}
-                              alt="Preview"
-                              className={
-                                imageBatchSettings.pageFit === "fill"
-                                  ? "w-full h-full object-cover"
-                                  : "max-w-full max-h-full object-contain"
-                              }
-                            />
+                          <div className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 border border-indigo-100/50">
+                            <svg className="w-6 h-6 text-indigo-200" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                            </svg>
                           </div>
                         )}
 
@@ -695,16 +688,12 @@ export default function PrintSettingsPanel({
                                 : "grid-cols-1 grid-rows-2"
                             }`}
                           >
-                            {currentSheetPhotos.map((photo) => (
+                            {currentSheetPhotos.map((photo, i) => (
                               <div
                                 key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
                               >
-                                <img
-                                  src={photo.thumbnailUrl}
-                                  alt="Preview"
-                                  className="max-w-full max-h-full object-contain"
-                                />
+                                <span className="text-[10px] font-bold text-indigo-200">{i + 1}</span>
                               </div>
                             ))}
                           </div>
@@ -713,16 +702,12 @@ export default function PrintSettingsPanel({
                         {/* 4-in-1 */}
                         {imageBatchGrid === 4 && (
                           <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-0.5">
-                            {currentSheetPhotos.map((photo) => (
+                            {currentSheetPhotos.map((photo, i) => (
                               <div
                                 key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
                               >
-                                <img
-                                  src={photo.thumbnailUrl}
-                                  alt="Preview"
-                                  className="max-w-full max-h-full object-contain"
-                                />
+                                <span className="text-[8px] font-bold text-indigo-200">{i + 1}</span>
                               </div>
                             ))}
                           </div>
@@ -737,16 +722,12 @@ export default function PrintSettingsPanel({
                                 : "grid-cols-2 grid-rows-3"
                             }`}
                           >
-                            {currentSheetPhotos.map((photo) => (
+                            {currentSheetPhotos.map((photo, i) => (
                               <div
                                 key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
                               >
-                                <img
-                                  src={photo.thumbnailUrl}
-                                  alt="Preview"
-                                  className="max-w-full max-h-full object-contain"
-                                />
+                                <span className="text-[7px] font-bold text-indigo-200">{i + 1}</span>
                               </div>
                             ))}
                           </div>
@@ -755,16 +736,12 @@ export default function PrintSettingsPanel({
                         {/* 9-in-1 */}
                         {imageBatchGrid === 9 && (
                           <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-0.5">
-                            {currentSheetPhotos.map((photo) => (
+                            {currentSheetPhotos.map((photo, i) => (
                               <div
                                 key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-50 rounded-xs"
+                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
                               >
-                                <img
-                                  src={photo.thumbnailUrl}
-                                  alt="Preview"
-                                  className="max-w-full max-h-full object-contain"
-                                />
+                                <span className="text-[6px] font-bold text-indigo-200">{i + 1}</span>
                               </div>
                             ))}
                           </div>
@@ -773,57 +750,41 @@ export default function PrintSettingsPanel({
                     </div>
                   </div>
                   
-                  <div className="text-[11px] font-medium text-indigo-700 bg-indigo-50/80 px-2.5 py-1.5 rounded-lg mt-3 flex items-center justify-center gap-1.5 text-center">
-                    <span>💡</span>
-                    <span>
-                      {imageDocs.length} photos fit on <strong>{imageBatchSheetsPerCopy} {imageBatchSheetsPerCopy === 1 ? "sheet" : "sheets"}</strong>
-                    </span>
+                  {/* Grid Selector */}
+                  <div className="mt-2 pt-2 border-t border-indigo-50/80">
+                    <PremiumGridSelector
+                      value={String(imageBatchGrid)}
+                      options={[
+                        { value: "1", label: "1-in-1", grids: [1] },
+                        { value: "2", label: "2-in-1", grids: [1, 2] },
+                        { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
+                        { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
+                        { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+                      ]}
+                      onChange={(v) => {
+                        const gridVal = Number(v) as PagesPerSheet;
+                        onDocumentsChange(
+                          documents.map((d) =>
+                            d.type === "image"
+                              ? {
+                                  ...d,
+                                  settings: {
+                                    ...d.settings,
+                                    pagesPerSheet: gridVal,
+                                    pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
+                                  },
+                                }
+                              : d
+                          )
+                        );
+                      }}
+                    />
                   </div>
-                </div>
-
-                {/* Grid Selector */}
-                <div className="p-4 rounded-3xl bg-white border-2 border-indigo-50 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[14px] font-extrabold text-zinc-900 tracking-tight">
-                      Photo Grid Layout
-                    </span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
-                      {imageBatchGrid}-in-1
-                    </span>
-                  </div>
-
-                  <PremiumGridSelector
-                    value={String(imageBatchGrid)}
-                    options={[
-                      { value: "1", label: "1-in-1", grids: [1] },
-                      { value: "2", label: "2-in-1", grids: [1, 2] },
-                      { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
-                      { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
-                      { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
-                    ]}
-                    onChange={(v) => {
-                      const gridVal = Number(v) as PagesPerSheet;
-                      onDocumentsChange(
-                        documents.map((d) =>
-                          d.type === "image"
-                            ? {
-                                ...d,
-                                settings: {
-                                  ...d.settings,
-                                  pagesPerSheet: gridVal,
-                                  pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
-                                },
-                              }
-                            : d
-                        )
-                      );
-                    }}
-                  />
                 </div>
               </div>
 
               {/* Right Column: Setting Controls */}
-              <div className="flex-1 bg-white p-4 rounded-3xl border-2 border-indigo-50 shadow-sm flex flex-col space-y-0.5">
+              <div className="w-[55%] bg-white p-2.5 rounded-2xl border-2 border-indigo-50 shadow-sm flex flex-col space-y-0.5 overflow-y-auto">
                 <CompactRow label="Copies">
                   <CompactCopiesStepper
                     value={imageBatchSettings.copies}

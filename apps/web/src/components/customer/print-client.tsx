@@ -86,7 +86,7 @@ export default function PrintClient({
 
   // Initialize finishing services from shop custom services if available
   const initialFinishing = useMemo<FinishingService[]>(() => {
-    if (services && services.length > 0) {
+    if (services !== undefined) {
       return services
         .filter((s) => !s.isCore && s.enabled)
         .map((s) => ({
@@ -117,6 +117,8 @@ export default function PrintClient({
   const [isPaymentConfirmedByShop, setIsPaymentConfirmedByShop] = useState(false);
   const [isRefundPromptOpen, setIsRefundPromptOpen] = useState(false);
   const [printTicket, setPrintTicket] = useState<string>("");
+  const [persistedTotalAmount, setPersistedTotalAmount] = useState<number>(0);
+  const [persistedDocumentCount, setPersistedDocumentCount] = useState<number>(0);
   
   // Try to restore session on mount
   useEffect(() => {
@@ -128,6 +130,8 @@ export default function PrintClient({
           setCurrentSessionId(parsed.orderId);
           setToken(parsed.token);
           setJobStatus(parsed.status);
+          if (parsed.totalAmount !== undefined) setPersistedTotalAmount(parsed.totalAmount);
+          if (parsed.documentCount !== undefined) setPersistedDocumentCount(parsed.documentCount);
           setStep("print_pay"); // Resume straight to print progress screen
         } else {
           localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
@@ -147,6 +151,12 @@ export default function PrintClient({
         token,
         status: jobStatus,
         createdAt: new Date().toISOString(),
+        totalAmount: documents.length > 0 ? (calculateOrderTotal(documents, {
+            priceBwPerPage: priceBw ?? DEFAULT_RATE_CARD.priceBwPerPage,
+            priceColorPerPage: priceColor ?? DEFAULT_RATE_CARD.priceColorPerPage,
+            finishingServices,
+          }, finishingServices.filter((s) => s.enabled)) + (totalCharge !== undefined ? totalCharge : Math.round(((platformFee !== undefined ? platformFee : 0.82) + (gstAmount !== undefined ? gstAmount : Math.round((platformFee !== undefined ? platformFee : 0.82) * ((gstPercentage !== undefined ? gstPercentage : 18) / 100) * 100) / 100)) * 100) / 100)) : persistedTotalAmount,
+        documentCount: documents.length > 0 ? documents.length : persistedDocumentCount,
       };
       localStorage.setItem(SESSION_STORAGE_KEY(shopId), JSON.stringify(persisted));
     } else if (step === "upload") {
@@ -245,7 +255,8 @@ export default function PrintClient({
   const resolvedGstPercentage = gstPercentage !== undefined ? gstPercentage : 18;
   const resolvedGstAmount = gstAmount !== undefined ? gstAmount : Math.round(resolvedPlatformFee * (resolvedGstPercentage / 100) * 100) / 100;
   const resolvedTotalCharge = totalCharge !== undefined ? totalCharge : Math.round((resolvedPlatformFee + resolvedGstAmount) * 100) / 100;
-  const totalAmount = documents.length > 0 ? printingCost + resolvedTotalCharge : 0;
+  const totalAmount = documents.length > 0 ? printingCost + resolvedTotalCharge : persistedTotalAmount;
+  const activeDocumentCount = documents.length > 0 ? documents.length : persistedDocumentCount;
 
   // Total sheets calculated
   const totalSheets = useMemo(() => {
@@ -510,6 +521,7 @@ export default function PrintClient({
           } else if (p.status === "error") {
             setStep("error");
             setErrorMsg(p.error || "Transfer failed");
+            setIsRefundPromptOpen(true);
           }
         }
       );
@@ -556,6 +568,31 @@ export default function PrintClient({
     setJobStatus("queued");
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
   }, [shopId, initialFinishing]);
+
+  const handleEditSettings = useCallback(async () => {
+    if (currentSessionId && printTicket) {
+      try {
+        await fetch("/api/print/refund-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopId, sessionId: currentSessionId, printTicket }),
+        });
+      } catch (err) {
+        console.warn("Failed to refund token on edit settings:", err);
+      }
+    }
+
+    setStep("settings");
+    setProgress(null);
+    setErrorMsg("");
+    setToken(null);
+    setCurrentSessionId("");
+    setIsPaymentConfirmedByShop(false);
+    setIsRefundPromptOpen(false);
+    setPrintTicket("");
+    setJobStatus("queued");
+    localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+  }, [shopId, currentSessionId, printTicket]);
 
   // If the shop goes offline and there is no active transfer/order in flight, show offline screen
   const isOrderActive = step === "print_pay";
@@ -706,10 +743,12 @@ export default function PrintClient({
             upiVpa={upiVpa}
             totalAmount={totalAmount}
             documents={documents}
+            activeDocumentCount={activeDocumentCount}
             token={token}
             progress={progress}
             isPaymentConfirmed={isPaymentConfirmedByShop}
             onPrintAnother={handleReset}
+            onEditSettings={handleEditSettings}
           />
         )}
 

@@ -38,7 +38,6 @@ export default function BottomPriceBar({
   disabled = false,
 }: BottomPriceBarProps) {
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const [showGstBreakdown, setShowGstBreakdown] = useState(false);
 
   const basePrintCost =
     printingCost !== undefined
@@ -123,37 +122,12 @@ export default function BottomPriceBar({
                   </span>
                 </div>
 
-                {/* GST and other charges with dotted line and expandable breakdown */}
-                <div className="pt-2 border-t border-zinc-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowGstBreakdown((prev) => !prev)}
-                    className="w-full flex items-center justify-between text-zinc-700 hover:text-zinc-950 transition cursor-pointer text-xs group"
-                  >
-                    <span className="border-b border-dotted border-zinc-400 group-hover:border-zinc-700 pb-0.5 flex items-center gap-1.5 font-medium">
-                      <span>GST and other charges</span>
-                      <span className="text-[10px] text-zinc-400 group-hover:text-zinc-600">
-                        {showGstBreakdown ? "▲" : "▼"}
-                      </span>
-                    </span>
-                    <span className="font-semibold font-mono text-zinc-900">
-                      ₹{totalCharge.toFixed(2)}
-                    </span>
-                  </button>
-
-                  {/* Expandable sub-breakdown */}
-                  {showGstBreakdown && (
-                    <div className="mt-2 ml-2 pl-3 border-l-2 border-zinc-200 space-y-1.5 text-[11px] text-zinc-500 animate-fade-in">
-                      <div className="flex justify-between items-center">
-                        <span>Platform fee</span>
-                        <span className="font-mono text-zinc-700">₹{platformFee.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>GST ({gstPercentage}%)</span>
-                        <span className="font-mono text-zinc-700">₹{gstAmount.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
+                {/* Digital Convenience Fee */}
+                <div className="pt-2 border-t border-zinc-100 flex justify-between items-center text-zinc-600 text-xs font-medium">
+                  <span>Digital Convenience Fee</span>
+                  <span className="font-semibold font-mono text-zinc-900">
+                    ₹{totalCharge.toFixed(2)}
+                  </span>
                 </div>
               </div>
 

@@ -434,10 +434,10 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
         <div className="stat-card">
           <div className="stat-label">
             <span>PLATFORM SURCHARGE</span>
-            <span className="tech-tag">Auto GST</span>
+            <span className="tech-tag">Auto</span>
           </div>
           <div className="stat-value" style={{ color: "var(--accent-cyan)" }}>₹{totalCharge.toFixed(2)}</div>
-          <div className="stat-footnote">₹{platformFee.toFixed(2)} fee + {gstPercentage}% GST (₹{gstAmount.toFixed(2)})</div>
+          <div className="stat-footnote">Digital Convenience Fee applied to all orders</div>
         </div>
       </div>
 

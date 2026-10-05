@@ -11,10 +11,11 @@ interface PrintAndPayProps {
   upiVpa: string;
   totalAmount: number;
   documents: UploadedDocument[];
+  activeDocumentCount: number;
   token: QueueToken;
-  progress: TransferProgress | null;
   isPaymentConfirmed: boolean;
   onPrintAnother: () => void;
+  onEditSettings?: () => void;
 }
 
 export default function PrintAndPay({
@@ -23,10 +24,12 @@ export default function PrintAndPay({
   upiVpa,
   totalAmount,
   documents,
+  activeDocumentCount,
   token,
   progress,
   isPaymentConfirmed,
   onPrintAnother,
+  onEditSettings,
 }: PrintAndPayProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("upi");
   const [copiedToken, setCopiedToken] = useState(false);
@@ -99,7 +102,7 @@ export default function PrintAndPay({
               </span>
             </span>
             <span className="text-[10px] font-medium text-zinc-400 mt-1">
-              {documents.length} document{documents.length !== 1 ? "s" : ""} at{" "}
+              {activeDocumentCount} document{activeDocumentCount !== 1 ? "s" : ""} at{" "}
               <span className="font-semibold text-zinc-700">{shopName}</span>
             </span>
           </div>
@@ -163,6 +166,17 @@ export default function PrintAndPay({
           <p className="text-[11px] text-amber-800 mt-1">
             Complete your payment below. The shop admin will confirm receipt on their live terminal and hand over your printout.
           </p>
+          {onEditSettings && (
+            <div className="mt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={onEditSettings}
+                className="px-4 py-1.5 rounded-lg border border-amber-300 text-amber-800 text-[11px] font-bold hover:bg-amber-100 transition"
+              >
+                Wait, I need to change my print settings
+              </button>
+            </div>
+          )}
         </div>
       )}
 

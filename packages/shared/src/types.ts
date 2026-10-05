@@ -316,6 +316,8 @@ export interface PersistedSession {
   token: QueueToken;
   status: JobStatus;
   createdAt: string;
+  totalAmount?: number;
+  documentCount?: number;
 }
 
 // ─── WebRTC Transfer Protocol Payloads ───

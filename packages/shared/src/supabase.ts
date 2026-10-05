@@ -1,7 +1,47 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const getUrl = (): string => {
+  // 1. Try Next.js process.env
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL;
+  }
+  if (typeof process !== "undefined" && process.env?.VITE_SUPABASE_URL) {
+    return process.env.VITE_SUPABASE_URL;
+  }
+  // 2. Try Vite import.meta.env (must be exactly import.meta.env.VITE_SUPABASE_URL for static replacement)
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_SUPABASE_URL) {
+      // @ts-ignore
+      return import.meta.env.VITE_SUPABASE_URL;
+    }
+  } catch (e) {}
+  
+  return "";
+};
+
+const getKey = (): string => {
+  // 1. Try Next.js process.env
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  }
+  if (typeof process !== "undefined" && process.env?.VITE_SUPABASE_ANON_KEY) {
+    return process.env.VITE_SUPABASE_ANON_KEY;
+  }
+  // 2. Try Vite import.meta.env
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) {
+      // @ts-ignore
+      return import.meta.env.VITE_SUPABASE_ANON_KEY;
+    }
+  } catch (e) {}
+
+  return "";
+};
+
+const SUPABASE_URL = getUrl();
+const SUPABASE_ANON_KEY = getKey();
 
 let client: SupabaseClient | null = null;
 

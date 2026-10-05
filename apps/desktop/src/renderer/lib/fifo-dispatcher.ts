@@ -269,10 +269,29 @@ export class FifoPrintDispatcher {
   /**
    * Updates payment status of a job if it is currently in queue.
    */
-  public updateJobPaymentStatus(sessionId: string, paymentStatus: string): void {
+  public updateJobPaymentStatus(
+    sessionId: string, 
+    paymentStatus: string,
+    assignments?: Record<string, PrinterAssignment>
+  ): void {
     const job = this.queue.find((q) => q.sessionId === sessionId);
     if (job) {
       job.paymentStatus = paymentStatus;
+      if (assignments) {
+        this.processQueue(assignments);
+      }
+    }
+  }
+
+  /**
+   * Cancels a pending job from the queue.
+   */
+  public cancelJob(sessionId: string, assignments: Record<string, PrinterAssignment>): void {
+    const index = this.queue.findIndex((q) => q.sessionId === sessionId);
+    if (index !== -1) {
+      this.queue.splice(index, 1);
+      this.notifyQueueUpdate(assignments);
+      console.log(`[FifoDispatcher] Cancelled job for session ${sessionId}`);
     }
   }
 
@@ -287,6 +306,11 @@ export class FifoPrintDispatcher {
     // Iterate through queued jobs in FIFO order
     for (let i = 0; i < this.queue.length; i++) {
       const job = this.queue[i];
+
+      // MUST confirm payment before printing
+      if (job.paymentStatus !== "confirmed") {
+        continue; // Skip this job and check the next one
+      }
 
       // Find an available (idle) compatible printer
       const availablePrinter = this.findIdleCompatiblePrinter(job.hasColor, assignments);

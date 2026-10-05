@@ -182,14 +182,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="sidebar-token-alert">
                     ⛔ Tokens exhausted. Top up to print.
                   </div>
-                  <button type="button" className="sidebar-topup-btn" onClick={() => onNavigate('tokens')}>Top Up</button>
+                  <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage('tokens')}>Top Up</button>
                 </div>
               ) : tokenAlert ? (
                 <div className="sidebar-token-alert-container">
                   <div className="sidebar-token-alert">
                     {tokenAlert.balance <= 5 ? "🔴 Critical low balance!" : "🟡 Low balance — top up"}
                   </div>
-                  <button type="button" className="sidebar-topup-btn" onClick={() => onNavigate('tokens')}>Top Up</button>
+                  <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage('tokens')}>Top Up</button>
                 </div>
               ) : null}
             </div>

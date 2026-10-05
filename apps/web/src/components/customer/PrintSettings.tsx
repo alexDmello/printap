@@ -22,9 +22,9 @@ function CompactRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-zinc-100/50 last:border-b-0 gap-3 group">
-      <span className="text-[13px] font-bold text-zinc-700 whitespace-nowrap transition-colors group-hover:text-zinc-900">{label}</span>
-      <div className="flex items-center gap-2 flex-shrink-0">{children}</div>
+    <div className="flex items-center justify-between py-2 border-b border-zinc-100 last:border-b-0 gap-2">
+      <span className="text-xs font-semibold text-zinc-700 whitespace-nowrap">{label}</span>
+      <div className="flex items-center gap-1.5 flex-shrink-0">{children}</div>
     </div>
   );
 }
@@ -39,7 +39,7 @@ function CompactToggle({
   onChange: (val: string) => void;
 }) {
   return (
-    <div className="inline-flex p-1 rounded-xl bg-zinc-100/80 backdrop-blur-sm border border-zinc-200/60 gap-1 shadow-inner">
+    <div className="inline-flex p-0.5 rounded-lg bg-zinc-100/90 border border-zinc-200/80 gap-0.5">
       {options.map((opt) => {
         const isSelected = value === opt.value;
         return (
@@ -47,18 +47,17 @@ function CompactToggle({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`relative px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ease-out flex items-center gap-1.5 overflow-hidden cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
               isSelected
-                ? "text-white shadow-md bg-zinc-900 border border-zinc-800"
-                : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50 border border-transparent"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50"
             }`}
           >
-            {isSelected && <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />}
-            <span className="relative z-10">{opt.label}</span>
+            <span>{opt.label}</span>
             {opt.sublabel && (
               <span
-                className={`relative z-10 text-[10px] font-medium ${
-                  isSelected ? "text-zinc-400" : "text-zinc-400"
+                className={`text-[9px] font-normal ${
+                  isSelected ? "text-zinc-300" : "text-zinc-400"
                 }`}
               >
                 {opt.sublabel}
@@ -79,22 +78,22 @@ function CompactCopiesStepper({
   onChange: (val: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5 bg-zinc-100/80 p-1 rounded-xl border border-zinc-200/60 shadow-inner">
+    <div className="flex items-center gap-1 bg-zinc-100/90 p-0.5 rounded-lg border border-zinc-200/80">
       <button
         type="button"
         onClick={() => onChange(Math.max(1, value - 1))}
-        className="w-7 h-7 rounded-lg bg-white hover:bg-zinc-50 text-zinc-700 hover:text-zinc-900 font-bold transition-all duration-200 flex items-center justify-center text-sm shadow-sm border border-zinc-200 active:scale-95 cursor-pointer"
+        className="w-6 h-6 rounded-md bg-white hover:bg-zinc-200 text-zinc-900 font-bold transition flex items-center justify-center text-xs shadow-xs active:scale-95 cursor-pointer"
         aria-label="Decrease copies"
       >
         −
       </button>
-      <span className="w-8 text-center font-mono font-bold text-sm text-zinc-900">
+      <span className="w-6 text-center font-mono font-bold text-xs text-zinc-900">
         {value}
       </span>
       <button
         type="button"
         onClick={() => onChange(Math.min(99, value + 1))}
-        className="w-7 h-7 rounded-lg bg-white hover:bg-zinc-50 text-zinc-700 hover:text-zinc-900 font-bold transition-all duration-200 flex items-center justify-center text-sm shadow-sm border border-zinc-200 active:scale-95 cursor-pointer"
+        className="w-6 h-6 rounded-md bg-white hover:bg-zinc-200 text-zinc-900 font-bold transition flex items-center justify-center text-xs shadow-xs active:scale-95 cursor-pointer"
         aria-label="Increase copies"
       >
         +
@@ -231,16 +230,12 @@ export default function PrintSettingsPanel({
         return (
           <div
             key={doc.id}
-            className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
-              isExpanded
-                ? "border-zinc-300 shadow-xl shadow-zinc-200/50 bg-white/95 backdrop-blur-xl scale-[1.01] my-2"
-                : "border-zinc-200/80 shadow-sm hover:shadow-md hover:border-zinc-300 bg-white/70 backdrop-blur-md"
-            }`}
+            className="rounded-xl border border-zinc-200/90 shadow-2xs overflow-hidden transition-all bg-white"
           >
             {/* Compact Header */}
             <div
               onClick={() => toggleExpand(doc.id)}
-              className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/50 transition-all select-none"
+              className="p-3 sm:p-3.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-zinc-50/80 transition-colors select-none"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 border border-red-200/70 flex items-center justify-center flex-shrink-0">
@@ -292,8 +287,8 @@ export default function PrintSettingsPanel({
                   e.stopPropagation();
                   toggleExpand(doc.id);
                 }}
-                className={`w-8 h-8 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 text-zinc-700 flex items-center justify-center transition-all duration-300 cursor-pointer flex-shrink-0 shadow-inner border border-zinc-200/50 ${
-                  isExpanded ? "rotate-180 bg-zinc-200 shadow-sm" : ""
+                className={`w-7 h-7 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-transform duration-200 cursor-pointer flex-shrink-0 ${
+                  isExpanded ? "rotate-180 bg-zinc-200" : ""
                 }`}
                 aria-label={isExpanded ? "Collapse" : "Expand"}
               >
@@ -421,16 +416,12 @@ export default function PrintSettingsPanel({
           2. UNIFIED CONTAINER FOR ALL UPLOADED IMAGES
       ───────────────────────────────────────────────────────────── */}
       {imageDocs.length > 0 && imageBatchSettings && (
-        <div className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
-          expandedIds["images-batch"]
-            ? "border-indigo-300 shadow-xl shadow-indigo-200/40 bg-white/95 backdrop-blur-xl scale-[1.01] my-2"
-            : "border-indigo-200/80 shadow-sm hover:shadow-md hover:border-indigo-300 bg-white/70 backdrop-blur-md"
-        }`}>
+        <div className="rounded-xl border border-indigo-200/90 shadow-2xs overflow-hidden transition-all bg-white">
           {/* Compact Header */}
-            <div
-              onClick={() => toggleExpand("images-batch")}
-              className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-indigo-50/50 transition-all select-none"
-            >
+          <div
+            onClick={() => toggleExpand("images-batch")}
+            className="p-3 sm:p-3.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-indigo-50/40 transition-colors select-none"
+          >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200/70 flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -477,8 +468,8 @@ export default function PrintSettingsPanel({
                 e.stopPropagation();
                 toggleExpand("images-batch");
               }}
-              className={`w-8 h-8 rounded-xl bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-700 flex items-center justify-center transition-all duration-300 cursor-pointer flex-shrink-0 shadow-inner border border-indigo-200/50 ${
-                expandedIds["images-batch"] ? "rotate-180 bg-indigo-100 shadow-sm" : ""
+              className={`w-7 h-7 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-transform duration-200 cursor-pointer flex-shrink-0 ${
+                expandedIds["images-batch"] ? "rotate-180 bg-zinc-200" : ""
               }`}
               aria-label={expandedIds["images-batch"] ? "Collapse" : "Expand"}
             >
@@ -829,29 +820,28 @@ export default function PrintSettingsPanel({
           3. FINISHING ADD-ONS (Compact)
       ───────────────────────────────────────────────────────────── */}
       {finishingServices.length > 0 && (
-        <div className="rounded-2xl border border-zinc-200/80 shadow-sm hover:shadow-md transition-all p-4 bg-white/70 backdrop-blur-md space-y-3 my-2">
-          <div className="flex items-center justify-between pb-2 border-b border-zinc-100/60">
-            <span className="text-sm font-bold text-zinc-900 tracking-tight">
+        <div className="rounded-xl border border-zinc-200/90 shadow-2xs p-3.5 bg-white space-y-2">
+          <div className="flex items-center justify-between pb-1.5 border-b border-zinc-100">
+            <span className="text-xs font-bold text-zinc-900 tracking-tight">
               Finishing Services
             </span>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60 shadow-inner">
+            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
               Optional Add-ons
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {finishingServices.map((service) => (
               <button
                 key={service.type}
                 type="button"
                 onClick={() => toggleFinishing(service.type)}
-                className={`relative flex items-center justify-between p-3 rounded-xl transition-all duration-300 border text-left cursor-pointer overflow-hidden ${
+                className={`flex items-center justify-between p-2.5 rounded-lg transition-all border text-left cursor-pointer ${
                   service.enabled
-                    ? "bg-zinc-900 text-white border-zinc-800 shadow-md scale-[1.02]"
-                    : "bg-zinc-50/80 hover:bg-zinc-100 hover:border-zinc-300 border-zinc-200/80 text-zinc-700"
+                    ? "bg-zinc-900 text-white border-zinc-900 shadow-xs"
+                    : "bg-zinc-50 hover:bg-zinc-100/80 border-zinc-200/80 text-zinc-700"
                 }`}
               >
-                {service.enabled && <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />}
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${

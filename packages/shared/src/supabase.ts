@@ -1,12 +1,8 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = 
-  (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL : "") || 
-  (typeof import.meta !== "undefined" && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_URL : "") || "";
-
-const SUPABASE_ANON_KEY = 
-  (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY : "") || 
-  (typeof import.meta !== "undefined" && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_ANON_KEY : "") || "";
+const SUPABASE_URL = "https://pjwystvflmigolgtlpow.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips";
 
 let client: SupabaseClient | null = null;
 

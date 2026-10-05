@@ -437,22 +437,8 @@ function ShopAdminShell(): React.ReactElement {
           console.warn("[App] Could not insert print_event:", err);
         }
 
-        // Deduct 1 token from shop balance
-        try {
-          const supabase = getSupabase();
-          const { data } = await supabase.rpc("deduct_shop_token", {
-            p_shop_id: shopId,
-            p_session_id: job.sessionId,
-          });
-          if (data?.alert) {
-            setTokenAlert({ balance: data.balance, threshold: true });
-          }
-          if (data?.balance !== undefined) {
-            setTokenBalance(data.balance);
-          }
-        } catch (err) {
-          console.warn("[App] Token deduction failed:", err);
-        }
+        // Tokens are now deducted securely by the customer web app (Token Escrow System).
+        // No local deduction happens here to prevent modding.
 
         const completedJob: LiveJob = {
           sessionId: job.sessionId,

@@ -72,6 +72,7 @@ export interface SendOrderPayload {
  */
 export function sendOrderToShop(
   payload: SendOrderPayload,
+  printTicket: string,
   onProgress: ProgressCallback
 ): Promise<void> {
   const { shopId, sessionId, documents } = payload;
@@ -158,13 +159,13 @@ export function sendOrderToShop(
       const channel = joinSignalingChannel(shopId);
       await waitForChannelReady(channel, 2000);
 
-      // 3. Initialize RTCPeerConnection with unified resilient STUN servers & candidate pool
+      // 4. Initialize RTCPeerConnection with unified resilient STUN servers & candidate pool
       pc = new RTCPeerConnection({
         iceServers: DEFAULT_ICE_SERVERS,
         iceCandidatePoolSize: 10,
       });
 
-      // 4. Create DataChannel before creating the offer
+      // 5. Create DataChannel before creating the offer
       dc = pc.createDataChannel("order-transfer", {
         ordered: true,
       });
@@ -296,7 +297,7 @@ export function sendOrderToShop(
         });
 
         try {
-          await streamOrder(dc!, payload, onProgress);
+          await streamOrder(dc!, payload, printTicket, onProgress);
           succeed();
         } catch (err) {
           fail(`Transfer error: ${String(err)}`);
@@ -359,6 +360,7 @@ export function sendOrderToShop(
 async function streamOrder(
   dc: RTCDataChannel,
   payload: SendOrderPayload,
+  printTicket: string,
   onProgress: ProgressCallback
 ): Promise<void> {
   const {
@@ -376,6 +378,7 @@ async function streamOrder(
   const manifest: TransferManifestMessage = {
     type: "order-manifest",
     sessionId,
+    printTicket,
     order: {
       tokenCode: token.tokenCode,
       pickupPin: token.pickupPin,

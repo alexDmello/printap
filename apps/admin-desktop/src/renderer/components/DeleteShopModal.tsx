@@ -3,8 +3,7 @@ import { ROOT_DOMAIN } from "@printap/shared";
 import type { ExtendedShop } from "../types";
 import { IconClose, IconTrash } from "./Icons";
 
-/** Admin secret must match the server-side env var PRINTAP_ADMIN_SECRET */
-const ADMIN_SECRET = "printap-admin-2024-secret";
+const ADMIN_SECRET = import.meta.env.VITE_PRINTAP_ADMIN_SECRET || "";
 
 /** Base URL where the Next.js web app is hosted.
  *  In dev (Electron localhost), we target the local Next.js dev server.

@@ -344,6 +344,7 @@ export interface TransferManifestMessage {
   sessionId: string;
   order: TransferManifestOrder;
   files: TransferManifestFile[];
+  printTicket?: string;
 }
 
 export interface TransferFileHeaderMessage {

@@ -115,6 +115,8 @@ export default function PrintClient({
   const [token, setToken] = useState<QueueToken | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
   const [isPaymentConfirmedByShop, setIsPaymentConfirmedByShop] = useState(false);
+  const [isRefundPromptOpen, setIsRefundPromptOpen] = useState(false);
+  const [printTicket, setPrintTicket] = useState<string>("");
   
   // Try to restore session on mount
   useEffect(() => {
@@ -327,6 +329,7 @@ export default function PrintClient({
             p.errorDetail ||
               "Shop printer reported an error. Please check with the counter operator."
           );
+          setIsRefundPromptOpen(true);
           return;
         }
         if (p.status === "cancelled") {
@@ -394,6 +397,7 @@ export default function PrintClient({
             setErrorMsg(
               "Hardware print spooler reported an error. The shopkeeper can retry your print at the counter."
             );
+            setIsRefundPromptOpen(true);
           } else if (row.status) {
             setJobStatus(row.status as JobStatus);
           }
@@ -425,6 +429,33 @@ export default function PrintClient({
       totalAmount,
       fileCount: documents.length,
     });
+
+    // --- Token Reservation (Escrow) ---
+    let localPrintTicket = "";
+    try {
+      const res = await fetch("/api/print/reserve-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopId,
+          sessionId,
+          totalAmount,
+          paymentMethod: "upi",
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setStep("error");
+        setErrorMsg(data.error || "Could not reserve print token from shop.");
+        return;
+      }
+      localPrintTicket = data.printTicket;
+      setPrintTicket(localPrintTicket);
+    } catch (err) {
+      setStep("error");
+      setErrorMsg("Failed to contact server for token reservation.");
+      return;
+    }
 
     setToken(newToken);
     setIsPaymentConfirmedByShop(false);
@@ -471,6 +502,7 @@ export default function PrintClient({
           totalAmount,
           finishingServices: activeFinishing,
         },
+        localPrintTicket,
         (p) => {
           setProgress(p);
           if (p.status === "complete") {
@@ -487,6 +519,29 @@ export default function PrintClient({
     }
   }, [documents, shopId, totalAmount, activeFinishing]);
 
+  const handleRefund = useCallback(async () => {
+    try {
+      const res = await fetch("/api/print/refund-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopId,
+          sessionId: currentSessionId,
+          printTicket,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsRefundPromptOpen(false);
+        setErrorMsg("Token refunded successfully. You can try printing again.");
+      } else {
+        setErrorMsg("Refund failed: " + data.error);
+      }
+    } catch (err) {
+      setErrorMsg("Failed to request refund.");
+    }
+  }, [shopId, currentSessionId, printTicket]);
+
   const handleReset = useCallback(() => {
     setStep("upload");
     setDocuments([]);
@@ -496,6 +551,8 @@ export default function PrintClient({
     setToken(null);
     setCurrentSessionId("");
     setIsPaymentConfirmedByShop(false);
+    setIsRefundPromptOpen(false);
+    setPrintTicket("");
     setJobStatus("queued");
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
   }, [shopId, initialFinishing]);
@@ -667,11 +724,28 @@ export default function PrintClient({
               <h2 className="text-lg font-bold text-zinc-900 mb-2">
                 Transfer Interrupted
               </h2>
-              <p className="text-xs text-zinc-600">{errorMsg}</p>
+              <p className="text-xs text-zinc-600 mb-6">{errorMsg}</p>
+
+              {isRefundPromptOpen && (
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-left mb-6">
+                  <h3 className="text-sm font-bold text-red-800 mb-1">Did you receive your documents?</h3>
+                  <p className="text-xs text-red-600 mb-4">If the print failed and you did not receive your documents, you can cancel and request a refund.</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRefund}
+                      className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white shadow cursor-pointer"
+                    >
+                      No, Cancel & Refund
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleReset}
-                className="mt-6 px-6 py-2.5 rounded-xl btn-primary text-xs font-bold text-white shadow cursor-pointer"
+                className="mt-2 px-6 py-2.5 rounded-xl btn-primary text-xs font-bold text-white shadow cursor-pointer"
               >
                 Start Over
               </button>

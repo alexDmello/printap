@@ -149,24 +149,37 @@ export default function App() {
   // Check initial session
   useEffect(() => {
     const checkSession = async () => {
-      const supabase = getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Verify admin status
-        const { data: adminData } = await supabase
-          .from("platform_admins")
-          .select("id")
-          .eq("id", session.user.id)
-          .maybeSingle();
-          
-        if (adminData) {
-          setIsAuthenticated(true);
-        } else {
-          await supabase.auth.signOut();
+      try {
+        const supabase = getSupabase();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session fetch error:", error);
         }
+
+        if (session?.user) {
+          // Verify admin status
+          const { data: adminData, error: adminErr } = await supabase
+            .from("platform_admins")
+            .select("id")
+            .eq("id", session.user.id)
+            .maybeSingle();
+            
+          if (adminErr) {
+            console.error("Admin verification error:", adminErr);
+          }
+            
+          if (adminData) {
+            setIsAuthenticated(true);
+          } else {
+            await supabase.auth.signOut();
+          }
+        }
+      } catch (err) {
+        console.error("Unexpected error in checkSession:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     checkSession();
   }, []);

@@ -332,8 +332,8 @@ export const Analytics: React.FC = () => {
             <span>🪙 Token Balance</span>
             <span style={{ fontSize: 11, color: "var(--accent-amber)", fontWeight: 600 }}>Subscription</span>
           </div>
-          <div className="stat-value">{shop?.token_balance || 0}</div>
-          <div className="stat-footnote">Valid for {shop?.token_balance || 0} successful prints</div>
+          <div className="stat-value">{(shop as any)?.token_balance || 0}</div>
+          <div className="stat-footnote">Valid for {(shop as any)?.token_balance || 0} successful prints</div>
         </div>
       </div>
 

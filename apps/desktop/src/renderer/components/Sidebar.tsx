@@ -10,6 +10,7 @@ import {
   IconTag,
   IconHistory,
   IconChevronLeft,
+  IconCash,
 } from "./Icons";
 
 export type AdminPage = "live" | "history" | "printers" | "services" | "analytics" | "qr" | "tokens" | "profile";

@@ -79,7 +79,7 @@ export const Tokens: React.FC = () => {
     }
   };
 
-  const currentBalance = shop?.token_balance || 0;
+  const currentBalance = (shop as any)?.token_balance || 0;
 
   return (
     <div className="content fade-in" style={{ paddingBottom: 60 }}>

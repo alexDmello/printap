@@ -65,6 +65,7 @@ function ShopAdminShell(): React.ReactElement {
   const [isListening, setIsListening] = useState(false);
   const [activeJob, setActiveJob] = useState<LiveJob | null>(null);
   const [recentJobs, setRecentJobs] = useState<LiveJob[]>([]);
+  const [pendingQueue, setPendingQueue] = useState<QueuedPrintJob[]>([]);
   const [todayPrintsCount, setTodayPrintsCount] = useState<number>(0);
 
   // Shop Online/Offline Presence state (always starts offline on launch until toggled)
@@ -922,29 +923,39 @@ function ShopAdminShell(): React.ReactElement {
             .eq("session_id", sessionId);
         } catch {}
 
-        // Enqueue into FIFO dispatcher! Dispatcher handles multi-printer capability matching and concurrent printing.
-        fifoDispatcherRef.current.enqueue(
-          {
-            sessionId,
-            tokenCode: finalTokenCode,
-            printerNumber: allocation.printerNumber,
-            targetPrinterName: allocation.targetPrinterName,
-            hasColor,
-            files: files.map((f) => ({
-              fileId: f.fileId,
-              fileName: f.fileName,
-              fileSize: f.fileSize,
-              pageCount: f.pageCount,
-              settings: f.settings,
-              buffer: f.buffer,
-            })),
-            totalAmount: finalAmount,
-            paymentMethod: order.paymentMethod || "upi",
-            paymentStatus: isAlreadyConfirmed ? "confirmed" : (order.paymentStatus as any) || "pending",
-            enqueuedAt: new Date(),
-          },
-          assignmentsRef.current
-        );
+        // Instead of enqueuing directly, add it to pendingQueue for shop owner to confirm.
+        const newJob: QueuedPrintJob = {
+          sessionId,
+          tokenCode: finalTokenCode,
+          printerNumber: allocation.printerNumber,
+          targetPrinterName: allocation.targetPrinterName,
+          hasColor,
+          files: files.map((f) => ({
+            fileId: f.fileId,
+            fileName: f.fileName,
+            fileSize: f.fileSize,
+            pageCount: f.pageCount,
+            settings: f.settings,
+            buffer: f.buffer,
+          })),
+          totalAmount: finalAmount,
+          paymentMethod: order.paymentMethod || "upi",
+          paymentStatus: isAlreadyConfirmed ? "confirmed" : (order.paymentStatus as any) || "pending",
+          enqueuedAt: new Date(),
+        };
+
+        setPendingQueue(prev => [...prev, newJob]);
+
+        // Tell the customer we received the files and are waiting for confirmation
+        if (signalingChannelRef.current) {
+          try {
+             broadcastOrderStatus(signalingChannelRef.current, {
+               sessionId,
+               tokenCode: finalTokenCode,
+               status: "pending_payment", 
+             });
+          } catch {}
+        }
       },
 
       onFileReceived: async (sessionId, buffer, fileName) => {
@@ -1023,9 +1034,20 @@ function ShopAdminShell(): React.ReactElement {
   // Payment Confirmation Handler called from LiveDashboard
   const handleConfirmPayment = useCallback(
     async (sessionId: string) => {
-      console.log(`[App] Confirming payment for session ${sessionId}...`);
+      console.log(`[App] Confirming payment and enqueuing for session ${sessionId}...`);
       confirmedPaymentSessionsRef.current.add(sessionId);
       fifoDispatcherRef.current?.updateJobPaymentStatus(sessionId, "confirmed");
+
+      // Find the job in the pendingQueue and actually enqueue it to print
+      setPendingQueue(prev => {
+        const jobIndex = prev.findIndex(j => j.sessionId === sessionId);
+        if (jobIndex >= 0) {
+          const job = prev[jobIndex];
+          fifoDispatcherRef.current?.enqueue(job, assignmentsRef.current);
+          return prev.filter((_, i) => i !== jobIndex);
+        }
+        return prev;
+      });
 
       setActiveJob((prev) => {
         if (!prev || prev.sessionId !== sessionId) return prev;
@@ -1082,6 +1104,40 @@ function ShopAdminShell(): React.ReactElement {
       }
     },
     [activeJob, recentJobs]
+  );
+
+  // Cancel Order Handler
+  const handleCancelOrder = useCallback(
+    async (sessionId: string) => {
+      console.log(`[App] Cancelling order for session ${sessionId}...`);
+      setPendingQueue(prev => prev.filter(j => j.sessionId !== sessionId));
+      
+      setActiveJob((prev) => prev?.sessionId === sessionId ? null : prev);
+      setRecentJobs(prev => prev.map(job => job.sessionId === sessionId ? { ...job, status: "cancelled" } : job));
+
+      if (signalingChannelRef.current) {
+         try {
+            await broadcastOrderStatus(signalingChannelRef.current, {
+               sessionId,
+               status: "cancelled"
+            });
+         } catch {}
+      }
+      
+      try {
+        const supabase = getSupabase();
+        await supabase
+          .from("print_orders")
+          .update({
+            status: "cancelled",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("session_id", sessionId);
+      } catch (err) {
+        console.warn("[App] Error cancelling print_orders in Supabase:", err);
+      }
+    },
+    []
   );
 
   // Retry Failed Print Job Handler called from LiveDashboard
@@ -1247,12 +1303,14 @@ function ShopAdminShell(): React.ReactElement {
             <LiveDashboard
               currentJob={activeJob}
               recentJobs={recentJobs}
+              pendingQueue={pendingQueue}
               todayPrintsCount={todayPrintsCount}
               isListening={isListening}
               connectedPrintersCount={
                 printers.filter((p) => p.isPhysical && p.isOnline).length
               }
               onConfirmPayment={handleConfirmPayment}
+              onCancelOrder={handleCancelOrder}
               onRetryJob={handleRetryJob}
               onDismissJob={handleDismissJob}
               onNavigateToHistory={() => handleSelectPage("history")}

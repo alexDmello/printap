@@ -37,13 +37,17 @@ export interface LiveJob {
   paymentConfirmedAt?: Date;
 }
 
+import type { QueuedPrintJob } from "../lib/fifo-dispatcher";
+
 interface LiveDashboardProps {
   currentJob: LiveJob | null;
   recentJobs: LiveJob[];
+  pendingQueue: QueuedPrintJob[];
   todayPrintsCount: number;
   isListening: boolean;
   connectedPrintersCount: number;
   onConfirmPayment: (sessionId: string) => void;
+  onCancelOrder: (sessionId: string) => void;
   onRetryJob?: (sessionId: string) => void;
   onDismissJob?: (sessionId: string) => void;
   onNavigateToHistory?: () => void;
@@ -54,10 +58,12 @@ interface LiveDashboardProps {
 export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   currentJob,
   recentJobs,
+  pendingQueue,
   todayPrintsCount,
   isListening,
   connectedPrintersCount,
   onConfirmPayment,
+  onCancelOrder,
   onRetryJob,
   onDismissJob,
   onNavigateToHistory,
@@ -167,9 +173,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
       (j.tokenCode || (j.totalAmount !== undefined && j.totalAmount > 0)) &&
       (!j.paymentStatus || j.paymentStatus === "pending")
   );
-  // Settled / completed payments: confirmed or handed over
   const settledPayments = allJobs.filter(
-    (j) => j.paymentStatus === "confirmed" || j.paymentStatus === "handed_over"
+    (j) => j.paymentStatus === "confirmed" || j.paymentStatus === "handed_over" || j.status === "done" || j.status === "cancelled"
   );
   // Only the last 10 are displayed on the live monitor; the rest are in History
   const displayedSettled = settledPayments.slice(0, 10);
@@ -253,21 +258,21 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
 
         <div className="stat-card">
           <div className="stat-label">
-            <span>Pending Payments</span>
+            <span>Pending Orders</span>
             <IconCash size={16} color="var(--text-muted)" />
           </div>
           <div
             className="stat-value"
             style={{
-              color: pendingPayments.length > 0 ? "var(--accent-amber)" : "var(--accent-emerald)",
+              color: pendingQueue.length > 0 ? "var(--accent-amber)" : "var(--accent-emerald)",
             }}
           >
-            {pendingPayments.length}
+            {pendingQueue.length}
           </div>
           <div className="stat-footnote">
-            {pendingPayments.length > 0
-              ? `${pendingPayments.length} awaiting verification`
-              : "All counter payments verified"}
+            {pendingQueue.length > 0
+              ? `${pendingQueue.length} awaiting action`
+              : "All clear"}
           </div>
         </div>
       </div>
@@ -439,22 +444,22 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* ─── TABLE 2: Payment Counter (Pending Verification) ─── */}
+        {/* ─── TABLE 2: Pending Orders (Action Required) ─── */}
         <div className="monitor-table-card">
           <div className="monitor-table-header">
             <div className="monitor-table-title">
               <IconCash size={16} color="var(--text-primary)" />
-              <span>Payment Counter</span>
+              <span>Pending Orders (Action Required)</span>
             </div>
             <span
               className="status-badge"
               style={{
-                background: pendingPayments.length > 0 ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.12)",
-                color: pendingPayments.length > 0 ? "#b45309" : "#059669",
-                borderColor: pendingPayments.length > 0 ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)",
+                background: pendingQueue.length > 0 ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.12)",
+                color: pendingQueue.length > 0 ? "#b45309" : "#059669",
+                borderColor: pendingQueue.length > 0 ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)",
               }}
             >
-              {pendingPayments.length > 0 ? `${pendingPayments.length} Due` : "All Settled ✓"}
+              {pendingQueue.length > 0 ? `${pendingQueue.length} Waiting` : "All Clear ✓"}
             </span>
           </div>
 
@@ -469,10 +474,10 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {pendingPayments.length > 0 ? (
-                  pendingPayments.map((job) => {
+                {pendingQueue.length > 0 ? (
+                  pendingQueue.map((job) => {
                     const amount = job.totalAmount ?? 0;
-                    const docCount = job.files?.length || job.fileCount || 1;
+                    const docCount = job.files?.length || 1;
 
                     return (
                       <tr key={job.sessionId}>
@@ -484,20 +489,30 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                         </td>
                         <td>
                           <div className="table-method-cell">
-                            <span className="method-pill">{job.paymentMethod?.toUpperCase() || "CASH"}</span>
+                            <span className="method-pill">{job.paymentMethod?.toUpperCase() || "UPI"}</span>
                             <span className="subtext">{docCount} {docCount === 1 ? "doc" : "docs"}</span>
                           </div>
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <button
-                            type="button"
-                            className="table-confirm-btn"
-                            onClick={() => onConfirmPayment(job.sessionId)}
-                            title={`Confirm payment of ₹${amount.toFixed(2)}`}
-                          >
-                            <IconCheck size={13} />
-                            <span>Confirm</span>
-                          </button>
+                          <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                            <button
+                              type="button"
+                              className="table-confirm-btn"
+                              style={{ padding: "4px 8px", background: "var(--accent-emerald)", color: "white", borderRadius: "4px", fontWeight: 600 }}
+                              onClick={() => onConfirmPayment(job.sessionId)}
+                              title={`Confirm & Print order of ₹${amount.toFixed(2)}`}
+                            >
+                              Print
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-dismiss-tiny"
+                              onClick={() => onCancelOrder(job.sessionId)}
+                              title="Cancel this order"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -508,10 +523,10 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                       <div className="empty-state-content">
                         <IconCheck size={26} color="var(--accent-emerald)" />
                         <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginTop: 6 }}>
-                          All Settled
+                          All Clear
                         </div>
                         <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "3px 0 0" }}>
-                          Pending payments will appear here for 1-click verification.
+                          Incoming print orders will appear here for confirmation.
                         </p>
                       </div>
                     </td>
@@ -568,10 +583,14 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                           </div>
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <span className="table-verified-badge">
-                            <IconCheck size={12} />
-                            <span>Verified</span>
-                          </span>
+                          {job.status === "cancelled" ? (
+                             <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626" }}>Cancelled</span>
+                          ) : (
+                            <span className="table-verified-badge">
+                              <IconCheck size={12} />
+                              <span>Done</span>
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );

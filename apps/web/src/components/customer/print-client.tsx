@@ -20,6 +20,7 @@ import {
   getSupabase,
   joinSignalingChannel,
 } from "@printap/shared";
+import type { PersistedSession } from "@printap/shared";
 import {
   sendOrderToShop,
   requestTokenFromShop,
@@ -108,11 +109,48 @@ export default function PrintClient({
 
   const [progress, setProgress] = useState<TransferProgress | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [token, setToken] = useState<QueueToken | null>(null);
-  const [currentSessionId, setCurrentSessionId] = useState<string>("");
-  const [isPaymentConfirmedByShop, setIsPaymentConfirmedByShop] = useState(false);
-  const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
   const [isShopOnline, setIsShopOnline] = useState<boolean>(initialIsOnline);
+
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
+  const [token, setToken] = useState<QueueToken | null>(null);
+  const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
+  const [isPaymentConfirmedByShop, setIsPaymentConfirmedByShop] = useState(false);
+  
+  // Try to restore session on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY(shopId));
+      if (saved) {
+        const parsed = JSON.parse(saved) as PersistedSession;
+        if (parsed.status !== "picked_up" && parsed.status !== "cancelled") {
+          setCurrentSessionId(parsed.orderId);
+          setToken(parsed.token);
+          setJobStatus(parsed.status);
+          setStep("print_pay"); // Resume straight to print progress screen
+        } else {
+          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+        }
+      }
+    } catch (e) {
+      console.warn("[PrintClient] Failed to load persisted session", e);
+    }
+  }, [shopId]);
+
+  // Persist session automatically
+  useEffect(() => {
+    if (currentSessionId && token && step === "print_pay" && jobStatus !== "cancelled") {
+      const persisted: PersistedSession = {
+        orderId: currentSessionId,
+        shopId,
+        token,
+        status: jobStatus,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(SESSION_STORAGE_KEY(shopId), JSON.stringify(persisted));
+    } else if (step === "upload") {
+      localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+    }
+  }, [currentSessionId, token, jobStatus, step, shopId]);
 
   // Monitor shop online status in realtime and verify on mount
   useEffect(() => {
@@ -291,6 +329,15 @@ export default function PrintClient({
           );
           return;
         }
+        if (p.status === "cancelled") {
+          setStep("error");
+          setErrorMsg(
+            p.errorDetail ||
+              "Your order was cancelled by the shop."
+          );
+          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          return;
+        }
         if (p.status) {
           setJobStatus(p.status as JobStatus);
           if (p.status === "ready_for_pickup") {
@@ -338,7 +385,11 @@ export default function PrintClient({
             setIsPaymentConfirmedByShop(true);
             setJobStatus("ready_for_pickup");
           }
-          if (row.status === "failed") {
+          if (row.status === "cancelled") {
+            setStep("error");
+            setErrorMsg("Your order was cancelled by the shop.");
+            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          } else if (row.status === "failed") {
             setStep("error");
             setErrorMsg(
               "Hardware print spooler reported an error. The shopkeeper can retry your print at the counter."

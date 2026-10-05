@@ -615,183 +615,161 @@ export default function PrintSettingsPanel({
 
           {/* Unified Image Settings Panel */}
           {expandedIds["images-batch"] && (
-            <div className="p-3 border-t border-indigo-100/70 bg-indigo-50/20 animate-fade-in flex flex-row gap-3">
-              {/* Left Column: Live Preview & Grid Layout */}
-              <div className="w-[45%] flex flex-col gap-2">
-
-                {/* ── Live Sheet Preview ── */}
-                <div className="bg-white p-2.5 rounded-2xl border-2 border-indigo-50 shadow-sm flex flex-col h-full justify-between">
-                  <div className="flex items-center justify-between mb-2 px-1">
-                    <span className="text-[10px] font-extrabold text-zinc-900 uppercase tracking-wider leading-tight">
-                      Paper Preview
-                    </span>
-                    {totalImagePreviewSheets > 1 && (
-                      <div className="flex items-center gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setImagePreviewSheet((s) => Math.max(0, s - 1))}
-                          disabled={currentPreviewSheetClamped === 0}
-                          className="w-4 h-4 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[9px] font-bold cursor-pointer"
-                        >
-                          ‹
-                        </button>
-                        <span className="text-[8px] font-mono font-bold text-zinc-600 px-0.5">
-                          {currentPreviewSheetClamped + 1}/{totalImagePreviewSheets}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setImagePreviewSheet((s) => Math.min(totalImagePreviewSheets - 1, s + 1))}
-                          disabled={currentPreviewSheetClamped >= totalImagePreviewSheets - 1}
-                          className="w-4 h-4 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[9px] font-bold cursor-pointer"
-                        >
-                          ›
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Compact Simulation Frame */}
-                  <div className="w-full flex flex-1 items-center justify-center py-2 bg-zinc-100/70 rounded-lg border border-zinc-200/80 overflow-hidden shadow-inner">
-                    <div
-                      className={`relative bg-white transition-all duration-200 overflow-hidden rounded-xs flex flex-col ${
-                        imageBatchSettings.orientation === "landscape"
-                          ? "w-[120px] h-[85px]"
-                          : "w-[85px] h-[120px]"
-                      }`}
-                      style={{
-                        boxShadow: "0 4px 10px -2px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.2)",
-                        filter: imageBatchSettings.colorMode === "bw"
-                          ? "grayscale(100%) contrast(1.1) brightness(0.98)"
-                          : "none",
-                      }}
-                    >
-                      <div
-                        className={`w-full h-full flex items-center justify-center overflow-hidden ${
-                          imageBatchGrid === 1 && imageBatchSettings.pageFit === "fill" ? "p-0" : "p-1"
-                        }`}
+            <div className="p-3 border-t border-indigo-100/70 bg-indigo-50/20 animate-fade-in flex flex-col gap-3">
+              {/* 1. TOP: Live Preview Frame */}
+              <div className="bg-white p-2.5 rounded-2xl border-2 border-indigo-50 shadow-sm flex flex-col items-center">
+                <div className="w-full flex items-center justify-between mb-2 px-1">
+                  <span className="text-[10px] font-extrabold text-zinc-900 uppercase tracking-wider leading-tight">
+                    Paper Preview
+                  </span>
+                  {totalImagePreviewSheets > 1 && (
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setImagePreviewSheet((s) => Math.max(0, s - 1))}
+                        disabled={currentPreviewSheetClamped === 0}
+                        className="w-5 h-5 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[10px] font-bold cursor-pointer hover:bg-zinc-50"
                       >
-                        {/* 1-in-1 */}
-                        {imageBatchGrid === 1 && currentSheetPhotos[0] && (
-                          <div className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 border border-indigo-100/50">
-                            <svg className="w-6 h-6 text-indigo-200" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
-
-                        {/* 2-in-1 */}
-                        {imageBatchGrid === 2 && (
-                          <div
-                            className={`w-full h-full grid gap-0.5 ${
-                              imageBatchSettings.orientation === "landscape"
-                                ? "grid-cols-2 grid-rows-1"
-                                : "grid-cols-1 grid-rows-2"
-                            }`}
-                          >
-                            {currentSheetPhotos.map((photo, i) => (
-                              <div
-                                key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
-                              >
-                                <span className="text-[10px] font-bold text-indigo-200">{i + 1}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* 4-in-1 */}
-                        {imageBatchGrid === 4 && (
-                          <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-0.5">
-                            {currentSheetPhotos.map((photo, i) => (
-                              <div
-                                key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
-                              >
-                                <span className="text-[8px] font-bold text-indigo-200">{i + 1}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* 6-in-1 */}
-                        {imageBatchGrid === 6 && (
-                          <div
-                            className={`w-full h-full grid gap-0.5 ${
-                              imageBatchSettings.orientation === "landscape"
-                                ? "grid-cols-3 grid-rows-2"
-                                : "grid-cols-2 grid-rows-3"
-                            }`}
-                          >
-                            {currentSheetPhotos.map((photo, i) => (
-                              <div
-                                key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
-                              >
-                                <span className="text-[7px] font-bold text-indigo-200">{i + 1}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* 9-in-1 */}
-                        {imageBatchGrid === 9 && (
-                          <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-0.5">
-                            {currentSheetPhotos.map((photo, i) => (
-                              <div
-                                key={photo.id}
-                                className="w-full h-full flex items-center justify-center overflow-hidden bg-indigo-50/50 rounded-xs border border-indigo-100/50"
-                              >
-                                <span className="text-[6px] font-bold text-indigo-200">{i + 1}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                        ‹
+                      </button>
+                      <span className="text-[9px] font-mono font-bold text-zinc-600 px-1">
+                        {currentPreviewSheetClamped + 1} / {totalImagePreviewSheets}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setImagePreviewSheet((s) => Math.min(totalImagePreviewSheets - 1, s + 1))}
+                        disabled={currentPreviewSheetClamped >= totalImagePreviewSheets - 1}
+                        className="w-5 h-5 rounded bg-white border border-zinc-200 text-zinc-700 disabled:opacity-30 flex items-center justify-center text-[10px] font-bold cursor-pointer hover:bg-zinc-50"
+                      >
+                        ›
+                      </button>
                     </div>
-                  </div>
-                  
-                  {/* Grid Selector */}
-                  <div className="mt-2 pt-2 border-t border-indigo-50/80">
-                    <PremiumGridSelector
-                      value={String(imageBatchGrid)}
-                      options={[
-                        { value: "1", label: "1-in-1", grids: [1] },
-                        { value: "2", label: "2-in-1", grids: [1, 2] },
-                        { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
-                        { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
-                        { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
-                      ]}
-                      onChange={(v) => {
-                        const gridVal = Number(v) as PagesPerSheet;
-                        onDocumentsChange(
-                          documents.map((d) =>
-                            d.type === "image"
-                              ? {
-                                  ...d,
-                                  settings: {
-                                    ...d.settings,
-                                    pagesPerSheet: gridVal,
-                                    pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
-                                  },
-                                }
-                              : d
-                          )
-                        );
-                      }}
-                    />
+                  )}
+                </div>
+
+                <div className="w-full flex justify-center py-3 bg-zinc-100/70 rounded-lg border border-zinc-200/80 overflow-hidden shadow-inner">
+                  <div
+                    className={`relative bg-white transition-all duration-200 overflow-hidden rounded flex flex-col ${
+                      imageBatchSettings.orientation === "landscape"
+                        ? "w-[160px] h-[113px]"
+                        : "w-[113px] h-[160px]"
+                    }`}
+                    style={{
+                      boxShadow: "0 4px 10px -2px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.2)",
+                      filter: imageBatchSettings.colorMode === "bw"
+                        ? "grayscale(100%) contrast(1.1) brightness(0.98)"
+                        : "none",
+                    }}
+                  >
+                    <div
+                      className={`w-full h-full flex items-center justify-center overflow-hidden ${
+                        imageBatchGrid === 1 && imageBatchSettings.pageFit === "fill" ? "p-0" : "p-1.5"
+                      }`}
+                    >
+                      {/* 1-in-1 */}
+                      {imageBatchGrid === 1 && currentSheetPhotos[0] && (
+                        <div className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-100 rounded-sm">
+                          <img 
+                             src={currentSheetPhotos[0].thumbnailUrl || URL.createObjectURL(currentSheetPhotos[0].file)}
+                             className={`w-full h-full ${imageBatchSettings.pageFit === "fill" ? "object-cover" : "object-contain"}`}
+                             alt="preview"
+                          />
+                        </div>
+                      )}
+
+                      {/* 2-in-1 */}
+                      {imageBatchGrid === 2 && (
+                        <div
+                          className={`w-full h-full grid gap-1 ${
+                            imageBatchSettings.orientation === "landscape"
+                              ? "grid-cols-2 grid-rows-1"
+                              : "grid-cols-1 grid-rows-2"
+                          }`}
+                        >
+                          {currentSheetPhotos.map((photo, i) => (
+                            <div key={photo.id} className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-100 rounded-sm">
+                              <img src={photo.thumbnailUrl || URL.createObjectURL(photo.file)} className={`w-full h-full ${imageBatchSettings.pageFit === "fill" ? "object-cover" : "object-contain"}`} alt={`preview-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 4-in-1 */}
+                      {imageBatchGrid === 4 && (
+                        <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1">
+                          {currentSheetPhotos.map((photo, i) => (
+                            <div key={photo.id} className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-100 rounded-sm">
+                              <img src={photo.thumbnailUrl || URL.createObjectURL(photo.file)} className={`w-full h-full ${imageBatchSettings.pageFit === "fill" ? "object-cover" : "object-contain"}`} alt={`preview-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 6-in-1 */}
+                      {imageBatchGrid === 6 && (
+                        <div
+                          className={`w-full h-full grid gap-1 ${
+                            imageBatchSettings.orientation === "landscape"
+                              ? "grid-cols-3 grid-rows-2"
+                              : "grid-cols-2 grid-rows-3"
+                          }`}
+                        >
+                          {currentSheetPhotos.map((photo, i) => (
+                            <div key={photo.id} className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-100 rounded-sm">
+                              <img src={photo.thumbnailUrl || URL.createObjectURL(photo.file)} className={`w-full h-full ${imageBatchSettings.pageFit === "fill" ? "object-cover" : "object-contain"}`} alt={`preview-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 9-in-1 */}
+                      {imageBatchGrid === 9 && (
+                        <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-0.5">
+                          {currentSheetPhotos.map((photo, i) => (
+                            <div key={photo.id} className="w-full h-full flex items-center justify-center overflow-hidden bg-zinc-100 rounded-[1px]">
+                              <img src={photo.thumbnailUrl || URL.createObjectURL(photo.file)} className={`w-full h-full ${imageBatchSettings.pageFit === "fill" ? "object-cover" : "object-contain"}`} alt={`preview-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Setting Controls */}
-              <div className="w-[55%] bg-white p-2.5 rounded-2xl border-2 border-indigo-50 shadow-sm flex flex-col space-y-0.5 overflow-y-auto">
-                <CompactRow label="Copies">
-                  <CompactCopiesStepper
-                    value={imageBatchSettings.copies}
-                    onChange={(v) => updateAllImagesSettings("copies", v)}
-                  />
-                </CompactRow>
+              {/* 2. MIDDLE: Grid Selector */}
+              <div className="bg-white p-2 rounded-2xl border-2 border-indigo-50 shadow-sm">
+                <PremiumGridSelector
+                  value={String(imageBatchGrid)}
+                  options={[
+                    { value: "1", label: "1-in-1", grids: [1] },
+                    { value: "2", label: "2-in-1", grids: [1, 2] },
+                    { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
+                    { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
+                    { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+                  ]}
+                  onChange={(v) => {
+                    const gridVal = Number(v) as PagesPerSheet;
+                    onDocumentsChange(
+                      documents.map((d) =>
+                        d.type === "image"
+                          ? {
+                              ...d,
+                              settings: {
+                                ...d.settings,
+                                pagesPerSheet: gridVal,
+                                pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
+                              },
+                            }
+                          : d
+                      )
+                    );
+                  }}
+                />
+              </div>
 
+              {/* 3. BOTTOM: Setting Controls (Two Options Next to Each Other) */}
+              <div className="bg-white p-2 rounded-2xl border-2 border-indigo-50 shadow-sm grid grid-cols-2 gap-2">
                 <CompactRow label="Color Mode">
                   <CompactToggle
                     options={
@@ -820,6 +798,13 @@ export default function PrintSettingsPanel({
                   />
                 </CompactRow>
 
+                <CompactRow label="Copies">
+                  <CompactCopiesStepper
+                    value={imageBatchSettings.copies}
+                    onChange={(v) => updateAllImagesSettings("copies", v)}
+                  />
+                </CompactRow>
+
                 {imageBatchSettings.colorMode !== "color" && (
                   <CompactRow label="Sides">
                     <CompactToggle
@@ -829,19 +814,6 @@ export default function PrintSettingsPanel({
                       ]}
                       value={imageBatchSettings.duplex}
                       onChange={(v) => updateAllImagesSettings("duplex", v as DuplexMode)}
-                    />
-                  </CompactRow>
-                )}
-
-                {(imageBatchGrid === 1 || imageDocs.length === 1) && (
-                  <CompactRow label="Page Fit">
-                    <CompactToggle
-                      options={[
-                        { value: "fit", label: "Fit to Page" },
-                        { value: "fill", label: "Fill Page" },
-                      ]}
-                      value={imageBatchSettings.pageFit || "fit"}
-                      onChange={(v) => updateAllImagesSettings("pageFit", v as PageFit)}
                     />
                   </CompactRow>
                 )}
@@ -858,6 +830,19 @@ export default function PrintSettingsPanel({
                     }
                   />
                 </CompactRow>
+
+                {(imageBatchGrid === 1 || imageDocs.length === 1) && (
+                  <CompactRow label="Page Fit">
+                    <CompactToggle
+                      options={[
+                        { value: "fit", label: "Fit to Page" },
+                        { value: "fill", label: "Fill Page" },
+                      ]}
+                      value={imageBatchSettings.pageFit || "fit"}
+                      onChange={(v) => updateAllImagesSettings("pageFit", v as PageFit)}
+                    />
+                  </CompactRow>
+                )}
               </div>
             </div>
           )}

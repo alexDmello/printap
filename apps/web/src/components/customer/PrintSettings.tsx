@@ -298,11 +298,12 @@ export default function PrintSettingsPanel({
             Customize how your {documents.length === 1 ? "file" : "files"} will be printed
           </span>
         </div>
-          <span className="text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200/60">
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200/60">
             {documents.length} {documents.length === 1 ? "file" : "files"}
           </span>
+          <span className="text-[11px] text-zinc-400 font-medium">Click card to expand</span>
         </div>
-        <span className="text-[11px] text-zinc-400 font-medium">Click card to expand</span>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────

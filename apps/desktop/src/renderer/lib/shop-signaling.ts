@@ -373,6 +373,14 @@ function setupDataChannelReceiver(
         // Case B: File Header
         if (msg.type === "file-header") {
           console.log(`[shop] File header received:`, msg);
+          
+          // SECURITY: Enforce maximum file size of 100MB to prevent Memory Exhaustion (DoS)
+          if (msg.fileSize > 100 * 1024 * 1024) {
+             callbacks.onSessionError?.(session.sessionId, "Security Exception: File size exceeds 100MB limit.");
+             cleanup(session.sessionId);
+             return;
+          }
+
           currentFileHeader = msg as TransferFileHeaderMessage;
           expectedSize = currentFileHeader.fileSize;
           receivedSize = 0;
@@ -445,6 +453,13 @@ function setupDataChannelReceiver(
 
         // Case E: Legacy metadata { fileName, fileSize, totalChunks }
         if (msg.fileName && typeof msg.fileSize === "number") {
+          // SECURITY: Enforce maximum file size of 100MB to prevent Memory Exhaustion (DoS)
+          if (msg.fileSize > 100 * 1024 * 1024) {
+             callbacks.onSessionError?.(session.sessionId, "Security Exception: File size exceeds 100MB limit.");
+             cleanup(session.sessionId);
+             return;
+          }
+
           legacyMetadata = msg;
           expectedSize = msg.fileSize;
           receivedSize = 0;

@@ -663,8 +663,12 @@ ipcMain.handle(
       scale?: "fit" | "noscale";
     }
   ) => {
-    const shortId = sessionId.slice(0, 8);
-    const fileName = `${FILE_PREFIX}${sessionId}.pdf`;
+    // SECURITY: Sanitize sessionId to prevent Path Traversal
+    const safeSessionId = sessionId.replace(/[^a-zA-Z0-9-]/g, '');
+    if (!safeSessionId) throw new Error("Invalid session ID");
+
+    const shortId = safeSessionId.slice(0, 8);
+    const fileName = `${FILE_PREFIX}${safeSessionId}.pdf`;
     const filePath = path.join(TEMP_DIR, fileName);
 
     try {

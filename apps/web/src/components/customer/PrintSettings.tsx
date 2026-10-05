@@ -119,7 +119,7 @@ function CompactToggle({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`relative flex flex-row items-center justify-center px-1 h-[36px] rounded-lg border-2 transition-all duration-200 overflow-hidden cursor-pointer active:scale-95 ${
+            className={`relative flex flex-row items-center justify-center px-2 h-[44px] rounded-lg border-2 transition-all duration-200 overflow-hidden cursor-pointer active:scale-95 ${
               isSelected
                 ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
                 : "border-zinc-200 bg-white hover:border-emerald-300 hover:shadow-sm"
@@ -211,24 +211,24 @@ function CompactCopiesStepper({
   onChange: (val: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between bg-zinc-50/80 p-0.5 rounded-lg border border-zinc-200/80 shadow-inner h-[36px]">
+    <div className="flex items-center justify-between bg-zinc-50/80 p-1 rounded-lg border border-zinc-200/80 shadow-inner h-[44px]">
       <button
         type="button"
         onClick={() => onChange(Math.max(1, value - 1))}
-        className="w-8 h-full rounded-[6px] bg-white text-zinc-800 font-bold text-lg shadow-sm border border-zinc-200/80 hover:bg-zinc-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+        className="w-10 h-full rounded-[6px] bg-white text-zinc-800 font-bold text-xl shadow-sm border border-zinc-200/80 hover:bg-zinc-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
         disabled={value <= 1}
         aria-label="Decrease copies"
       >
         −
       </button>
-      <div className="flex flex-row items-baseline justify-center gap-1">
-        <span className="font-extrabold text-lg text-zinc-900 tracking-tighter tabular-nums leading-none">{value}</span>
-        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">cp</span>
+      <div className="flex flex-row items-baseline justify-center gap-1.5 px-2">
+        <span className="font-extrabold text-xl text-zinc-900 tracking-tighter tabular-nums leading-none">{value}</span>
+        <span className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider">cp</span>
       </div>
       <button
         type="button"
         onClick={() => onChange(Math.min(99, value + 1))}
-        className="w-8 h-full rounded-[6px] bg-emerald-500 text-white font-bold text-lg shadow-md border border-emerald-600/50 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+        className="w-10 h-full rounded-[6px] bg-emerald-500 text-white font-bold text-xl shadow-md border border-emerald-600/50 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
         aria-label="Increase copies"
       >
         +

@@ -15,7 +15,7 @@ import type {
 // ─── Premium Micro-Components ───
 
 const IconColor = () => (
-  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="url(#rainbow)">
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="url(#rainbow)">
     <defs>
       <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stopColor="#ef4444" />
@@ -28,33 +28,33 @@ const IconColor = () => (
 );
 
 const IconBW = () => (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2V4a8 8 0 000 16z" />
   </svg>
 );
 
 const IconSingleSide = () => (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth={2} />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6M9 11h6M9 15h4" />
   </svg>
 );
 
 const IconDoubleSide = () => (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v14a2 2 0 002 2h10a2 2 0 002-2V7m-6-4H4a2 2 0 00-2 2v14M8 3v14" />
   </svg>
 );
 
 const IconPortrait = () => (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <rect x="6" y="3" width="12" height="18" rx="2" strokeWidth={2} />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 7h4M10 11h4M10 15h2" />
   </svg>
 );
 
 const IconLandscape = () => (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <rect x="3" y="6" width="18" height="12" rx="2" strokeWidth={2} />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 10h4M7 14h6" />
   </svg>
@@ -92,8 +92,8 @@ function CompactRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 py-5 border-b border-zinc-100 last:border-b-0">
-      <span className="text-[15px] font-extrabold text-zinc-900 tracking-tight">{label}</span>
+    <div className="flex flex-col gap-3 py-4 border-b border-zinc-100 last:border-b-0">
+      <span className="text-[14px] font-extrabold text-zinc-900 tracking-tight">{label}</span>
       <div className="w-full">{children}</div>
     </div>
   );
@@ -110,7 +110,7 @@ function CompactToggle({
 }) {
   const gridCols = options.length > 2 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <div className={`grid ${gridCols} gap-3 w-full`}>
+    <div className={`grid ${gridCols} gap-2 w-full`}>
       {options.map((opt) => {
         const isSelected = value === opt.value;
         const Icon = getIconForValue(opt.value);
@@ -119,26 +119,81 @@ function CompactToggle({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all duration-300 overflow-hidden cursor-pointer active:scale-95 ${
+            className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border-2 transition-all duration-300 overflow-hidden cursor-pointer active:scale-95 ${
               isSelected
-                ? "border-emerald-500 bg-emerald-50/50 shadow-md"
-                : "border-zinc-200 bg-white hover:border-emerald-300 hover:shadow-sm hover:-translate-y-0.5"
+                ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
+                : "border-zinc-200 bg-white hover:border-emerald-300 hover:shadow-sm"
             }`}
           >
             {isSelected && (
-              <div className="absolute top-2 right-2 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-sm animate-fade-in">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-sm animate-fade-in">
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
               </div>
             )}
             {Icon && (
-              <div className={`mb-2 ${isSelected ? "text-emerald-600 scale-110" : "text-zinc-400"} transition-transform duration-300`}>
+              <div className={`mb-1.5 ${isSelected ? "text-emerald-600 scale-105" : "text-zinc-400"} transition-transform duration-300`}>
                 {Icon}
               </div>
             )}
-            <span className={`text-[13px] font-bold tracking-wide ${isSelected ? "text-emerald-900" : "text-zinc-700"}`}>{opt.label}</span>
+            <span className={`text-xs font-bold tracking-wide ${isSelected ? "text-emerald-900" : "text-zinc-700"}`}>{opt.label}</span>
             {opt.sublabel && (
-              <span className={`text-[11px] font-medium mt-1 ${isSelected ? "text-emerald-700/80" : "text-zinc-500"}`}>{opt.sublabel}</span>
+              <span className={`text-[10px] font-medium mt-0.5 ${isSelected ? "text-emerald-700/80" : "text-zinc-500"}`}>{opt.sublabel}</span>
             )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PremiumGridSelector({ 
+  value, 
+  onChange,
+  options = [
+    { value: "1", label: "1-in-1", grids: [1] },
+    { value: "2", label: "2-in-1", grids: [1, 2] },
+    { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
+  ]
+}: { 
+  value: string, 
+  onChange: (v: string) => void,
+  options?: { value: string, label: string, grids: number[] }[]
+}) {
+  return (
+    <div className="flex bg-zinc-100/80 p-1 rounded-xl w-full border border-zinc-200/60 shadow-inner">
+      {options.map((opt) => {
+        const isSelected = value === opt.value;
+        const total = opt.grids.length;
+        
+        let cols = 1;
+        let rows = 1;
+        if (total === 2) { cols = 1; rows = 2; }
+        else if (total === 4) { cols = 2; rows = 2; }
+        else if (total === 6) { cols = 2; rows = 3; }
+        else if (total === 9) { cols = 3; rows = 3; }
+        
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`flex-1 flex flex-col items-center justify-center py-2 rounded-lg transition-all duration-300 cursor-pointer ${
+              isSelected 
+                ? "bg-white shadow-sm border-zinc-200 text-emerald-600" 
+                : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50"
+            }`}
+          >
+            <div 
+               className={`w-6 h-8 rounded-sm border-2 grid gap-[1px] p-[1px] mb-1.5 transition-colors ${
+                 isSelected ? "border-emerald-500 bg-emerald-50" : "border-zinc-300 bg-white"
+               }`}
+               style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}
+            >
+              {opt.grids.map(g => (
+                <div key={g} className={`rounded-[1px] ${isSelected ? 'bg-emerald-200' : 'bg-zinc-200'}`} />
+              ))}
+            </div>
+            <span className={`text-[9px] sm:text-[10px] font-bold tracking-wide ${isSelected ? "text-emerald-800" : ""}`}>{opt.label}</span>
           </button>
         );
       })}
@@ -154,24 +209,24 @@ function CompactCopiesStepper({
   onChange: (val: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between bg-zinc-50/80 p-2.5 rounded-2xl border border-zinc-200/80 shadow-inner">
+    <div className="flex items-center justify-between bg-zinc-50/80 p-2 rounded-xl border border-zinc-200/80 shadow-inner">
       <button
         type="button"
         onClick={() => onChange(Math.max(1, value - 1))}
-        className="w-14 h-14 rounded-xl bg-white text-zinc-800 font-bold text-2xl shadow-sm border border-zinc-200/80 hover:bg-zinc-100 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+        className="w-10 h-10 rounded-lg bg-white text-zinc-800 font-bold text-xl shadow-sm border border-zinc-200/80 hover:bg-zinc-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
         disabled={value <= 1}
         aria-label="Decrease copies"
       >
         −
       </button>
       <div className="flex flex-col items-center justify-center">
-        <span className="font-extrabold text-4xl text-zinc-900 tracking-tighter tabular-nums leading-none">{value}</span>
-        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mt-1">Copies</span>
+        <span className="font-extrabold text-2xl text-zinc-900 tracking-tighter tabular-nums leading-none">{value}</span>
+        <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider mt-1">Copies</span>
       </div>
       <button
         type="button"
         onClick={() => onChange(Math.min(99, value + 1))}
-        className="w-14 h-14 rounded-xl bg-emerald-500 text-white font-bold text-2xl shadow-md border border-emerald-600/50 hover:bg-emerald-600 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+        className="w-10 h-10 rounded-lg bg-emerald-500 text-white font-bold text-xl shadow-md border border-emerald-600/50 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
         aria-label="Increase copies"
       >
         +
@@ -434,12 +489,7 @@ export default function PrintSettingsPanel({
                 )}
 
                 <CompactRow label="Pages/Sheet">
-                  <CompactToggle
-                    options={[
-                      { value: "1", label: "1-in-1" },
-                      { value: "2", label: "2-in-1" },
-                      { value: "4", label: "4-in-1" },
-                    ]}
+                  <PremiumGridSelector
                     value={String(doc.settings.pagesPerSheet)}
                     onChange={(v) => {
                       const pps = Number(v) as PagesPerSheet;
@@ -605,57 +655,43 @@ export default function PrintSettingsPanel({
               </div>
 
               {/* Grid Selector */}
-              <div className="p-2.5 rounded-xl bg-white border border-indigo-100 shadow-2xs space-y-1.5">
+              <div className="p-4 rounded-3xl bg-white border-2 border-indigo-50 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-zinc-800">
+                  <span className="text-[14px] font-extrabold text-zinc-900 tracking-tight">
                     Photo Grid Layout
                   </span>
-                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
                     {imageBatchGrid}-in-1
                   </span>
                 </div>
 
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[
-                    { value: 1, label: "1-in-1" },
-                    { value: 2, label: "2-in-1" },
-                    { value: 4, label: "4-in-1" },
-                    { value: 6, label: "6-in-1" },
-                    { value: 9, label: "9-in-1" },
-                  ].map((g) => {
-                    const isSelected = imageBatchGrid === g.value;
-                    return (
-                      <button
-                        key={g.value}
-                        type="button"
-                        onClick={() => {
-                          const gridVal = g.value as PagesPerSheet;
-                          onDocumentsChange(
-                            documents.map((d) =>
-                              d.type === "image"
-                                ? {
-                                    ...d,
-                                    settings: {
-                                      ...d.settings,
-                                      pagesPerSheet: gridVal,
-                                      pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
-                                    },
-                                  }
-                                : d
-                            )
-                          );
-                        }}
-                        className={`py-1.5 rounded-lg border text-center transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-zinc-900 text-white border-zinc-900 shadow-xs"
-                            : "bg-zinc-50 hover:bg-zinc-100 border-zinc-200/70 text-zinc-700"
-                        }`}
-                      >
-                        <div className="text-[11px] font-bold font-mono">{g.label}</div>
-                      </button>
+                <PremiumGridSelector
+                  value={String(imageBatchGrid)}
+                  options={[
+                    { value: "1", label: "1-in-1", grids: [1] },
+                    { value: "2", label: "2-in-1", grids: [1, 2] },
+                    { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
+                    { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
+                    { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+                  ]}
+                  onChange={(v) => {
+                    const gridVal = Number(v) as PagesPerSheet;
+                    onDocumentsChange(
+                      documents.map((d) =>
+                        d.type === "image"
+                          ? {
+                              ...d,
+                              settings: {
+                                ...d.settings,
+                                pagesPerSheet: gridVal,
+                                pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
+                              },
+                            }
+                          : d
+                      )
                     );
-                  })}
-                </div>
+                  }}
+                />
 
                 <div className="text-[10px] text-indigo-800 bg-indigo-50/60 px-2 py-1 rounded-md flex items-center gap-1">
                   <span>💡</span>

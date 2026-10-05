@@ -92,8 +92,8 @@ function CompactRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 py-4 border-b border-zinc-100 last:border-b-0">
-      <span className="text-[14px] font-extrabold text-zinc-900 tracking-tight">{label}</span>
+    <div className="flex flex-col gap-1 py-1 border-b border-zinc-100/50 last:border-0">
+      <span className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">{label}</span>
       <div className="w-full">{children}</div>
     </div>
   );
@@ -110,7 +110,7 @@ function CompactToggle({
 }) {
   const gridCols = options.length > 2 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <div className={`grid ${gridCols} gap-2 w-full`}>
+    <div className={`grid ${gridCols} gap-1.5 w-full`}>
       {options.map((opt) => {
         const isSelected = value === opt.value;
         const Icon = getIconForValue(opt.value);
@@ -119,26 +119,28 @@ function CompactToggle({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border-2 transition-all duration-300 overflow-hidden cursor-pointer active:scale-95 ${
+            className={`relative flex flex-row items-center justify-center px-1 h-[36px] rounded-lg border-2 transition-all duration-200 overflow-hidden cursor-pointer active:scale-95 ${
               isSelected
                 ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
                 : "border-zinc-200 bg-white hover:border-emerald-300 hover:shadow-sm"
             }`}
           >
             {isSelected && (
-              <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-sm animate-fade-in">
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              <div className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-sm animate-fade-in">
+                <svg className="w-1.5 h-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
               </div>
             )}
             {Icon && (
-              <div className={`mb-1.5 ${isSelected ? "text-emerald-600 scale-105" : "text-zinc-400"} transition-transform duration-300`}>
-                {Icon}
+              <div className={`mr-1.5 ${isSelected ? "text-emerald-600" : "text-zinc-400"} transition-transform duration-300`}>
+                <div className="scale-75 origin-center">{Icon}</div>
               </div>
             )}
-            <span className={`text-xs font-bold tracking-wide ${isSelected ? "text-emerald-900" : "text-zinc-700"}`}>{opt.label}</span>
-            {opt.sublabel && (
-              <span className={`text-[10px] font-medium mt-0.5 ${isSelected ? "text-emerald-700/80" : "text-zinc-500"}`}>{opt.sublabel}</span>
-            )}
+            <div className="flex flex-col items-center justify-center leading-none">
+               <span className={`text-[11px] font-bold tracking-tight ${isSelected ? "text-emerald-900" : "text-zinc-700"}`}>{opt.label}</span>
+               {opt.sublabel && (
+                 <span className={`text-[9px] font-medium mt-[2px] ${isSelected ? "text-emerald-700/80" : "text-zinc-500"}`}>{opt.sublabel}</span>
+               )}
+            </div>
           </button>
         );
       })}
@@ -209,24 +211,24 @@ function CompactCopiesStepper({
   onChange: (val: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between bg-zinc-50/80 p-2 rounded-xl border border-zinc-200/80 shadow-inner">
+    <div className="flex items-center justify-between bg-zinc-50/80 p-0.5 rounded-lg border border-zinc-200/80 shadow-inner h-[36px]">
       <button
         type="button"
         onClick={() => onChange(Math.max(1, value - 1))}
-        className="w-10 h-10 rounded-lg bg-white text-zinc-800 font-bold text-xl shadow-sm border border-zinc-200/80 hover:bg-zinc-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+        className="w-8 h-full rounded-[6px] bg-white text-zinc-800 font-bold text-lg shadow-sm border border-zinc-200/80 hover:bg-zinc-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
         disabled={value <= 1}
         aria-label="Decrease copies"
       >
         −
       </button>
-      <div className="flex flex-col items-center justify-center">
-        <span className="font-extrabold text-2xl text-zinc-900 tracking-tighter tabular-nums leading-none">{value}</span>
-        <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider mt-1">Copies</span>
+      <div className="flex flex-row items-baseline justify-center gap-1">
+        <span className="font-extrabold text-lg text-zinc-900 tracking-tighter tabular-nums leading-none">{value}</span>
+        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">cp</span>
       </div>
       <button
         type="button"
         onClick={() => onChange(Math.min(99, value + 1))}
-        className="w-10 h-10 rounded-lg bg-emerald-500 text-white font-bold text-xl shadow-md border border-emerald-600/50 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+        className="w-8 h-full rounded-[6px] bg-emerald-500 text-white font-bold text-lg shadow-md border border-emerald-600/50 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
         aria-label="Increase copies"
       >
         +
@@ -531,8 +533,8 @@ export default function PrintSettingsPanel({
                 <CompactRow label="Orientation">
                   <CompactToggle
                     options={[
-                      { value: "portrait", label: "Portrait ▯" },
-                      { value: "landscape", label: "Landscape ▭" },
+                      { value: "portrait", label: "Portrait" },
+                      { value: "landscape", label: "Landscape" },
                     ]}
                     value={doc.settings.orientation}
                     onChange={(v) =>
@@ -821,8 +823,8 @@ export default function PrintSettingsPanel({
                 <CompactRow label="Orientation">
                   <CompactToggle
                     options={[
-                      { value: "portrait", label: "Portrait ▯" },
-                      { value: "landscape", label: "Landscape ▭" },
+                      { value: "portrait", label: "Portrait" },
+                      { value: "landscape", label: "Landscape" },
                     ]}
                     value={imageBatchSettings.orientation}
                     onChange={(v) =>

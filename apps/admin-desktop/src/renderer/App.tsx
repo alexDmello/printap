@@ -12,8 +12,10 @@ import { HealthView } from "./components/HealthView";
 import { EditShopModal } from "./components/EditShopModal";
 import { DeleteShopModal } from "./components/DeleteShopModal";
 import { IconMenu, IconRefresh } from "./components/Icons";
+import { Login } from "./components/Login";
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [shops, setShops] = useState<ExtendedShop[]>([]);
   const [events, setEvents] = useState<GlobalPrintEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,9 +146,36 @@ export default function App() {
     }
   }, []);
 
+  // Check initial session
   useEffect(() => {
-    loadPlatformData();
-  }, [loadPlatformData]);
+    const checkSession = async () => {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Verify admin status
+        const { data: adminData } = await supabase
+          .from("platform_admins")
+          .select("id")
+          .eq("id", session.user.id)
+          .maybeSingle();
+          
+        if (adminData) {
+          setIsAuthenticated(true);
+        } else {
+          await supabase.auth.signOut();
+        }
+      }
+      setLoading(false);
+    };
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadPlatformData();
+    }
+  }, [loadPlatformData, isAuthenticated]);
 
   // Kill-Switch: Toggle Shop Status
   const handleToggleStatus = async (shop: ExtendedShop) => {
@@ -222,6 +251,18 @@ export default function App() {
     (acc, ev) => acc + (Number(ev.fee_amount) || globalPlatformFee),
     0
   );
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white text-zinc-500 font-mono text-sm">
+        Authenticating Platform...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <div className="wabi-root text-zinc-900 flex min-h-screen bg-white">

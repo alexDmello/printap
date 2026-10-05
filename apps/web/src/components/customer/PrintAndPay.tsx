@@ -13,6 +13,7 @@ interface PrintAndPayProps {
   documents: UploadedDocument[];
   activeDocumentCount: number;
   token: QueueToken;
+  progress?: TransferProgress | null;
   isPaymentConfirmed: boolean;
   onPrintAnother: () => void;
   onEditSettings?: () => void;

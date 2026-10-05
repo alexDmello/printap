@@ -86,7 +86,7 @@ export default function PrintClient({
   // Initialize finishing services from shop custom services if available
   const initialFinishing = useMemo<FinishingService[]>(() => {
     if (services && services.length > 0) {
-      const customOnes = services
+      return services
         .filter((s) => !s.isCore && s.enabled)
         .map((s) => ({
           type: s.id,
@@ -95,7 +95,6 @@ export default function PrintClient({
           chargeUnit: (s.unit === "per_sheet" ? "per_sheet" : "per_copy") as FinishingChargeUnit,
           enabled: false,
         }));
-      if (customOnes.length > 0) return customOnes;
     }
     return [...DEFAULT_FINISHING_SERVICES];
   }, [services]);

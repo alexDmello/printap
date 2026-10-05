@@ -615,95 +615,15 @@ export default function PrintSettingsPanel({
 
           {/* Unified Image Settings Panel */}
           {expandedIds["images-batch"] && (
-            <div className="px-3.5 pb-3.5 pt-1 border-t border-indigo-100/70 bg-indigo-50/20 space-y-2.5 animate-fade-in">
-              {/* Photo Strip */}
-              <div className="pt-1">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                    Uploaded Photos ({imageDocs.length})
-                  </span>
-                  <span className="text-[10px] text-zinc-400">Scroll to view</span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-                  {imageDocs.map((img, idx) => (
-                    <div
-                      key={img.id}
-                      className="relative w-12 h-12 rounded-lg bg-white border border-zinc-200 overflow-hidden flex-shrink-0 shadow-2xs group"
-                    >
-                      {img.thumbnailUrl ? (
-                        <img
-                          src={img.thumbnailUrl}
-                          alt={img.file.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-400">
-                          #{idx + 1}
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDoc(img.id)}
-                        className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-zinc-900/80 text-white flex items-center justify-center text-[9px] hover:bg-red-600 transition cursor-pointer"
-                        title="Remove photo"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="px-4 pb-4 pt-4 border-t border-indigo-100/70 bg-indigo-50/20 animate-fade-in flex flex-col md:flex-row gap-4">
+              {/* Left Column: Live Preview & Grid Layout */}
+              <div className="flex-1 flex flex-col gap-3">
 
-              {/* Grid Selector */}
-              <div className="p-4 rounded-3xl bg-white border-2 border-indigo-50 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-extrabold text-zinc-900 tracking-tight">
-                    Photo Grid Layout
-                  </span>
-                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
-                    {imageBatchGrid}-in-1
-                  </span>
-                </div>
 
-                <PremiumGridSelector
-                  value={String(imageBatchGrid)}
-                  options={[
-                    { value: "1", label: "1-in-1", grids: [1] },
-                    { value: "2", label: "2-in-1", grids: [1, 2] },
-                    { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
-                    { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
-                    { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
-                  ]}
-                  onChange={(v) => {
-                    const gridVal = Number(v) as PagesPerSheet;
-                    onDocumentsChange(
-                      documents.map((d) =>
-                        d.type === "image"
-                          ? {
-                              ...d,
-                              settings: {
-                                ...d.settings,
-                                pagesPerSheet: gridVal,
-                                pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
-                              },
-                            }
-                          : d
-                      )
-                    );
-                  }}
-                />
-
-                <div className="text-[10px] text-indigo-800 bg-indigo-50/60 px-2 py-1 rounded-md flex items-center gap-1">
-                  <span>💡</span>
-                  <span>
-                    <strong>{imageDocs.length} photos</strong> fit on <strong>{imageBatchSheetsPerCopy} {imageBatchSheetsPerCopy === 1 ? "sheet" : "sheets"}</strong>/set.
-                  </span>
-                </div>
-
-                {/* ── Compact Live Sheet Preview ── */}
-                <div className="mt-2 pt-2 border-t border-indigo-100/70">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider">
+                {/* ── Live Sheet Preview ── */}
+                <div className="bg-white p-3 rounded-3xl border-2 border-indigo-50 shadow-sm flex flex-col h-full">
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <span className="text-[12px] font-extrabold text-zinc-900 uppercase tracking-wider">
                       Live Paper Preview
                     </span>
                     {totalImagePreviewSheets > 1 && (
@@ -852,11 +772,58 @@ export default function PrintSettingsPanel({
                       </div>
                     </div>
                   </div>
+                  
+                  <div className="text-[11px] font-medium text-indigo-700 bg-indigo-50/80 px-2.5 py-1.5 rounded-lg mt-3 flex items-center justify-center gap-1.5 text-center">
+                    <span>💡</span>
+                    <span>
+                      {imageDocs.length} photos fit on <strong>{imageBatchSheetsPerCopy} {imageBatchSheetsPerCopy === 1 ? "sheet" : "sheets"}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Grid Selector */}
+                <div className="p-4 rounded-3xl bg-white border-2 border-indigo-50 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[14px] font-extrabold text-zinc-900 tracking-tight">
+                      Photo Grid Layout
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                      {imageBatchGrid}-in-1
+                    </span>
+                  </div>
+
+                  <PremiumGridSelector
+                    value={String(imageBatchGrid)}
+                    options={[
+                      { value: "1", label: "1-in-1", grids: [1] },
+                      { value: "2", label: "2-in-1", grids: [1, 2] },
+                      { value: "4", label: "4-in-1", grids: [1, 2, 3, 4] },
+                      { value: "6", label: "6-in-1", grids: [1, 2, 3, 4, 5, 6] },
+                      { value: "9", label: "9-in-1", grids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+                    ]}
+                    onChange={(v) => {
+                      const gridVal = Number(v) as PagesPerSheet;
+                      onDocumentsChange(
+                        documents.map((d) =>
+                          d.type === "image"
+                            ? {
+                                ...d,
+                                settings: {
+                                  ...d.settings,
+                                  pagesPerSheet: gridVal,
+                                  pageFit: gridVal === 1 ? (d.settings.pageFit || "fit") : d.settings.pageFit,
+                                },
+                              }
+                            : d
+                        )
+                      );
+                    }}
+                  />
                 </div>
               </div>
 
-              {/* Setting Controls */}
-              <div className="bg-white p-2.5 rounded-xl border border-indigo-100 shadow-2xs space-y-0.5">
+              {/* Right Column: Setting Controls */}
+              <div className="flex-1 bg-white p-4 rounded-3xl border-2 border-indigo-50 shadow-sm flex flex-col space-y-0.5">
                 <CompactRow label="Copies">
                   <CompactCopiesStepper
                     value={imageBatchSettings.copies}

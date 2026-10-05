@@ -2167,11 +2167,39 @@ body {
   background: rgb(245, 158, 11);
 }
 
+.sidebar-token-alert-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
 .sidebar-token-alert {
   font-size: 11px;
   font-weight: 600;
   color: rgb(239, 68, 68);
+  line-height: 1.3;
 }
 .sidebar-token-card.warning .sidebar-token-alert {
   color: rgb(245, 158, 11);
+}
+
+.sidebar-topup-btn {
+  background: var(--accent-emerald);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  align-self: flex-start;
+}
+.sidebar-topup-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.sidebar-topup-btn:active {
+  transform: translateY(1px);
 }

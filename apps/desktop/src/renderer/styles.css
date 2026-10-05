@@ -2094,3 +2094,84 @@ body {
   background: #ecfdf5;
 }
 
+/* ─── Sidebar Token Balance Card ─── */
+.sidebar-token-card {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-token-card.exhausted {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.sidebar-token-card.critical {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.sidebar-token-card.warning {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.sidebar-token-card.good {
+  border-color: var(--border-subtle);
+}
+
+.sidebar-token-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-token-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sidebar-token-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.sidebar-token-bar-container {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-neutral);
+  overflow: hidden;
+}
+
+.sidebar-token-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-emerald);
+  transition: width 0.3s ease;
+}
+
+.sidebar-token-card.exhausted .sidebar-token-bar-fill {
+  width: 0 !important;
+}
+
+.sidebar-token-card.critical .sidebar-token-bar-fill {
+  background: rgb(239, 68, 68);
+}
+
+.sidebar-token-card.warning .sidebar-token-bar-fill {
+  background: rgb(245, 158, 11);
+}
+
+.sidebar-token-alert {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(239, 68, 68);
+}
+.sidebar-token-card.warning .sidebar-token-alert {
+  color: rgb(245, 158, 11);
+}

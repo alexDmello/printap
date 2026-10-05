@@ -12,7 +12,7 @@ import {
   IconChevronLeft,
 } from "./Icons";
 
-export type AdminPage = "live" | "history" | "printers" | "services" | "analytics" | "qr" | "profile";
+export type AdminPage = "live" | "history" | "printers" | "services" | "analytics" | "qr" | "tokens" | "profile";
 
 interface SidebarProps {
   currentPage: AdminPage;
@@ -22,6 +22,8 @@ interface SidebarProps {
   isTogglingOnline?: boolean;
   onLogoutRequest?: () => void;
   onHideSidebar?: () => void;
+  tokenBalance?: number | null;
+  tokenAlert?: { balance: number; threshold: boolean } | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,6 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isTogglingOnline = false,
   onLogoutRequest,
   onHideSidebar,
+  tokenBalance,
+  tokenAlert,
 }) => {
   const { shop, logout } = useAuth();
   const [showOfflineConfirm, setShowOfflineConfirm] = React.useState(false);
@@ -75,6 +79,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: "qr",
       label: "Counter QR Stand",
       icon: <IconQr size={18} className="sidebar-item-icon" />,
+    },
+    {
+      id: "tokens",
+      label: "Token Top-up",
+      icon: <IconCash size={18} className="sidebar-item-icon" />,
     },
     {
       id: "profile",
@@ -141,6 +150,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Token Balance Card */}
+          {tokenBalance !== undefined && tokenBalance !== null && (
+            <div
+              className={`sidebar-token-card ${
+                tokenBalance === 0
+                  ? "exhausted"
+                  : tokenAlert
+                  ? tokenAlert.balance <= 5
+                    ? "critical"
+                    : "warning"
+                  : "good"
+              }`}
+            >
+              <div className="sidebar-token-header">
+                <span className="sidebar-token-title">🪙 Token Balance</span>
+                <span className="sidebar-token-count">{tokenBalance} left</span>
+              </div>
+              <div className="sidebar-token-bar-container">
+                <div
+                  className="sidebar-token-bar-fill"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, (tokenBalance / 20) * 100))}%`, // Visual scale up to 20 for the bar
+                  }}
+                />
+              </div>
+              {tokenBalance === 0 ? (
+                <div className="sidebar-token-alert">
+                  ⛔ Tokens exhausted. Top up to print.
+                </div>
+              ) : tokenAlert ? (
+                <div className="sidebar-token-alert">
+                  {tokenAlert.balance <= 5 ? "🔴 Critical low balance!" : "🟡 Low balance — top up"}
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {/* Clean Nav List */}

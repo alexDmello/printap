@@ -36,11 +36,11 @@ export default function ShopOffline({
         const supabase = getSupabase();
         const { data } = await supabase
           .from("shops")
-          .select("is_online")
+          .select("is_online, token_balance, status")
           .eq("id", shopId)
           .maybeSingle();
 
-        if (data?.is_online) {
+        if (data?.is_online && data?.token_balance > 0 && data?.status !== "suspended") {
           triggerOnline();
           return;
         }
@@ -73,7 +73,8 @@ export default function ShopOffline({
           filter: `id=eq.${shopId}`,
         },
         (payload) => {
-          if (payload.new && (payload.new as { is_online?: boolean }).is_online === true) {
+          const newRow = payload.new as any;
+          if (newRow.is_online === true && newRow.token_balance > 0 && newRow.status !== "suspended") {
             console.log("[ShopOffline] Shop is now ONLINE via database event");
             triggerOnline();
           }
@@ -86,11 +87,11 @@ export default function ShopOffline({
       try {
         const { data } = await supabase
           .from("shops")
-          .select("is_online")
+          .select("is_online, token_balance, status")
           .eq("id", shopId)
           .maybeSingle();
 
-        if (data?.is_online) {
+        if (data?.is_online && data?.token_balance > 0 && data?.status !== "suspended") {
           triggerOnline();
         }
       } catch (err) {

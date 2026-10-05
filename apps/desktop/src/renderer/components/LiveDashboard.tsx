@@ -47,6 +47,8 @@ interface LiveDashboardProps {
   onRetryJob?: (sessionId: string) => void;
   onDismissJob?: (sessionId: string) => void;
   onNavigateToHistory?: () => void;
+  tokenBalance?: number | null;
+  tokenAlert?: { balance: number; threshold: boolean } | null;
 }
 
 export const LiveDashboard: React.FC<LiveDashboardProps> = ({
@@ -59,6 +61,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   onRetryJob,
   onDismissJob,
   onNavigateToHistory,
+  tokenBalance,
+  tokenAlert,
 }) => {
   const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
@@ -186,6 +190,34 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
 
   return (
     <div className="content fade-in">
+      {tokenBalance === 0 && (
+        <div className="card" style={{ marginBottom: 20, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 24 }}>⛔</div>
+            <div>
+              <h3 style={{ margin: 0, color: 'rgb(239, 68, 68)', fontSize: 16, fontWeight: 700 }}>Tokens Exhausted</h3>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+                Your print shop is out of tokens. All incoming print jobs will be rejected. Please top up your tokens.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tokenBalance !== 0 && tokenAlert && (
+        <div className="card" style={{ marginBottom: 20, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 24 }}>{tokenAlert.balance <= 5 ? '🔴' : '🟡'}</div>
+            <div>
+              <h3 style={{ margin: 0, color: 'rgb(245, 158, 11)', fontSize: 16, fontWeight: 700 }}>Low Token Balance</h3>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+                You have {tokenAlert.balance} tokens remaining. Top up soon to avoid interruption.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="page-header">
         <h1 className="page-title">

@@ -87,6 +87,7 @@ export interface ShopInfo {
   status: "active" | "suspended" | string;
   is_online?: boolean;
   last_seen_at?: string;
+  token_balance?: number;
   /** Shop rate card (pricing) */
   price_bw?: number;
   price_color?: number;

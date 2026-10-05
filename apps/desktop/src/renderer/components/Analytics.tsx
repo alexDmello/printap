@@ -34,7 +34,7 @@ interface ChartBarData {
 }
 
 export const Analytics: React.FC = () => {
-  const { shopId } = useAuth();
+  const { shopId, shop } = useAuth();
   const [filter, setFilter] = useState<DateFilter>("today");
   const [events, setEvents] = useState<PrintEvent[]>([]);
   const [orders, setOrders] = useState<PrintOrder[]>([]);
@@ -322,6 +322,18 @@ export const Analytics: React.FC = () => {
             ₹{netEarnings.toFixed(0)}
           </div>
           <div className="stat-footnote">Retained by your counter</div>
+        </div>
+      </div>
+
+      {/* Token Stats Grid */}
+      <div className="stats-grid" style={{ marginTop: "16px" }}>
+        <div className="stat-card" style={{ border: "1px solid var(--accent-amber)" }}>
+          <div className="stat-label">
+            <span>🪙 Token Balance</span>
+            <span style={{ fontSize: 11, color: "var(--accent-amber)", fontWeight: 600 }}>Subscription</span>
+          </div>
+          <div className="stat-value">{shop?.token_balance || 0}</div>
+          <div className="stat-footnote">Valid for {shop?.token_balance || 0} successful prints</div>
         </div>
       </div>
 

@@ -21,7 +21,7 @@ const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
     const { data: shopBySlug, error: slugErr } = await supabase
       .from("shops")
       .select(
-        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online"
+        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online, token_balance"
       )
       .eq("slug", clean)
       .maybeSingle();
@@ -44,7 +44,7 @@ const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
       const { data: shopById, error: idErr } = await supabase
         .from("shops")
         .select(
-          "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online"
+          "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online, token_balance"
         )
         .eq("id", clean)
         .maybeSingle();
@@ -63,7 +63,7 @@ const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
     const { data: legacyShops, error: legacyErr } = await supabase
       .from("shops")
       .select(
-        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online"
+        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online, token_balance"
       )
       .or("slug.is.null,slug.eq.''");
 
@@ -119,37 +119,12 @@ export default async function CustomerShopPage({ params }: Props) {
     notFound();
   }
 
-  // Kill-switch: suspended shops cannot accept jobs
-  if (shop.status === "suspended") {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6">
-        <div className="glass rounded-2xl p-8 max-w-sm text-center glow-sm">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-amber-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-amber-400 mb-2">
-            Shop Temporarily Unavailable
-          </h1>
-          <p className="text-sm text-[--color-muted]">
-            This shop is currently not accepting print requests.
-            Please try again later or visit another shop.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const isActuallyOnline = Boolean(
+    shop.is_online && 
+    shop.token_balance !== undefined && 
+    shop.token_balance > 0 && 
+    shop.status !== "suspended"
+  );
 
   return (
     <PrintClient
@@ -159,7 +134,7 @@ export default async function CustomerShopPage({ params }: Props) {
       priceBw={shop.price_bw ?? undefined}
       priceColor={shop.price_color ?? undefined}
       services={shop.services ?? undefined}
-      initialIsOnline={Boolean(shop.is_online)}
+      initialIsOnline={isActuallyOnline}
       platformFee={shop.platform_fee ?? undefined}
       gstPercentage={shop.gst_percentage ?? undefined}
       gstAmount={shop.gst_amount ?? undefined}

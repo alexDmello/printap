@@ -8,6 +8,7 @@ import { PrintersControl, type PrinterAssignment } from "./components/PrintersCo
 import { ServicesRates, type DirtyHandler } from "./components/ServicesRates";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
+import { Tokens } from "./components/Tokens";
 import { PrintHistory } from "./components/PrintHistory";
 import { IconSidebarToggle } from "./components/Icons";
 import {
@@ -69,6 +70,11 @@ function ShopAdminShell(): React.ReactElement {
   // Shop Online/Offline Presence state (always starts offline on launch until toggled)
   const [isShopOnline, setIsShopOnline] = useState<boolean>(false);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
+  
+  // Token Subscription state
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [tokenAlert, setTokenAlert] = useState<{ balance: number; threshold: boolean } | null>(null);
+
   const [printers, setPrinters] = useState<PrinterInfo[]>(() => {
     try {
       const cached = localStorage.getItem("printap_cached_printers");
@@ -218,6 +224,20 @@ function ShopAdminShell(): React.ReactElement {
         setTodayPrintsCount(count);
         if (fifoDispatcherRef.current && count > 0) {
           fifoDispatcherRef.current.syncSequence(count);
+        }
+      }
+
+      // Fetch shop details including token_balance
+      const { data: shopData } = await supabase
+        .from("shops")
+        .select("token_balance")
+        .eq("id", id)
+        .maybeSingle();
+      
+      if (shopData) {
+        setTokenBalance(shopData.token_balance);
+        if (shopData.token_balance <= 10) {
+          setTokenAlert({ balance: shopData.token_balance, threshold: true });
         }
       }
 
@@ -416,6 +436,23 @@ function ShopAdminShell(): React.ReactElement {
           console.warn("[App] Could not insert print_event:", err);
         }
 
+        // Deduct 1 token from shop balance
+        try {
+          const supabase = getSupabase();
+          const { data } = await supabase.rpc("deduct_shop_token", {
+            p_shop_id: shopId,
+            p_session_id: job.sessionId,
+          });
+          if (data?.alert) {
+            setTokenAlert({ balance: data.balance, threshold: true });
+          }
+          if (data?.balance !== undefined) {
+            setTokenBalance(data.balance);
+          }
+        } catch (err) {
+          console.warn("[App] Token deduction failed:", err);
+        }
+
         const completedJob: LiveJob = {
           sessionId: job.sessionId,
           tokenCode: job.tokenCode,
@@ -602,10 +639,45 @@ function ShopAdminShell(): React.ReactElement {
 
     initPresence();
 
+    // Subscribe to token_balance changes (admin top-ups or deductions)
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`shop-tokens-${shopId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "shops",
+          filter: `id=eq.${shopId}`,
+        },
+        (payload: any) => {
+          if (payload.new && payload.new.token_balance !== undefined) {
+            const newBalance = payload.new.token_balance;
+            setTokenBalance(newBalance);
+            if (newBalance > 10) {
+              setTokenAlert(null);
+            } else {
+              setTokenAlert({ balance: newBalance, threshold: true });
+            }
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
+      supabase.removeChannel(channel);
     };
   }, [isAuthenticated, shopId]);
+
+  // Auto-offline when tokens reach 0
+  useEffect(() => {
+    if (tokenBalance === 0 && isShopOnline) {
+      console.warn("[App] Token balance is 0. Automatically going offline.");
+      handleToggleOnline(false);
+    }
+  }, [tokenBalance, isShopOnline, handleToggleOnline]);
 
   // Graceful shutdown listener from Electron Main
   useEffect(() => {
@@ -816,6 +888,30 @@ function ShopAdminShell(): React.ReactElement {
         console.log(
           `[App] Order received: Token ${finalTokenCode} (₹${finalAmount}) for printer #${allocation.printerNumber}, ${files.length} files. Enqueueing into FIFO queue.`
         );
+
+        // Pre-print token gate
+        // We do a lightweight optimistic check here before enqueuing.
+        // If balance is <= 0, we reject the job to save paper/ink.
+        let currentBalance = 0;
+        setTokenBalance((prev) => {
+          currentBalance = prev || 0;
+          return prev;
+        });
+        if (currentBalance <= 0) {
+          console.warn(`[App] Rejected order ${sessionId}: Shop is out of tokens.`);
+          
+          if (signalingChannelRef.current) {
+            broadcastOrderStatus(signalingChannelRef.current, {
+              sessionId,
+              tokenCode: "ERR",
+              status: "error",
+              errorDetail: "Shop is out of printing tokens. Please try again later.",
+            }).catch(() => {});
+          }
+          
+          // You could also notify the shop owner with an alert/modal here.
+          return;
+        }
 
         // Update Supabase print_orders token_code asynchronously
         try {
@@ -1063,6 +1159,8 @@ function ShopAdminShell(): React.ReactElement {
           isTogglingOnline={isTogglingOnline}
           onLogoutRequest={handleLogoutRequest}
           onHideSidebar={() => setIsSidebarOpen(false)}
+          tokenBalance={tokenBalance}
+          tokenAlert={tokenAlert}
         />
       )}
 
@@ -1158,6 +1256,8 @@ function ShopAdminShell(): React.ReactElement {
               onRetryJob={handleRetryJob}
               onDismissJob={handleDismissJob}
               onNavigateToHistory={() => handleSelectPage("history")}
+              tokenBalance={tokenBalance}
+              tokenAlert={tokenAlert}
             />
           </div>
 
@@ -1238,6 +1338,19 @@ function ShopAdminShell(): React.ReactElement {
             }}
           >
             <CounterQr />
+          </div>
+
+          <div
+            style={{
+              display: currentPage === "tokens" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              height: "100%",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <Tokens />
           </div>
 
           <div

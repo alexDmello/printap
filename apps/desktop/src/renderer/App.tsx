@@ -894,7 +894,24 @@ function ShopAdminShell(): React.ReactElement {
             }).catch(() => {});
           }
           
-          // You could also notify the shop owner with an alert/modal here.
+          setRecentJobs((prev) => {
+            const filtered = prev.filter((j) => j.sessionId !== sessionId);
+            const failedJob: LiveJob = {
+              sessionId,
+              tokenCode: "ERR",
+              fileName: `Order (No Tokens)`,
+              status: "error",
+              detail: "Rejected: Shop is out of printing tokens",
+              timestamp: new Date(),
+              totalAmount: finalAmount,
+              paymentMethod: order.paymentMethod || "upi",
+              paymentStatus: "pending",
+              fileCount: files.length,
+            };
+            return [failedJob, ...filtered.slice(0, 19)];
+          });
+          setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
+          
           return;
         }
 

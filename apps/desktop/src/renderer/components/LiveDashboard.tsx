@@ -22,7 +22,7 @@ export interface LiveJobFile {
 export interface LiveJob {
   sessionId: string;
   fileName?: string;
-  status: "receiving" | "saving" | "printing" | "shredding" | "done" | "error";
+  status: "receiving" | "saving" | "printing" | "shredding" | "done" | "error" | "cancelled";
   progressPct?: number;
   stage?: string;
   detail?: string;
@@ -105,6 +105,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
         return { label: "Completed & Shredded", className: "job-status-dot success" };
       case "error":
         return { label: "Job Failed", className: "job-status-dot error" };
+      case "cancelled":
+        return { label: "Cancelled", className: "job-status-dot error" };
       default:
         return { label: status, className: "job-status-dot" };
     }
@@ -124,6 +126,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
       case "printing": return 2;
       case "shredding": return 3;
       case "done": return 4;
+      case "cancelled": return -1;
       default: return 0;
     }
   };
@@ -314,7 +317,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               </thead>
               <tbody>
                 {printQueueJobs.length > 0 || pendingQueue.length > 0 ? (
-                  Array.from(new Set([...printQueueJobs, ...pendingQueue])).map((job) => {
+                  Array.from(new Set([...printQueueJobs, ...pendingQueue])).map((rawJob) => {
+                    const job = rawJob as any;
                     const isActive = currentJob?.sessionId === job.sessionId;
                     const isPendingPayment = !job.paymentStatus || job.paymentStatus === "pending";
                     const docCount = job.files?.length || job.fileCount || 1;

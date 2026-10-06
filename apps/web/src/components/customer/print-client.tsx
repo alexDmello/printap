@@ -83,6 +83,7 @@ export default function PrintClient({
   // ─── State ───
   const [step, setStep] = useState<Step>("upload");
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialize finishing services from shop custom services if available
   const initialFinishing = useMemo<FinishingService[]>(() => {
@@ -428,7 +429,8 @@ export default function PrintClient({
   // ─── Handlers ───
 
   const handleStartPrintAndPayment = useCallback(async () => {
-    if (documents.length === 0) return;
+    if (documents.length === 0 || isSubmitting) return;
+    setIsSubmitting(true);
 
     const sessionId = crypto.randomUUID();
     setCurrentSessionId(sessionId);
@@ -458,6 +460,7 @@ export default function PrintClient({
       if (!data.success) {
         setStep("error");
         setErrorMsg(data.error || "Could not reserve print token from shop.");
+        setIsSubmitting(false);
         return;
       }
       localPrintTicket = data.printTicket;
@@ -465,6 +468,7 @@ export default function PrintClient({
     } catch (err) {
       setStep("error");
       setErrorMsg("Failed to contact server for token reservation.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -522,14 +526,16 @@ export default function PrintClient({
             setStep("error");
             setErrorMsg(p.error || "Transfer failed");
             setIsRefundPromptOpen(true);
+            setIsSubmitting(false);
           }
         }
       );
     } catch (err) {
       setStep("error");
       setErrorMsg(String(err));
+      setIsSubmitting(false);
     }
-  }, [documents, shopId, totalAmount, activeFinishing]);
+  }, [documents, shopId, totalAmount, activeFinishing, isSubmitting]);
 
   const handleRefund = useCallback(async () => {
     try {
@@ -844,8 +850,9 @@ export default function PrintClient({
           colorMode={globalColorMode}
           activeFinishingCount={activeFinishing.length}
           activeFinishingLabels={activeFinishing.map((s) => s.label)}
-          buttonLabel="Confirm →"
+          buttonLabel={isSubmitting ? "Processing..." : "Confirm →"}
           onContinue={handleStartPrintAndPayment}
+          disabled={isSubmitting}
           onBack={() => setStep("settings")}
         />
       )}

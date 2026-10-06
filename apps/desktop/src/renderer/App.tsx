@@ -74,6 +74,7 @@ function ShopAdminShell(): React.ReactElement {
   
   // Token Subscription state
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const tokenBalanceRef = useRef<number | null>(null);
   const [tokenAlert, setTokenAlert] = useState<{ balance: number; threshold: boolean } | null>(null);
 
   const [printers, setPrinters] = useState<PrinterInfo[]>(() => {
@@ -237,6 +238,7 @@ function ShopAdminShell(): React.ReactElement {
       
       if (shopData) {
         setTokenBalance(shopData.token_balance);
+        tokenBalanceRef.current = shopData.token_balance;
         if (shopData.token_balance <= 10) {
           setTokenAlert({ balance: shopData.token_balance, threshold: true });
         }
@@ -879,11 +881,7 @@ function ShopAdminShell(): React.ReactElement {
         // Pre-print token gate
         // We do a lightweight optimistic check here before enqueuing.
         // If balance is <= 0, we reject the job to save paper/ink.
-        let currentBalance = 0;
-        setTokenBalance((prev) => {
-          currentBalance = prev || 0;
-          return prev;
-        });
+        const currentBalance = tokenBalanceRef.current !== null ? tokenBalanceRef.current : 1;
         if (currentBalance <= 0) {
           console.warn(`[App] Rejected order ${sessionId}: Shop is out of tokens.`);
           

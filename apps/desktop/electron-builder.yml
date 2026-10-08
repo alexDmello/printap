@@ -1,6 +1,8 @@
 appId: in.mellod.printap
 productName: Printap
 electronVersion: 33.4.11
+publish:
+  provider: github
 directories:
   output: dist
 files:

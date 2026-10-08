@@ -100,6 +100,10 @@ interface ElectronAPI {
   onDeepLinkAuth: (
     callback: (data: { sessionId: string; shopId: string }) => void
   ) => () => void;
+  onUpdaterEvent: (
+    callback: (data: { stage: string; progress?: number; error?: string; info?: any }) => void
+  ) => () => void;
+  restartApp: () => void;
 }
 
 interface Window {

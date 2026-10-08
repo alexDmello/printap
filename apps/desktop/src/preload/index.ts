@@ -71,6 +71,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("deep-link-auth", handler);
     };
   },
+  onUpdaterEvent: (
+    callback: (data: { stage: string; progress?: number; error?: string; info?: any }) => void
+  ) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { stage: string; progress?: number; error?: string; info?: any }
+    ) => callback(data);
+
+    ipcRenderer.on("updater-event", handler);
+
+    return () => {
+      ipcRenderer.removeListener("updater-event", handler);
+    };
+  },
+  restartApp: () => ipcRenderer.send("restart-app"),
 });
 
 

@@ -17,6 +17,7 @@
   "dependencies": {
     "@printap/shared": "*",
     "@supabase/supabase-js": "^2.49.1",
+    "electron-updater": "^6.8.9",
     "pdf-to-printer": "^5.6.0",
     "qrcode.react": "^4.2.0",
     "secure-rm": "^4.1.0"

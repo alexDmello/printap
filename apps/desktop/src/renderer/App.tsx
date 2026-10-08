@@ -25,6 +25,7 @@ import {
 } from "./lib/fifo-dispatcher";
 import { getSupabase, setShopOnline, broadcast } from "@printap/shared";
 import { startPresence, stopPresence } from "./lib/shop-presence";
+import { UpdateScreen } from "./components/UpdateScreen";
 import logoImg from "./assets/logo.png";
 
 function ShopAdminShell(): React.ReactElement {
@@ -1507,9 +1508,47 @@ function ShopAdminShell(): React.ReactElement {
 }
 
 export default function App(): React.ReactElement {
+  const [updateState, setUpdateState] = useState<{
+    stage: "checking" | "available" | "downloading" | "downloaded" | "error" | "not-available" | null;
+    progress?: number;
+    error?: string;
+  }>({ stage: null });
+
+  useEffect(() => {
+    if (window.electronAPI?.onUpdaterEvent) {
+      const cleanup = window.electronAPI.onUpdaterEvent((data) => {
+        setUpdateState((prev) => ({
+          ...prev,
+          stage: data.stage as any,
+          progress: data.progress,
+          error: data.error,
+        }));
+      });
+      return cleanup;
+    }
+  }, []);
+
+  const shouldShowUpdater =
+    updateState.stage === "checking" ||
+    updateState.stage === "available" ||
+    updateState.stage === "downloading" ||
+    updateState.stage === "downloaded" ||
+    updateState.stage === "error";
+
   return (
-    <AuthProvider>
-      <ShopAdminShell />
-    </AuthProvider>
+    <>
+      <AuthProvider>
+        <ShopAdminShell />
+      </AuthProvider>
+      {shouldShowUpdater && (
+        <UpdateScreen
+          stage={updateState.stage as any}
+          progress={updateState.progress}
+          error={updateState.error}
+          onRestart={() => window.electronAPI.restartApp()}
+          onDismiss={() => setUpdateState({ stage: null })}
+        />
+      )}
+    </>
   );
 }

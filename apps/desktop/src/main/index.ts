@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
 import os from "os";
 import zlib from "zlib";
+import { autoUpdater } from "electron-updater";
 
 // ─── Hardware dependencies ───
 // pdf-to-printer: sends PDF to Windows print spooler
@@ -140,6 +141,35 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  // Setup auto updater
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("checking-for-update", () => {
+    mainWindow?.webContents.send("updater-event", { stage: "checking" });
+  });
+  autoUpdater.on("update-available", (info) => {
+    mainWindow?.webContents.send("updater-event", { stage: "available", info });
+  });
+  autoUpdater.on("update-not-available", (info) => {
+    mainWindow?.webContents.send("updater-event", { stage: "not-available", info });
+  });
+  autoUpdater.on("error", (err) => {
+    mainWindow?.webContents.send("updater-event", { stage: "error", error: err.message });
+  });
+  autoUpdater.on("download-progress", (progressObj) => {
+    mainWindow?.webContents.send("updater-event", { stage: "downloading", progress: progressObj.percent });
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    mainWindow?.webContents.send("updater-event", { stage: "downloaded", info });
+  });
+
+  if (mainWindow) {
+    mainWindow.webContents.once("did-finish-load", () => {
+      autoUpdater.checkForUpdatesAndNotify();
+    });
+  }
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -154,6 +184,11 @@ app.on("before-quit", (e) => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+// ─── IPC: Auto Updater ───
+ipcMain.on("restart-app", () => {
+  autoUpdater.quitAndInstall(false, true);
 });
 
 // ─── IPC: Open External System Browser (for Google OAuth) ───

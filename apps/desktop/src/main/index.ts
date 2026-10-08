@@ -85,12 +85,10 @@ function createWindow(): void {
   }
 
   // Intercept window close (X button) to guarantee graceful offline cleanup
-  mainWindow.on("close", async (e) => {
+  mainWindow.on("close", (e) => {
     if (activeShopId && !isCleaningUp) {
       e.preventDefault();
-      await performShutdownCleanup();
-      mainWindow?.destroy();
-      app.quit();
+      performShutdownCleanup();
     }
   });
 
@@ -106,21 +104,31 @@ function createWindow(): void {
 let activeShopId: string | null = null;
 let isCleaningUp = false;
 
-async function performShutdownCleanup(): Promise<void> {
+function performShutdownCleanup(): void {
   if (isCleaningUp) return;
   isCleaningUp = true;
+  
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
+      // Ask renderer to set shop offline via Supabase
       mainWindow.webContents.send("app-will-quit");
-    } catch {}
-  }
-  if (activeShopId) {
-    try {
-      console.log(`[main] Setting shop ${activeShopId} offline before quit...`);
-      await setShopOnline(activeShopId, false);
-    } catch (err) {
-      console.error("[main] Failed to set shop offline on quit:", err);
+      
+      // Wait for renderer to finish, or force quit after 3 seconds
+      ipcMain.once("confirm-quit", () => {
+        mainWindow?.destroy();
+        app.quit();
+      });
+      
+      setTimeout(() => {
+        mainWindow?.destroy();
+        app.quit();
+      }, 3000);
+      
+    } catch {
+      app.quit();
     }
+  } else {
+    app.quit();
   }
 }
 
@@ -137,11 +145,10 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("before-quit", async (e) => {
+app.on("before-quit", (e) => {
   if (activeShopId && !isCleaningUp) {
     e.preventDefault();
-    await performShutdownCleanup();
-    app.quit();
+    performShutdownCleanup();
   }
 });
 

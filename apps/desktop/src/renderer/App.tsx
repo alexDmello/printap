@@ -572,6 +572,22 @@ function ShopAdminShell(): React.ReactElement {
   const handleToggleOnline = useCallback(
     async (online: boolean) => {
       if (!shopId) return;
+
+      if (online) {
+        try {
+          const result = await window.electronAPI.listPrinters();
+          const physicalPrinters = (result?.printers || []).filter((p: any) => p.isPhysical);
+          if (physicalPrinters.length === 0) {
+            alert("Cannot go online: No physical printer connected. Please connect a printer and try again.");
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to check printers:", err);
+          alert("Failed to check connected printers.");
+          return;
+        }
+      }
+
       setIsTogglingOnline(true);
       try {
         if (online) {
@@ -613,6 +629,19 @@ function ShopAdminShell(): React.ReactElement {
       const shouldBeOnline = pref !== "false";
 
       if (shouldBeOnline) {
+        try {
+          const result = await window.electronAPI.listPrinters();
+          const physicalPrinters = (result?.printers || []).filter((p: any) => p.isPhysical);
+          if (physicalPrinters.length === 0) {
+            console.warn("[App] No physical printers found, staying offline.");
+            await setShopOnline(shopId, false);
+            if (isMounted) setIsShopOnline(false);
+            return;
+          }
+        } catch (err) {
+          console.error("[App] Failed to check printers during initPresence:", err);
+        }
+
         console.log(`[App] Automatically setting terminal online for shop ${shopId}...`);
         const res = await startPresence(shopId);
         if (isMounted && res.success) {
@@ -671,9 +700,12 @@ function ShopAdminShell(): React.ReactElement {
   // Graceful shutdown listener from Electron Main
   useEffect(() => {
     if (!window.electronAPI?.onAppWillQuit) return;
-    const cleanup = window.electronAPI.onAppWillQuit(() => {
+    const cleanup = window.electronAPI.onAppWillQuit(async () => {
       console.log("[App] onAppWillQuit received, stopping presence...");
-      stopPresence();
+      await stopPresence();
+      if ((window.electronAPI as any).confirmQuit) {
+        (window.electronAPI as any).confirmQuit();
+      }
     });
     return cleanup;
   }, []);

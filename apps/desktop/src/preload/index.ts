@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     };
   },
 
+  confirmQuit: () => ipcRenderer.send("confirm-quit"),
+
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
 
   onDeepLinkAuth: (

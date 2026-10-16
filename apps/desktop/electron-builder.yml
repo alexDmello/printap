@@ -3,6 +3,8 @@ productName: Printap
 electronVersion: 33.4.11
 publish:
   provider: github
+  owner: alexDmello
+  repo: printap
 directories:
   output: dist
 files:

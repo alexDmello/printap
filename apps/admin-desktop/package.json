@@ -3,6 +3,10 @@
   "version": "0.0.1",
   "description": "Printap Platform Admin — Standalone Executive Console Desktop App",
   "author": "Mellod",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexDmello/printap.git"
+  },
   "private": true,
   "main": "out/main/index.js",
   "scripts": {

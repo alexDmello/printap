@@ -26,7 +26,16 @@ import {
 import { getSupabase, setShopOnline, broadcast } from "@printap/shared";
 import { startPresence, stopPresence } from "./lib/shop-presence";
 import { UpdateScreen } from "./components/UpdateScreen";
-import logoImg from "./assets/logo.png";
+import { UnsavedChangesModal } from "./components/UnsavedChangesModal";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+
+function addBoundedSet(set: Set<string>, key: string, maxSize = 250): void {
+  set.add(key);
+  if (set.size > maxSize) {
+    const first = set.values().next().value;
+    if (first !== undefined) set.delete(first);
+  }
+}
 
 function ShopAdminShell(): React.ReactElement {
   const { isAuthenticated, isLoading, shopId, logout } = useAuth();
@@ -77,6 +86,13 @@ function ShopAdminShell(): React.ReactElement {
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const tokenBalanceRef = useRef<number | null>(null);
   const [tokenAlert, setTokenAlert] = useState<{ balance: number; threshold: boolean } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   const [printers, setPrinters] = useState<PrinterInfo[]>(() => {
     try {
@@ -180,11 +196,17 @@ function ShopAdminShell(): React.ReactElement {
   // Track handled order sessions to avoid duplicate processing with legacy onFileReceived
   const handledOrderSessions = useRef<Set<string>>(new Set());
   // Ref to hold active signaling channel for broadcasting payment confirmation
-  const signalingChannelRef = useRef<any>(null);
+  const signalingChannelRef = useRef<RealtimeChannel | null>(null);
   // Track sessions where payment has been confirmed so spool completion does not overwrite it
   const confirmedPaymentSessionsRef = useRef<Set<string>>(new Set());
   // FIFO Print Dispatcher with Local Atomic Token Allocator
   const fifoDispatcherRef = useRef<FifoPrintDispatcher | null>(null);
+
+  // Stable references for high-frequency callbacks
+  const activeJobRef = useRef<LiveJob | null>(null);
+  activeJobRef.current = activeJob;
+  const recentJobsRef = useRef<LiveJob[]>([]);
+  recentJobsRef.current = recentJobs;
 
   // Manual or initial printer detection (physical hardware only)
   const rescanPrinters = useCallback(async () => {
@@ -265,7 +287,7 @@ function ShopAdminShell(): React.ReactElement {
           orders.forEach((o) => {
             const isConfirmed = o.payment_status === "confirmed" || o.status === "picked_up";
             if (isConfirmed) {
-              confirmedPaymentSessionsRef.current.add(o.session_id);
+              addBoundedSet(confirmedPaymentSessionsRef.current, o.session_id);
             }
             map.set(o.session_id, {
               sessionId: o.session_id,
@@ -350,7 +372,7 @@ function ShopAdminShell(): React.ReactElement {
           } catch {}
           console.log(`[App] Auto-assigned default physical printer "${defaultP.name}" as Printer #1`);
         }
-      }).catch(() => {});
+      }).catch((err) => console.warn("[App] Failed to auto-assign default printer:", err));
     }
   }, []);
 
@@ -425,7 +447,7 @@ function ShopAdminShell(): React.ReactElement {
         const paymentConfirmed = isConfirmed || job.paymentStatus === "confirmed";
 
         if (paymentConfirmed) {
-          confirmedPaymentSessionsRef.current.add(job.sessionId);
+          addBoundedSet(confirmedPaymentSessionsRef.current, job.sessionId);
         }
 
         // Record print event in Supabase ledger
@@ -542,7 +564,7 @@ function ShopAdminShell(): React.ReactElement {
         setActiveJob(failedJob);
       },
     });
-  }, [shopId, todayPrintsCount]);
+  }, [shopId]);
 
   // 4. Listen to hardware status events from Electron Main
   useEffect(() => {
@@ -579,12 +601,12 @@ function ShopAdminShell(): React.ReactElement {
           const result = await window.electronAPI.listPrinters();
           const physicalPrinters = (result?.printers || []).filter((p: any) => p.isPhysical);
           if (physicalPrinters.length === 0) {
-            alert("Cannot go online: No physical printer connected. Please connect a printer and try again.");
+            setToastMessage("Cannot go online: No physical printer connected. Please connect a printer and try again.");
             return;
           }
         } catch (err) {
           console.error("Failed to check printers:", err);
-          alert("Failed to check connected printers.");
+          setToastMessage("Failed to check connected printers.");
           return;
         }
       }
@@ -704,8 +726,8 @@ function ShopAdminShell(): React.ReactElement {
     const cleanup = window.electronAPI.onAppWillQuit(async () => {
       console.log("[App] onAppWillQuit received, stopping presence...");
       await stopPresence();
-      if ((window.electronAPI as any).confirmQuit) {
-        (window.electronAPI as any).confirmQuit();
+      if (window.electronAPI.confirmQuit) {
+        window.electronAPI.confirmQuit();
       }
     });
     return cleanup;
@@ -790,7 +812,7 @@ function ShopAdminShell(): React.ReactElement {
       },
 
       onManifestReceived: async (sessionId, manifestOrder) => {
-        handledOrderSessions.current.add(sessionId);
+        addBoundedSet(handledOrderSessions.current, sessionId);
         refreshAssignments(shopId);
         if (!fifoDispatcherRef.current) {
           fifoDispatcherRef.current = new FifoPrintDispatcher(shopId, todayPrintsCount);
@@ -820,7 +842,9 @@ function ShopAdminShell(): React.ReactElement {
                 ? "confirmed"
                 : manifestOrder.paymentStatus || "pending",
             });
-          } catch {}
+          } catch (err) {
+            console.warn("[App] Error broadcasting initial order status:", err);
+          }
         }
 
         setActiveJob((prev) => ({
@@ -847,7 +871,7 @@ function ShopAdminShell(): React.ReactElement {
             manifestOrder.paymentStatus === "confirmed";
 
           if (paymentConfirmed) {
-            confirmedPaymentSessionsRef.current.add(sessionId);
+            addBoundedSet(confirmedPaymentSessionsRef.current, sessionId);
           }
 
           const filtered = prev.filter((j) => j.sessionId !== sessionId);
@@ -885,7 +909,7 @@ function ShopAdminShell(): React.ReactElement {
 
       onOrderReceived: async (receivedOrder) => {
         const { sessionId, order, files } = receivedOrder;
-        handledOrderSessions.current.add(sessionId);
+        addBoundedSet(handledOrderSessions.current, sessionId);
 
         refreshAssignments(shopId);
         if (!fifoDispatcherRef.current) {
@@ -924,7 +948,7 @@ function ShopAdminShell(): React.ReactElement {
               tokenCode: "ERR",
               status: "error",
               errorDetail: "Shop is out of printing tokens. Please try again later.",
-            }).catch(() => {});
+            }).catch((err) => console.warn("[App] Error broadcasting error detail:", err));
           }
           
           setRecentJobs((prev) => {
@@ -1069,7 +1093,7 @@ function ShopAdminShell(): React.ReactElement {
   const handleConfirmPayment = useCallback(
     async (sessionId: string) => {
       console.log(`[App] Confirming payment and enqueuing for session ${sessionId}...`);
-      confirmedPaymentSessionsRef.current.add(sessionId);
+      addBoundedSet(confirmedPaymentSessionsRef.current, sessionId);
       fifoDispatcherRef.current?.updateJobPaymentStatus(sessionId, "confirmed");
 
       // Find the job in the pendingQueue and actually enqueue it to print
@@ -1105,8 +1129,8 @@ function ShopAdminShell(): React.ReactElement {
       );
 
       const targetJob =
-        (activeJob?.sessionId === sessionId ? activeJob : null) ||
-        recentJobs.find((j) => j.sessionId === sessionId);
+        (activeJobRef.current?.sessionId === sessionId ? activeJobRef.current : null) ||
+        recentJobsRef.current.find((j) => j.sessionId === sessionId);
 
       // 1. Broadcast payment-confirmed event to customer over signaling channel
       if (signalingChannelRef.current) {
@@ -1137,7 +1161,7 @@ function ShopAdminShell(): React.ReactElement {
         console.warn("[App] Error updating print_orders in Supabase:", err);
       }
     },
-    [activeJob, recentJobs]
+    []
   );
 
   // Cancel Order Handler
@@ -1155,7 +1179,9 @@ function ShopAdminShell(): React.ReactElement {
                sessionId,
                status: "cancelled"
             });
-         } catch {}
+         } catch (err) {
+            console.warn("[App] Error broadcasting cancel status to customer:", err);
+         }
       }
       
       try {
@@ -1216,18 +1242,19 @@ function ShopAdminShell(): React.ReactElement {
           fontSize: 14,
         }}
       >
-        <img
-          src={logoImg}
-          alt="Printap"
+        <div
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            objectFit: "cover",
-            boxShadow: "0 4px 14px rgba(0, 0, 0, 0.15)",
+            width: 32,
+            height: 32,
+            border: "2px solid #16181D",
+            borderTopColor: "transparent",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
           }}
         />
-        <div>Initializing Printap Terminal...</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: "0.04em" }}>
+          Initializing Terminal...
+        </div>
       </div>
     );
   }
@@ -1274,12 +1301,18 @@ function ShopAdminShell(): React.ReactElement {
               <span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
                 {currentPage === "live"
                   ? "Live Monitor"
+                  : currentPage === "history"
+                  ? "Print History"
                   : currentPage === "printers"
                   ? "Printers Control"
+                  : currentPage === "services"
+                  ? "Services & Rates"
                   : currentPage === "analytics"
                   ? "Revenue & Analytics"
                   : currentPage === "qr"
                   ? "Counter QR Stand"
+                  : currentPage === "tokens"
+                  ? "Token Management"
                   : "Shop Profile"}
               </span>
             </div>
@@ -1302,6 +1335,12 @@ function ShopAdminShell(): React.ReactElement {
               className={`beacon-dot ${
                 isShopOnline && isListening ? "online" : "offline"
               }`}
+              role="status"
+              aria-label={
+                isShopOnline && isListening
+                  ? "Shop Online • P2P Active"
+                  : "Shop Offline (Standby)"
+              }
               style={{
                 background:
                   isShopOnline && isListening
@@ -1353,156 +1392,97 @@ function ShopAdminShell(): React.ReactElement {
             />
           </div>
 
-          <div
-            style={{
-              display: currentPage === "history" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <PrintHistory recentJobs={recentJobs} />
-          </div>
+          {currentPage === "history" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <PrintHistory recentJobs={recentJobs} />
+            </div>
+          )}
 
-          <div
-            style={{
-              display: currentPage === "printers" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <PrintersControl
-              printers={printers}
-              isLoadingPrinters={isLoadingPrinters}
-              onRescanPrinters={rescanPrinters}
-              onAssignmentsSaved={(newAssignments) => {
-                assignmentsRef.current = newAssignments;
-              }}
-              onRegisterDirtyHandler={(handler) => {
-                dirtyHandlersRef.current["printers"] = handler;
-              }}
-            />
-          </div>
+          {currentPage === "printers" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <PrintersControl
+                printers={printers}
+                isLoadingPrinters={isLoadingPrinters}
+                onRescanPrinters={rescanPrinters}
+                onAssignmentsSaved={(newAssignments) => {
+                  assignmentsRef.current = newAssignments;
+                }}
+                onRegisterDirtyHandler={(handler) => {
+                  dirtyHandlersRef.current["printers"] = handler;
+                }}
+              />
+            </div>
+          )}
 
-          <div
-            style={{
-              display: currentPage === "services" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <ServicesRates
-              onRegisterDirtyHandler={(handler) => {
-                dirtyHandlersRef.current["services"] = handler;
-              }}
-            />
-          </div>
+          {currentPage === "services" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <ServicesRates
+                onRegisterDirtyHandler={(handler) => {
+                  dirtyHandlersRef.current["services"] = handler;
+                }}
+              />
+            </div>
+          )}
 
-          <div
-            style={{
-              display: currentPage === "analytics" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <Analytics />
-          </div>
+          {currentPage === "analytics" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <Analytics />
+            </div>
+          )}
 
-          <div
-            style={{
-              display: currentPage === "qr" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <CounterQr />
-          </div>
+          {currentPage === "qr" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <CounterQr />
+            </div>
+          )}
 
-          <div
-            style={{
-              display: currentPage === "tokens" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <Tokens />
-          </div>
+          {currentPage === "tokens" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <Tokens />
+            </div>
+          )}
 
-          <div
-            style={{
-              display: currentPage === "profile" ? "flex" : "none",
-              flex: 1,
-              flexDirection: "column",
-              height: "100%",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <Profile onNavigateToQr={() => handleSelectPage("qr")} />
-          </div>
+          {currentPage === "profile" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
+              <Profile onNavigateToQr={() => handleSelectPage("qr")} />
+            </div>
+          )}
         </main>
       </div>
 
-      {unsavedModal?.isOpen && (
-        <div className="modal-overlay" onClick={handleCancelNavigation}>
-          <div
-            className="confirm-dialog-card"
-            style={{ maxWidth: 440 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="confirm-dialog-title">Unsaved Changes</div>
-            <div
-              className="confirm-dialog-body"
-              style={{ color: "var(--text-secondary)", lineHeight: 1.5, margin: "12px 0 20px" }}
-            >
-              You have unsaved changes in <strong>{unsavedModal.pageName}</strong>. Would you like to save your changes before leaving this section?
-            </div>
-            <div className="confirm-dialog-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className="btn-dialog-cancel"
-                onClick={handleCancelNavigation}
-                disabled={isSavingUnsaved}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-dialog-discard"
-                onClick={handleDiscardAndContinue}
-                disabled={isSavingUnsaved}
-              >
-                Discard
-              </button>
-              <button
-                type="button"
-                className="btn-dialog-save"
-                onClick={handleSaveAndContinue}
-                disabled={isSavingUnsaved}
-              >
-                {isSavingUnsaved ? "Saving..." : "Save & Continue"}
-              </button>
-            </div>
-          </div>
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#18181b",
+            color: "#f4f4f5",
+            padding: "10px 16px",
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 500,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span>⚠️</span>
+          <span>{toastMessage}</span>
         </div>
       )}
+
+      <UnsavedChangesModal
+        isOpen={Boolean(unsavedModal?.isOpen)}
+        pageName={unsavedModal?.pageName || ""}
+        isSaving={isSavingUnsaved}
+        onCancel={handleCancelNavigation}
+        onDiscard={handleDiscardAndContinue}
+        onSave={handleSaveAndContinue}
+      />
     </div>
   );
 }

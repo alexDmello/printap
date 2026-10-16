@@ -33,7 +33,7 @@ export function UpdateScreen({ stage, progress, error, onRestart, onDismiss }: U
 
         <p className="text-gray-400 mb-8 text-sm">
           {stage === "checking" && "Please wait while we check for the latest version."}
-          {stage === "available" && "A new version of Printap is available. Preparing download..."}
+          {stage === "available" && "A new update is available. Preparing download..."}
           {stage === "downloading" && "Please do not close the app while the update is downloading."}
           {stage === "downloaded" && "The update has been downloaded. Restart the app to apply the changes."}
           {stage === "error" && (error || "Something went wrong while trying to update.")}

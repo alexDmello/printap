@@ -651,31 +651,42 @@ async function convertBufferToPdf(
 </html>`;
     }
 
-    await fs.writeFile(tempHtmlPath, htmlContent, "utf8");
-    await printWin.loadFile(tempHtmlPath);
+    const conversionPromise = (async () => {
+      await fs.writeFile(tempHtmlPath, htmlContent, "utf8");
+      await printWin.loadFile(tempHtmlPath);
 
-    if (isImage) {
-      await printWin.webContents.executeJavaScript(`
-        new Promise((resolve) => {
-          const img = document.querySelector('img');
-          if (!img) return resolve(true);
-          if (img.complete && img.naturalWidth > 0) return resolve(true);
-          img.onload = () => resolve(true);
-          img.onerror = () => resolve(true);
-          setTimeout(() => resolve(true), 2500);
-        });
-      `);
-    } else {
-      await new Promise((r) => setTimeout(r, 200));
-    }
+      if (isImage) {
+        await printWin.webContents.executeJavaScript(`
+          new Promise((resolve) => {
+            const img = document.querySelector('img');
+            if (!img) return resolve(true);
+            if (img.complete && img.naturalWidth > 0) return resolve(true);
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(true);
+            setTimeout(() => resolve(true), 2500);
+          });
+        `);
+      } else {
+        await new Promise((r) => setTimeout(r, 200));
+      }
 
-    const pdfData = await printWin.webContents.printToPDF({
-      landscape: orientation === "landscape",
-      printBackground: true,
-      margins: { marginType: "none" },
+      const pdfData = await printWin.webContents.printToPDF({
+        landscape: orientation === "landscape",
+        printBackground: true,
+        margins: { marginType: "none" },
+      });
+
+      return Buffer.from(pdfData);
+    })();
+
+    const timeoutPromise = new Promise<Buffer>((_, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error("Document to PDF conversion timed out after 15 seconds"));
+      }, 15_000);
+      conversionPromise.finally(() => clearTimeout(timer));
     });
 
-    return Buffer.from(pdfData);
+    return await Promise.race([conversionPromise, timeoutPromise]);
   } finally {
     if (!printWin.isDestroyed()) {
       printWin.destroy();

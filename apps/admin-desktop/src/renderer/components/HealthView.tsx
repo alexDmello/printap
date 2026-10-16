@@ -1,6 +1,5 @@
 import React from "react";
 import { ROOT_DOMAIN } from "@printap/shared";
-import logoImg from "../assets/logo.png";
 import { IconHealth, IconServer, IconShield } from "./Icons";
 
 export function HealthView() {
@@ -14,14 +13,14 @@ export function HealthView() {
     },
     {
       role: "Shop Owner Console",
-      domain: "Printap Desktop Agent",
+      domain: "Desktop Agent",
       status: "Desktop Standalone",
       type: "Electron Hardware App",
       desc: "Direct spooler queue, DoD shredding, and UPI settlements. Browser web access strictly disabled.",
     },
     {
       role: "Platform Admin Console",
-      domain: "Printap Executive Console",
+      domain: "Executive Console",
       status: "Desktop Standalone",
       type: "Electron Executive App",
       desc: "Global directory, kill-switch controllers, and monthly archival. Browser web access strictly disabled.",
@@ -79,14 +78,11 @@ export function HealthView() {
       <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-zinc-200">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-lg bg-black border border-zinc-800 p-0.5 flex items-center justify-center shadow-xs">
-              <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
-            </div>
             <h2 className="text-lg font-bold text-black tracking-tight">
               Network Topology & System Health
             </h2>
             <span className="wabi-seal px-2 py-0.5 text-[10px] font-mono">
-              健康 • TOPOLOGY
+              TOPOLOGY
             </span>
           </div>
           <p className="text-xs text-zinc-500 mt-1">

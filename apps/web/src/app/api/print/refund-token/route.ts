@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-auth";
+import { getJwtSecret } from "@/lib/env";
 import * as jose from "jose";
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.PRINTAP_JWT_SECRET || "fallback-secret-for-development-only-do-not-use-in-prod"
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +14,7 @@ export async function POST(req: NextRequest) {
     // 1. Verify the Print Ticket (JWT)
     let payload;
     try {
-      const { payload: verifiedPayload } = await jose.jwtVerify(printTicket, JWT_SECRET);
+      const { payload: verifiedPayload } = await jose.jwtVerify(printTicket, getJwtSecret());
       payload = verifiedPayload;
     } catch (err) {
       console.error("[refund-token] Invalid print ticket:", err);

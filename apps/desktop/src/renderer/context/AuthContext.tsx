@@ -356,6 +356,13 @@ export function AuthProvider({
     setShop(null);
   };
 
+  // Cancel active Google OAuth polling session on unmount
+  useEffect(() => {
+    return () => {
+      activeGoogleSessionRef.current?.cancel();
+    };
+  }, []);
+
   const refreshShop = async () => {
     if (!shopId) return;
     const updated = await fetchShopDetails(shopId);

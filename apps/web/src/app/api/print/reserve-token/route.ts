@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-auth";
+import { getJwtSecret } from "@/lib/env";
 import * as jose from "jose";
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.PRINTAP_JWT_SECRET || "fallback-secret-for-development-only-do-not-use-in-prod"
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,7 +32,7 @@ export async function POST(req: NextRequest) {
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("1h") // Ticket is valid for 1 hour
-      .sign(JWT_SECRET);
+      .sign(getJwtSecret());
 
     return NextResponse.json({
       success: true,

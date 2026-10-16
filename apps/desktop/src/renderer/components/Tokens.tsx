@@ -11,7 +11,7 @@ interface TokenTransaction {
   created_at: string;
 }
 
-export const Tokens: React.FC = () => {
+export const Tokens: React.FC = React.memo(() => {
   const { shopId, shop } = useAuth();
   const [tokenAmount, setTokenAmount] = useState<number>(100);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -112,9 +112,12 @@ export const Tokens: React.FC = () => {
                 style={{
                   width: "100%",
                   padding: "10px 14px",
-                  borderRadius: "8px",
+                  borderRadius: "var(--radius-sm)",
                   border: "1px solid var(--border-subtle)",
                   fontSize: 16,
+                  fontFamily: "var(--font-mono)",
+                  color: "#16181D",
+                  backgroundColor: "#FFFFFF",
                   outline: "none"
                 }}
               />
@@ -122,24 +125,24 @@ export const Tokens: React.FC = () => {
 
             <div style={{ 
               padding: "12px 16px", 
-              backgroundColor: "var(--bg-glass-subtle)", 
-              borderRadius: "8px", 
+              backgroundColor: "rgba(240, 235, 237, 0.5)", 
+              borderRadius: "var(--radius-sm)", 
               border: "1px solid var(--border-subtle)",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center"
             }}>
               <span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>Total Price</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>₹{tokenAmount * 1}</span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>₹{tokenAmount * 1}</span>
             </div>
 
             {errorMsg && (
-              <div style={{ padding: "10px", borderRadius: "8px", backgroundColor: "rgba(239,68,68,0.1)", color: "rgb(239,68,68)", fontSize: 13, fontWeight: 500 }}>
+              <div style={{ padding: "10px", borderRadius: "var(--radius-sm)", backgroundColor: "rgba(22,24,29,0.06)", border: "1px solid var(--border-subtle)", color: "#16181D", fontSize: 13, fontWeight: 500 }}>
                 {errorMsg}
               </div>
             )}
             {successMsg && (
-              <div style={{ padding: "10px", borderRadius: "8px", backgroundColor: "rgba(16,185,129,0.1)", color: "rgb(16,185,129)", fontSize: 13, fontWeight: 500 }}>
+              <div style={{ padding: "10px", borderRadius: "var(--radius-sm)", backgroundColor: "rgba(22,24,29,0.06)", border: "1px solid var(--border-subtle)", color: "#16181D", fontSize: 13, fontWeight: 500 }}>
                 {successMsg}
               </div>
             )}
@@ -150,14 +153,14 @@ export const Tokens: React.FC = () => {
               style={{
                 width: "100%",
                 padding: "12px",
-                backgroundColor: "var(--accent-emerald)",
-                color: "#fff",
-                borderRadius: "8px",
-                border: "none",
+                backgroundColor: "#16181D",
+                color: "#ffffff",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid #16181D",
                 fontWeight: 600,
                 fontSize: 14,
                 cursor: (isProcessing || tokenAmount <= 0) ? "not-allowed" : "pointer",
-                opacity: (isProcessing || tokenAmount <= 0) ? 0.7 : 1,
+                opacity: (isProcessing || tokenAmount <= 0) ? 0.6 : 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -188,18 +191,18 @@ export const Tokens: React.FC = () => {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "12px",
-                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-sm)",
                     border: "1px solid var(--border-subtle)",
-                    backgroundColor: "rgba(255,255,255,0.4)"
+                    backgroundColor: "#FFFFFF"
                   }}>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: "var(--accent-emerald)" }}>+{tx.amount} Tokens</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#16181D", fontFamily: "var(--font-mono)" }}>+{tx.amount} Tokens</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
                         {new Date(tx.created_at).toLocaleString()}
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
                       Bal: {tx.balance_after}
                     </div>
                   </div>
@@ -211,4 +214,4 @@ export const Tokens: React.FC = () => {
       </div>
     </div>
   );
-};
+});

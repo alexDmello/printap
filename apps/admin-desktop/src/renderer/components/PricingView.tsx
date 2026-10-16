@@ -1,5 +1,4 @@
 import React from "react";
-import logoImg from "../assets/logo.png";
 import { IconCoins, IconCheck, IconShield } from "./Icons";
 
 interface PricingViewProps {
@@ -31,14 +30,11 @@ export function PricingView({
       <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-zinc-200">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-lg bg-black border border-zinc-800 p-0.5 flex items-center justify-center shadow-xs">
-              <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
-            </div>
             <h2 className="text-lg font-bold text-black tracking-tight">
               Global Platform Convenience Fee & GST Engine
             </h2>
             <span className="wabi-seal px-2 py-0.5 text-[10px] font-mono">
-              料金 • SURCHARGE
+              SURCHARGE
             </span>
           </div>
           <p className="text-xs text-zinc-500 mt-1">
@@ -86,7 +82,7 @@ export function PricingView({
                 />
               </div>
               <span className="text-[10px] text-zinc-400 block">
-                Net fee retained by Printap platform per job
+                Net fee retained by platform per job
               </span>
             </div>
 

@@ -96,12 +96,13 @@ interface ElectronAPI {
   setActiveShopId: (shopId: string | null) => Promise<{ success: boolean }>;
 
   onAppWillQuit: (callback: () => void) => () => void;
+  confirmQuit: () => void;
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
   onDeepLinkAuth: (
     callback: (data: { sessionId: string; shopId: string }) => void
   ) => () => void;
   onUpdaterEvent: (
-    callback: (data: { stage: string; progress?: number; error?: string; info?: any }) => void
+    callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
   ) => () => void;
   restartApp: () => void;
 }

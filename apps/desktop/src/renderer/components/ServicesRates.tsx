@@ -19,7 +19,7 @@ interface ServicesRatesProps {
   onRegisterDirtyHandler?: (handler: DirtyHandler | null) => void;
 }
 
-export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHandler }) => {
+export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegisterDirtyHandler }) => {
   const { shop, shopId, refreshShop } = useAuth();
 
   // Core rates
@@ -473,14 +473,15 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
                 style={{
                   width: 40,
                   height: 40,
-                  borderRadius: "var(--radius-md)",
-                  background: "#09090b",
+                  borderRadius: "var(--radius-sm)",
+                  background: "#16181D",
                   color: "#ffffff",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: 700,
                   fontSize: 13,
+                  fontFamily: "var(--font-mono)",
                 }}
               >
                 B&W
@@ -921,4 +922,4 @@ export const ServicesRates: React.FC<ServicesRatesProps> = ({ onRegisterDirtyHan
       </div>
     </div>
   );
-};
+});

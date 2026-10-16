@@ -9,9 +9,8 @@ import {
   IconPrinter,
   IconShield,
 } from "./Icons";
-import logoImg from "../assets/logo.png";
 
-export const CounterQr: React.FC = () => {
+export const CounterQr: React.FC = React.memo(() => {
   const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -64,7 +63,7 @@ export const CounterQr: React.FC = () => {
 
     const link = document.createElement("a");
     const safeShopName = (shop?.name || "Shop").replace(/[^a-z0-9]/gi, "_");
-    link.download = `Printap_QR_${safeShopName}.png`;
+    link.download = `Counter_QR_${safeShopName}.png`;
     link.href = exportCanvas.toDataURL("image/png");
     link.click();
   };
@@ -80,7 +79,7 @@ export const CounterQr: React.FC = () => {
 
     const link = document.createElement("a");
     const safeShopName = (shop?.name || "Shop").replace(/[^a-z0-9]/gi, "_");
-    link.download = `Printap_QR_${safeShopName}.svg`;
+    link.download = `Counter_QR_${safeShopName}.svg`;
     link.href = url;
     link.click();
     URL.revokeObjectURL(url);
@@ -110,39 +109,39 @@ export const CounterQr: React.FC = () => {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
-    // Modern dark header band
-    ctx.fillStyle = "#09090b";
+    // Modern dark header band (replicating dark pillars)
+    ctx.fillStyle = "#16181D";
     ctx.fillRect(0, 0, W, 220);
 
     // Header Branding
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 36px Inter, sans-serif";
+    ctx.font = "bold 36px 'Space Grotesk', Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("PRINTAP SELF-SERVICE COUNTER", W / 2, 95);
+    ctx.fillText("SELF-SERVICE PRINT COUNTER", W / 2, 95);
 
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "500 22px Inter, sans-serif";
+    ctx.fillStyle = "#D1C8CC";
+    ctx.font = "500 22px 'JetBrains Mono', monospace";
     ctx.fillText("SCAN WITH PHONE • CHOOSE PDF • COLLECT PRINT", W / 2, 145);
 
     // Shop Name Banner
-    ctx.fillStyle = "#09090b";
-    ctx.font = "bold 54px Inter, sans-serif";
-    ctx.fillText(shop?.name || "Printap Counter", W / 2, 330);
+    ctx.fillStyle = "#16181D";
+    ctx.font = "bold 54px 'Space Grotesk', Inter, sans-serif";
+    ctx.fillText(shop?.name || "Print Counter", W / 2, 330);
 
-    ctx.fillStyle = "#52525b";
-    ctx.font = "500 24px Inter, sans-serif";
+    ctx.fillStyle = "#424750";
+    ctx.font = "500 24px 'Space Grotesk', Inter, sans-serif";
     ctx.fillText("Skip the line — beam documents directly to our printer", W / 2, 385);
 
-    // QR Code Frame (Rounded Card Box)
+    // QR Code Frame (Sharp Wireframe Box)
     const qrBoxSize = 620;
     const qrBoxX = (W - qrBoxSize) / 2;
     const qrBoxY = 440;
 
-    ctx.fillStyle = "#f8fafc";
-    ctx.strokeStyle = "#e2e8f0";
-    ctx.lineWidth = 4;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.strokeStyle = "#D1C8CC";
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 28);
+    ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 4);
     ctx.fill();
     ctx.stroke();
 
@@ -153,8 +152,8 @@ export const CounterQr: React.FC = () => {
 
     // 3 Step Guide Container
     const stepsY = 1110;
-    ctx.fillStyle = "#09090b";
-    ctx.font = "bold 30px Inter, sans-serif";
+    ctx.fillStyle = "#16181D";
+    ctx.font = "bold 30px 'Space Grotesk', Inter, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("HOW IT WORKS", W / 2, stepsY);
 
@@ -169,46 +168,46 @@ export const CounterQr: React.FC = () => {
       const cx = colWidth * idx + colWidth / 2;
       const cy = stepsY + 60;
 
-      // Circle badge
-      ctx.fillStyle = "#09090b";
+      // Geometric badge
+      ctx.fillStyle = "#16181D";
       ctx.beginPath();
       ctx.arc(cx, cy, 28, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 24px Inter, sans-serif";
+      ctx.font = "bold 24px 'JetBrains Mono', monospace";
       ctx.fillText(step.num, cx, cy + 8);
 
       // Title & desc
-      ctx.fillStyle = "#09090b";
-      ctx.font = "bold 24px Inter, sans-serif";
+      ctx.fillStyle = "#16181D";
+      ctx.font = "bold 24px 'Space Grotesk', Inter, sans-serif";
       ctx.fillText(step.title, cx, cy + 65);
 
-      ctx.fillStyle = "#71717a";
-      ctx.font = "400 20px Inter, sans-serif";
+      ctx.fillStyle = "#424750";
+      ctx.font = "400 20px 'Space Grotesk', Inter, sans-serif";
       ctx.fillText(step.desc, cx, cy + 98);
     });
 
     // Footer divider & UPI info
-    ctx.strokeStyle = "#e2e8f0";
+    ctx.strokeStyle = "#D1C8CC";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(100, 1370);
     ctx.lineTo(W - 100, 1370);
     ctx.stroke();
 
-    ctx.fillStyle = "#059669";
-    ctx.font = "bold 26px 'Geist Mono', monospace";
+    ctx.fillStyle = "#16181D";
+    ctx.font = "bold 26px 'JetBrains Mono', monospace";
     ctx.fillText(`Direct UPI: ${shop?.upi_vpa || "shop@upi"}`, W / 2, 1430);
 
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "400 20px Inter, sans-serif";
+    ctx.fillStyle = "#424750";
+    ctx.font = "400 20px 'Space Grotesk', Inter, sans-serif";
     ctx.fillText("Zero Cloud Storage Liability • Peer-to-Peer Encrypted WebRTC", W / 2, 1480);
 
     // Download poster
     const link = document.createElement("a");
     const safeShopName = (shop?.name || "Shop").replace(/[^a-z0-9]/gi, "_");
-    link.download = `Printap_Counter_Standee_${safeShopName}.png`;
+    link.download = `Counter_Standee_${safeShopName}.png`;
     link.href = poster.toDataURL("image/png");
     link.click();
     setIsExporting(false);
@@ -385,25 +384,13 @@ export const CounterQr: React.FC = () => {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 6,
-                background: "#09090b",
+                height: 4,
+                background: "#16181D",
               }}
             />
 
             {/* Standee Branding Header */}
             <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <img
-                src={logoImg}
-                alt="Printap"
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 8,
-                  objectFit: "cover",
-                  marginBottom: 8,
-                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
-                }}
-              />
               <div
                 style={{
                   fontSize: 11,
@@ -411,20 +398,21 @@ export const CounterQr: React.FC = () => {
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   color: "var(--text-muted)",
+                  fontFamily: "var(--font-mono)",
                   marginBottom: 4,
                 }}
               >
-                PRINTAP SELF-SERVICE COUNTER
+                SELF-SERVICE PRINT COUNTER
               </div>
               <h2
                 style={{
                   fontSize: 22,
                   fontWeight: 700,
-                  color: "#09090b",
+                  color: "#16181D",
                   letterSpacing: "-0.02em",
                 }}
               >
-                {shop?.name || "Printap Counter"}
+                {shop?.name || "Print Counter"}
               </h2>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                 Scan with your phone camera to beam documents
@@ -437,10 +425,10 @@ export const CounterQr: React.FC = () => {
               style={{
                 display: "inline-block",
                 padding: 16,
-                background: "#f8fafc",
-                borderRadius: "var(--radius-xl)",
+                background: "#FFFFFF",
+                borderRadius: "var(--radius-md)",
                 border: "1px solid var(--border-subtle)",
-                boxShadow: "0 4px 14px rgba(0, 0, 0, 0.04)",
+                boxShadow: "0 2px 8px rgba(22, 24, 29, 0.04)",
                 margin: "8px auto 16px",
               }}
             >
@@ -463,23 +451,23 @@ export const CounterQr: React.FC = () => {
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",
                 gap: 8,
-                background: "#f8fafc",
+                background: "#F0EBED",
                 padding: "12px 8px",
-                borderRadius: "var(--radius-lg)",
+                borderRadius: "var(--radius-md)",
                 marginTop: 6,
                 border: "1px solid var(--border-subtle)",
               }}
             >
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#09090b" }}>1. Scan</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#16181D" }}>1. Scan</div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Open camera</div>
               </div>
-              <div style={{ borderLeft: "1px solid #e2e8f0", borderRight: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#09090b" }}>2. Select PDF</div>
+              <div style={{ borderLeft: "1px solid #D1C8CC", borderRight: "1px solid #D1C8CC" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#16181D" }}>2. Select PDF</div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Choose B&W / Color</div>
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#09090b" }}>3. Print</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#16181D" }}>3. Print</div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Instant spool</div>
               </div>
             </div>
@@ -499,7 +487,7 @@ export const CounterQr: React.FC = () => {
               <span style={{ fontWeight: 600, color: "#059669", fontFamily: "Geist Mono, monospace" }}>
                 UPI: {shop?.upi_vpa || "shop@upi"}
               </span>
-              <span style={{ color: "var(--text-muted)" }}>Powered by Printap</span>
+              <span style={{ color: "var(--text-muted)" }}>Direct P2P Link</span>
             </div>
           </div>
         </div>
@@ -642,4 +630,4 @@ export const CounterQr: React.FC = () => {
       </div>
     </div>
   );
-};
+});

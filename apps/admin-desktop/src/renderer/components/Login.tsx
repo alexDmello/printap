@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { getSupabase } from "@printap/shared";
-import logoImg from "../assets/logo.png";
 
 export function Login({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [email, setEmail] = useState("");
@@ -53,8 +52,7 @@ export function Login({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   return (
     <div className="login-container">
       <div className="login-card">
-        <img src={logoImg} alt="Printap Admin" className="login-logo" />
-        <h2>Admin Gateway</h2>
+        <h2 className="text-xl font-bold text-[#16181D]">Admin Gateway</h2>
         <p className="login-subtitle">Secured Platform Access</p>
 
         <form onSubmit={handleLogin} className="login-form">

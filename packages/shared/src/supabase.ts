@@ -51,6 +51,11 @@ let client: SupabaseClient | null = null;
  */
 export function getSupabase(): SupabaseClient {
   if (!client) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.warn(
+        "⚠️ [getSupabase] Warning: SUPABASE_URL or SUPABASE_ANON_KEY is not defined in current environment."
+      );
+    }
     client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       realtime: {
         params: { eventsPerSecond: 20 },

@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       printer?: string;
       copies?: number;
       orientation?: "portrait" | "landscape";
+      scale?: "fit" | "noscale";
     }
   ) => ipcRenderer.invoke("print-pdf", buffer, sessionId, options),
 
@@ -72,11 +73,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     };
   },
   onUpdaterEvent: (
-    callback: (data: { stage: string; progress?: number; error?: string; info?: any }) => void
+    callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
   ) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
-      data: { stage: string; progress?: number; error?: string; info?: any }
+      data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }
     ) => callback(data);
 
     ipcRenderer.on("updater-event", handler);

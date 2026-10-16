@@ -32,7 +32,7 @@ export interface PrintersControlProps {
   onRegisterDirtyHandler?: (handler: DirtyHandler | null) => void;
 }
 
-export const PrintersControl: React.FC<PrintersControlProps> = ({
+export const PrintersControl: React.FC<PrintersControlProps> = React.memo(({
   printers: externalPrinters,
   isLoadingPrinters: externalIsLoading,
   onRescanPrinters,
@@ -477,7 +477,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                 className="printer-card"
                 style={{
                   border: assignment.is_default
-                    ? "2px solid #09090b"
+                    ? "1px solid #16181D"
                     : "1px solid var(--border-glass)",
                 }}
               >
@@ -500,12 +500,13 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                     <span
                       className="status-badge"
                       style={{
-                        background: "rgba(99, 102, 241, 0.12)",
-                        color: "#4f46e5",
-                        borderColor: "rgba(99, 102, 241, 0.25)",
+                        background: "rgba(22, 24, 29, 0.05)",
+                        color: "var(--text-primary)",
+                        borderColor: "var(--border-subtle)",
                         fontSize: 11,
                         padding: "2px 8px",
                         fontWeight: 700,
+                        fontFamily: "var(--font-mono)",
                       }}
                     >
                       Printer #{assignment.printer_number ?? (idx + 1)}
@@ -520,7 +521,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                       <span
                         className="status-badge"
                         style={{
-                          background: "#09090b",
+                          background: "#16181D",
                           color: "#ffffff",
                           fontSize: 10,
                           padding: "2px 8px",
@@ -581,11 +582,12 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                           padding: "4px 6px",
                           fontSize: 13,
                           fontWeight: 700,
-                          borderRadius: "var(--radius-md)",
+                          borderRadius: "var(--radius-sm)",
                           border: "1px solid var(--border-subtle)",
                           background: "#ffffff",
                           textAlign: "center",
-                          color: "#09090b",
+                          color: "#16181D",
+                          fontFamily: "var(--font-mono)",
                         }}
                         title="Printer number for tokens (e.g. Printer #2 produces tokens like #214)"
                       />
@@ -685,7 +687,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
                 lineHeight: 1.5,
               }}
             >
-              Printap operates exclusively with physical hardware printers (USB, Network, or Wireless). Connect your Xerox, Canon, HP, or Epson printer to link it.
+              The terminal operates exclusively with physical hardware printers (USB, Network, or Wireless). Connect your Xerox, Canon, HP, or Epson printer to link it.
             </p>
 
             <div
@@ -758,7 +760,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
             lineHeight: 1.6,
           }}
         >
-          Printap queries Windows PnP hardware IDs and Port Monitors to verify physical hardware presence:
+          The diagnostic scanner queries Windows PnP hardware IDs and Port Monitors to verify physical hardware presence:
           <br />
           • <strong>Direct USB:</strong> Ports USB001–USB003 or DOT4 with IEEE 1284.4 USBPRINT device drivers.
           <br />
@@ -769,4 +771,4 @@ export const PrintersControl: React.FC<PrintersControlProps> = ({
       </div>
     </div>
   );
-};
+});

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { ROOT_DOMAIN, sanitizeSubdomain, isReservedSubdomain, getSupabase } from "@printap/shared";
-import logoImg from "../assets/logo.png";
 import type { ExtendedShop } from "../types";
 import { IconClose, IconTrash } from "./Icons";
 
@@ -111,18 +110,13 @@ export function EditShopModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="wabi-bento-card rounded-3xl p-7 max-w-md w-full shadow-2xl animate-fade-in-up border border-zinc-200 bg-white relative max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-black border border-zinc-800 p-1 flex items-center justify-center shadow-xs flex-shrink-0">
-              <img src={logoImg} alt="Printap Logo" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-black">
-                Edit Terminal Configuration
-              </h2>
-              <span className="wabi-seal px-1.5 py-0.5 text-[9px] font-mono">
-                EDIT
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-black">
+              Edit Terminal Configuration
+            </h2>
+            <span className="wabi-seal px-1.5 py-0.5 text-[9px] font-mono">
+              EDIT
+            </span>
           </div>
           <button
             onClick={onClose}

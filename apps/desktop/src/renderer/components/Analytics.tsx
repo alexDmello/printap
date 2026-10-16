@@ -33,7 +33,7 @@ interface ChartBarData {
   heightPct: number;
 }
 
-export const Analytics: React.FC = () => {
+export const Analytics: React.FC = React.memo(() => {
   const { shopId, shop } = useAuth();
   const [filter, setFilter] = useState<DateFilter>("today");
   const [events, setEvents] = useState<PrintEvent[]>([]);
@@ -385,7 +385,7 @@ export const Analytics: React.FC = () => {
           </div>
 
           <div className="profile-field">
-            <span className="profile-field-label">Printap Software Infrastructure Fee</span>
+            <span className="profile-field-label">Software Infrastructure Fee</span>
             <span
               className="profile-field-value"
               style={{ fontFamily: "Geist Mono, monospace" }}
@@ -426,4 +426,4 @@ export const Analytics: React.FC = () => {
       </div>
     </div>
   );
-};
+});

@@ -33,6 +33,20 @@ const sessions = new Map<string, ShopSession>();
 
 /** Early remote ICE candidates buffered before remoteDescription is set */
 const earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
+const earlyCandidateTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const sessionInactivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function resetSessionTimeout(sessionId: string, timeoutMs = 90_000): void {
+  const existing = sessionInactivityTimers.get(sessionId);
+  if (existing) clearTimeout(existing);
+  sessionInactivityTimers.set(
+    sessionId,
+    setTimeout(() => {
+      console.log(`[shop] Session ${sessionId} timed out due to inactivity`);
+      cleanup(sessionId);
+    }, timeoutMs)
+  );
+}
 
 export interface ReceivedOrderFile {
   fileId: string;
@@ -127,6 +141,16 @@ export function startShopSignaling(
           earlyCandidates.set(sessionId, []);
         }
         earlyCandidates.get(sessionId)!.push(candidateInit);
+        if (!earlyCandidateTimers.has(sessionId)) {
+          earlyCandidateTimers.set(
+            sessionId,
+            setTimeout(() => {
+              earlyCandidates.delete(sessionId);
+              earlyCandidateTimers.delete(sessionId);
+              console.log(`[shop] Cleaned up abandoned early ICE candidates for ${sessionId}`);
+            }, 60_000)
+          );
+        }
         console.log(`[shop] Buffered early ICE candidate for ${sessionId}`);
         return;
       }
@@ -171,6 +195,17 @@ export function stopShopSignaling(channel: RealtimeChannel | null): void {
       console.error("[shop] Error unsubscribing channel:", e);
     }
   }
+  for (const timer of earlyCandidateTimers.values()) {
+    clearTimeout(timer);
+  }
+  earlyCandidateTimers.clear();
+  earlyCandidates.clear();
+
+  for (const timer of sessionInactivityTimers.values()) {
+    clearTimeout(timer);
+  }
+  sessionInactivityTimers.clear();
+
   for (const sessionId of Array.from(sessions.keys())) {
     cleanup(sessionId);
   }
@@ -210,6 +245,8 @@ async function handleOffer(
     }
   }
 
+  resetSessionTimeout(sessionId);
+
   const pc = new RTCPeerConnection({
     iceServers: DEFAULT_ICE_SERVERS,
     iceCandidatePoolSize: 10,
@@ -237,8 +274,8 @@ async function handleOffer(
     console.log(
       `[shop] Connection state: ${pc.connectionState} (ice: ${pc.iceConnectionState})`
     );
-    if (pc.connectionState === "failed") {
-      callbacks.onSessionError?.(sessionId, "WebRTC peer connection failed");
+    if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+      callbacks.onSessionError?.(sessionId, "WebRTC peer connection closed or failed");
       cleanup(sessionId);
     }
   };
@@ -313,6 +350,7 @@ function setupDataChannelReceiver(
   let legacyMetadata: { fileName: string; fileSize: number; totalChunks: number } | null = null;
 
   dc.onmessage = (event) => {
+    resetSessionTimeout(session.sessionId);
     // String messages: JSON messages or EOF
     if (typeof event.data === "string") {
       // 1. Check for legacy plain EOF
@@ -514,6 +552,9 @@ function setupDataChannelReceiver(
 
   dc.onclose = () => {
     console.log(`[shop] DataChannel closed for session ${session.sessionId}`);
+    setTimeout(() => {
+      cleanup(session.sessionId);
+    }, 5000);
   };
 
   dc.onerror = (err) => {
@@ -527,6 +568,19 @@ function setupDataChannelReceiver(
 
 /** Cleanup a completed or failed session. */
 function cleanup(sessionId: string): void {
+  const earlyTimer = earlyCandidateTimers.get(sessionId);
+  if (earlyTimer) {
+    clearTimeout(earlyTimer);
+    earlyCandidateTimers.delete(sessionId);
+  }
+  earlyCandidates.delete(sessionId);
+
+  const inactivityTimer = sessionInactivityTimers.get(sessionId);
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer);
+    sessionInactivityTimers.delete(sessionId);
+  }
+
   const session = sessions.get(sessionId);
   if (!session) return;
 
@@ -537,7 +591,6 @@ function cleanup(sessionId: string): void {
     // Ignore close errors
   }
   sessions.delete(sessionId);
-  earlyCandidates.delete(sessionId);
   console.log(`[shop] Session ${sessionId} cleaned up`);
 }
 

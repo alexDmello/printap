@@ -55,7 +55,7 @@ interface LiveDashboardProps {
   tokenAlert?: { balance: number; threshold: boolean } | null;
 }
 
-export const LiveDashboard: React.FC<LiveDashboardProps> = ({
+export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
   currentJob,
   recentJobs,
   pendingQueue,
@@ -326,7 +326,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                     const totalPages =
                       job.files && job.files.length > 0
                         ? job.files.reduce(
-                            (sum, f) => sum + (f.pageCount || 1) * (f.settings?.copies || 1),
+                            (sum: number, f: LiveJobFile) => sum + (f.pageCount || 1) * (f.settings?.copies || 1),
                             0
                           )
                         : 1;
@@ -431,7 +431,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                           <tr className="table-expanded-row">
                             <td colSpan={4}>
                               <div className="table-expanded-files-list">
-                                {job.files.map((file, fIdx) => (
+                                {job.files.map((file: LiveJobFile, fIdx: number) => (
                                   <div key={fIdx} className="table-expanded-file-row">
                                     <IconFileText size={12} color="var(--text-muted)" />
                                     <span className="file-name" title={file.fileName}>
@@ -558,4 +558,4 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
       </div>
     </div>
   );
-};
+});

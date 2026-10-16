@@ -1,5 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getSupabase } from "@printap/shared";
+import { getServerSupabase } from "@/lib/server-auth";
+import { apiSuccess, apiError, apiUnauthorized, apiServerError } from "@/lib/api-response";
+import { z } from "zod";
+
+const pricingUpdateSchema = z.object({
+  shopId: z.string().uuid("Invalid shop ID format"),
+  adminSecret: z.string().optional(),
+  priceBw: z.number().min(0).max(1000).optional(),
+  priceColor: z.number().min(0).max(1000).optional(),
+  services: z.array(z.any()).optional(),
+  platformFee: z.number().min(0).max(1000).optional(),
+  gstPercentage: z.number().min(0).max(100).optional(),
+  gstAmount: z.number().min(0).optional(),
+  totalCharge: z.number().min(0).optional(),
+});
 
 export async function GET() {
   try {
@@ -10,8 +25,7 @@ export async function GET() {
       .eq("id", "global")
       .maybeSingle();
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       platformSettings: data || {
         id: "global",
         platform_fee: 0.82,
@@ -21,8 +35,7 @@ export async function GET() {
       },
     });
   } catch (err) {
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       platformSettings: {
         id: "global",
         platform_fee: 0.82,
@@ -34,11 +47,28 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiError("Invalid JSON body", 400, "INVALID_JSON");
+    }
+
+    const parseResult = pricingUpdateSchema.safeParse(body);
+    if (!parseResult.success) {
+      return apiError(
+        "Validation error",
+        400,
+        "VALIDATION_ERROR",
+        parseResult.error.flatten().fieldErrors
+      );
+    }
+
     const {
       shopId,
+      adminSecret,
       priceBw,
       priceColor,
       services,
@@ -46,13 +76,26 @@ export async function POST(request: Request) {
       gstPercentage,
       gstAmount,
       totalCharge,
-    } = body;
+    } = parseResult.data;
 
-    if (!shopId) {
-      return NextResponse.json({ error: "Missing shopId" }, { status: 400 });
+    // Security Verification:
+    // Global platform fee modifications or cross-shop pricing updates must provide ADMIN_SECRET
+    const configuredAdminSecret = process.env.PRINTAP_ADMIN_SECRET;
+    const headerSecret = request.headers.get("x-admin-secret");
+    const providedSecret = adminSecret || headerSecret;
+
+    // If attempting to modify global platform_settings, require verified admin secret
+    const isGlobalUpdate = typeof platformFee === "number" || typeof gstPercentage === "number";
+    if (isGlobalUpdate) {
+      if (!configuredAdminSecret || providedSecret !== configuredAdminSecret) {
+        return apiUnauthorized(
+          "Admin privileges required to modify platform fee or system settings",
+          "ADMIN_AUTH_REQUIRED"
+        );
+      }
     }
 
-    const supabase = getSupabase();
+    const supabase = getServerSupabase();
     const updatePayload: Record<string, unknown> = {};
 
     if (typeof priceBw === "number") updatePayload.price_bw = priceBw;
@@ -72,11 +115,11 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("[API pricing] Supabase error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to update shop pricing", 500, "DB_ERROR");
     }
 
-    // Also update global platform_settings table if platform fee or GST was provided
-    if (typeof platformFee === "number" && typeof gstPercentage === "number") {
+    // Update global platform_settings table if platform fee or GST was provided and admin secret was verified
+    if (isGlobalUpdate && typeof platformFee === "number" && typeof gstPercentage === "number") {
       try {
         const computedGst =
           typeof gstAmount === "number"
@@ -100,12 +143,8 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, shop: data });
+    return apiSuccess({ shop: data });
   } catch (err) {
-    console.error("[API pricing] Exception:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
-    );
+    return apiServerError(err, "API pricing");
   }
 }

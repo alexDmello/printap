@@ -1,8 +1,8 @@
 import React, { cache } from "react";
 import { getSupabase, sanitizeSubdomain } from "@printap/shared";
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import PrintClient from "@/components/customer/print-client";
+import { notFound } from "next/navigation";
+import PrintClient from "@/components/customer/PrintClient";
 
 interface Props {
   params: Promise<{ slug: string }>;

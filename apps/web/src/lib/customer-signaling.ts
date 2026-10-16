@@ -441,8 +441,20 @@ async function streamOrder(
     while (offset < file.size) {
       // Check buffer drain if approaching threshold
       if (dc.bufferedAmount > dc.bufferedAmountLowThreshold) {
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
+          if (dc.readyState !== "open") {
+            return reject(new Error("DataChannel closed while awaiting buffer drain"));
+          }
+          const drainTimer = setTimeout(() => {
+            if (dc.onbufferedamountlow) {
+              dc.onbufferedamountlow = null;
+            }
+            if (dc.readyState === "open") resolve();
+            else reject(new Error("DataChannel buffer drain timed out"));
+          }, 5000);
+
           dc.onbufferedamountlow = () => {
+            clearTimeout(drainTimer);
             dc.onbufferedamountlow = null;
             resolve();
           };

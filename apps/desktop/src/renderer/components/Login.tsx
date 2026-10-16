@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { IconShield, IconCheck } from "./Icons";
 import { validateEmail } from "@printap/shared";
-import logoImg from "../assets/logo.png";
 
 const SAVED_EMAIL_KEY = "printap_saved_email";
 
@@ -175,11 +174,7 @@ export const Login: React.FC = () => {
   return (
     <div className="login-container">
       <div className="login-card fade-in">
-        <div className="login-brand-icon">
-          <img src={logoImg} alt="Printap" />
-        </div>
-
-        <h1 className="login-title">Printap Counter Terminal</h1>
+        <h1 className="login-title">Counter Terminal</h1>
         <p className="login-subtitle">
           Sign in with your registered shop account to connect your counter terminal.
         </p>

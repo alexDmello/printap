@@ -269,6 +269,7 @@ export default function PagePreview({
     if (!isPdfDoc || !pdfDocProxy || !canvasRef.current) return;
 
     let isSubscribed = true;
+    let activeRenderTask: any = null;
     setIsPdfRendering(true);
 
     const safePage = Math.min(Math.max(1, currentPage), pdfTotalPages);
@@ -292,18 +293,18 @@ export default function PagePreview({
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
-        const renderTask = page.render({
+        activeRenderTask = page.render({
           canvasContext: ctx,
           viewport: viewport,
         });
 
-        return renderTask.promise;
+        return activeRenderTask.promise;
       })
       .then(() => {
         if (isSubscribed) setIsPdfRendering(false);
       })
       .catch((err: any) => {
-        if (isSubscribed) {
+        if (isSubscribed && err?.name !== "RenderingCancelledException") {
           console.warn("[PagePreview] Page render error:", err);
           setIsPdfRendering(false);
         }
@@ -311,8 +312,23 @@ export default function PagePreview({
 
     return () => {
       isSubscribed = false;
+      if (activeRenderTask) {
+        try {
+          activeRenderTask.cancel();
+        } catch {}
+      }
     };
   }, [isPdfDoc, pdfDocProxy, currentPage, pdfTotalPages, isLandscape]);
+
+  // Release canvas bitmap memory on unmount
+  useEffect(() => {
+    return () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
+      }
+    };
+  }, []);
 
   // Effective page count for pagination controls
   const totalDocPages = isPdfDoc

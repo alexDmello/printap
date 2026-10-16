@@ -21,6 +21,9 @@ export default function GlobalError({
             src="/logo.png"
             alt="Printap"
             className="w-7 h-7 rounded-lg object-cover shadow-sm border border-black/10"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
           />
           <span className="text-sm font-bold tracking-tight text-gray-900">
             Printap

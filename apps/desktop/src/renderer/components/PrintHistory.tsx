@@ -23,7 +23,7 @@ interface PrintHistoryProps {
   recentJobs?: LiveJob[];
 }
 
-export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) => {
+export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJobs = [] }) => {
   const { shopId, shop } = useAuth();
   const [dateFilter, setDateFilter] = useState<HistoryDateFilter>("all_time");
   const [methodFilter, setMethodFilter] = useState<"all" | "upi" | "cash">("all");
@@ -273,9 +273,9 @@ export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) =
                 padding: "6px 12px",
                 fontSize: 12,
                 fontWeight: 600,
-                borderRadius: "var(--radius-full)",
-                border: dateFilter === preset.id ? "1px solid #09090b" : "1px solid var(--border-subtle)",
-                background: dateFilter === preset.id ? "#09090b" : "transparent",
+                borderRadius: "var(--radius-sm)",
+                border: dateFilter === preset.id ? "1px solid #16181D" : "1px solid var(--border-subtle)",
+                background: dateFilter === preset.id ? "#16181D" : "transparent",
                 color: dateFilter === preset.id ? "#ffffff" : "var(--text-secondary)",
                 cursor: "pointer",
                 transition: "var(--transition)",
@@ -289,7 +289,7 @@ export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) =
         {/* Right: Method Filter & Search Box */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {/* Method toggle */}
-          <div style={{ display: "inline-flex", borderRadius: "var(--radius-md)", background: "rgba(0, 0, 0, 0.04)", padding: 2 }}>
+          <div style={{ display: "inline-flex", borderRadius: "var(--radius-sm)", background: "rgba(22, 24, 29, 0.04)", border: "1px solid var(--border-subtle)", padding: 2 }}>
             {(
               [
                 { id: "all", label: "All" },
@@ -307,8 +307,8 @@ export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) =
                   fontWeight: 700,
                   borderRadius: "var(--radius-sm)",
                   border: "none",
-                  background: methodFilter === m.id ? "#ffffff" : "transparent",
-                  color: methodFilter === m.id ? "#09090b" : "var(--text-muted)",
+                  background: methodFilter === m.id ? "#16181D" : "transparent",
+                  color: methodFilter === m.id ? "#ffffff" : "var(--text-secondary)",
                   boxShadow: methodFilter === m.id ? "var(--shadow-sm)" : "none",
                   cursor: "pointer",
                 }}
@@ -461,7 +461,7 @@ export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) =
                   {/* Right: Amount & Copy */}
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: "#09090b" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#16181D", fontFamily: "var(--font-mono)" }}>
                         ₹{amount.toFixed(2)}
                       </div>
                       <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
@@ -521,4 +521,4 @@ export const PrintHistory: React.FC<PrintHistoryProps> = ({ recentJobs = [] }) =
       </div>
     </div>
   );
-};
+});

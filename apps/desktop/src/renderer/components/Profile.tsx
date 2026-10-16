@@ -7,7 +7,7 @@ interface ProfileProps {
   onNavigateToQr?: () => void;
 }
 
-export const Profile: React.FC<ProfileProps> = ({ onNavigateToQr }) => {
+export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) => {
   const { shop, shopId } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -27,7 +27,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigateToQr }) => {
           <span className="tech-tag active">Verified Shop</span>
         </h1>
         <p className="page-subtitle">
-          Counter metadata, UPI settlement address, and terminal identity registered on Printap.
+          Counter metadata, UPI settlement address, and terminal identity.
         </p>
       </div>
 
@@ -222,9 +222,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigateToQr }) => {
             lineHeight: 1.6,
           }}
         >
-          Printap operates entirely peer-to-peer over encrypted WebRTC connections. Documents are never stored on any cloud server or accessible to third parties. Once spooled to your hardware printer, temporary memory buffers are destroyed immediately.
+          The terminal operates entirely peer-to-peer over encrypted WebRTC connections. Documents are never stored on any cloud server or accessible to third parties. Once spooled to your hardware printer, temporary memory buffers are destroyed immediately.
         </p>
       </div>
     </div>
   );
-};
+});

@@ -330,15 +330,39 @@ body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--text-primary);
-  box-shadow: 0 0 0 2px rgba(22, 24, 29, 0.15);
-  animation: pulseBeacon 2.2s infinite;
+  background: var(--text-muted);
+  box-shadow: none;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-@keyframes pulseBeacon {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 0 4px rgba(22, 24, 29, 0.12); }
-  100% { transform: scale(0.9); opacity: 0.7; }
+.beacon-dot.online {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  animation: pulseGreenBeacon 2s infinite;
+}
+
+.beacon-dot.offline {
+  background: var(--text-muted);
+  box-shadow: none;
+  animation: none;
+}
+
+.beacon-dot.connecting {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+  animation: pulseAmberBeacon 0.8s infinite;
+}
+
+@keyframes pulseGreenBeacon {
+  0% { transform: scale(0.92); opacity: 0.8; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+  50% { transform: scale(1.18); opacity: 1; box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.25); }
+  100% { transform: scale(0.92); opacity: 0.8; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+}
+
+@keyframes pulseAmberBeacon {
+  0% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.35); }
+  100% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
 }
 
 .sidebar-logout-btn {
@@ -376,8 +400,14 @@ body {
 
 .sidebar-online-card.online {
   background: #FFFFFF;
-  border-color: var(--color-structure);
-  box-shadow: var(--shadow-sm);
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+}
+
+.sidebar-online-card.connecting {
+  background: rgba(254, 243, 199, 0.35);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
 }
 
 .sidebar-online-card.offline {
@@ -397,6 +427,16 @@ body {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.sidebar-online-spinner-ring {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(245, 158, 11, 0.25);
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: spinToggle 0.7s linear infinite;
+  flex-shrink: 0;
 }
 
 .sidebar-online-text {
@@ -419,45 +459,52 @@ body {
   margin-top: 2px;
 }
 
-.beacon-dot.offline {
-  background: var(--text-muted);
-  box-shadow: none;
-  animation: none;
-}
-
 /* Toggle Switch */
 .toggle-switch-btn {
   position: relative;
-  width: 36px;
-  height: 20px;
-  border-radius: 2px;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
   background: #D1C8CC;
-  border: 1px solid var(--border-subtle);
+  border: 1.5px solid var(--border-subtle);
   cursor: pointer;
-  padding: 1px;
-  transition: background-color 0.2s ease, opacity 0.2s ease;
+  padding: 1.5px;
+  transition: background-color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
   flex-shrink: 0;
   display: flex;
   align-items: center;
 }
 
 .toggle-switch-btn.checked {
-  background: var(--color-structure);
-  border-color: var(--color-structure);
+  background: #10b981;
+  border-color: #059669;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+}
+
+.toggle-switch-btn.checked:hover:not(:disabled) {
+  background: #059669;
+  border-color: #047857;
+}
+
+.toggle-switch-btn.loading {
+  background: #f59e0b;
+  border-color: #d97706;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+  cursor: wait;
 }
 
 .toggle-switch-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  opacity: 0.85;
+  cursor: wait;
 }
 
 .toggle-switch-knob {
   width: 16px;
   height: 16px;
-  border-radius: 1px;
+  border-radius: 50%;
   background: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -467,11 +514,18 @@ body {
   transform: translateX(16px);
 }
 
+.toggle-check-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
 .toggle-spinner {
   width: 10px;
   height: 10px;
-  border: 1.5px solid rgba(0, 0, 0, 0.2);
-  border-top-color: var(--color-structure);
+  border: 2px solid rgba(217, 119, 6, 0.25);
+  border-top-color: #d97706;
   border-radius: 50%;
   animation: spinToggle 0.6s linear infinite;
 }
@@ -1825,6 +1879,84 @@ body {
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+.table-failed-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.table-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.table-status-pill.failed {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.table-status-pill.cancelled {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.table-action-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--color-structure);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-structure);
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+}
+
+.table-action-retry-btn:hover {
+  background: #27272a;
+  border-color: #27272a;
+  transform: translateY(-1px);
+}
+
+.table-action-dismiss-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.table-action-dismiss-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  transform: scale(1.05);
 }
 
 .btn-retry-tiny {

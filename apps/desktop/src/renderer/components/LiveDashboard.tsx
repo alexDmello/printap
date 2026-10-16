@@ -10,6 +10,7 @@ import {
   IconChevronDown,
   IconFileText,
   IconCash,
+  IconRefresh,
 } from "./Icons";
 
 export interface LiveJobFile {
@@ -177,24 +178,52 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
       (!j.paymentStatus || j.paymentStatus === "pending")
   );
   const settledPayments = allJobs.filter(
-    (j) => j.paymentStatus === "confirmed" || j.paymentStatus === "handed_over" || j.status === "done" || j.status === "cancelled"
+    (j) =>
+      j.status === "done" &&
+      (j.paymentStatus === "confirmed" || j.paymentStatus === "handed_over" || !j.paymentStatus || (j.paymentStatus as any) === "done")
   );
   // Only the last 10 are displayed on the live monitor; the rest are in History
   const displayedSettled = settledPayments.slice(0, 10);
 
-  // Combine active job + recent jobs for print queue table
-  const printQueueJobs = React.useMemo(() => {
-    const list: LiveJob[] = [];
-    if (currentJob) {
-      list.push(currentJob);
-    }
-    recentJobs.forEach((rj) => {
-      if (!currentJob || rj.sessionId !== currentJob.sessionId) {
-        list.push(rj);
+  // Combine pendingQueue, currentJob, and recentJobs by sessionId into a single deduplicated list
+  const combinedQueueJobs = React.useMemo(() => {
+    const jobMap = new Map<string, any>();
+
+    // 1. Add recentJobs first (historical/completed/cancelled)
+    recentJobs.forEach((j) => {
+      if (j.sessionId) {
+        jobMap.set(j.sessionId, { ...j });
       }
     });
-    return list;
-  }, [currentJob, recentJobs]);
+
+    // 2. Overlay pendingQueue (authoritative for unprinted orders waiting for payment/print)
+    pendingQueue.forEach((pq) => {
+      if (pq.sessionId) {
+        const existing = jobMap.get(pq.sessionId);
+        jobMap.set(pq.sessionId, {
+          ...existing,
+          ...pq,
+          status: existing?.status === "printing" ? "printing" : "pending_payment",
+          paymentStatus: pq.paymentStatus || existing?.paymentStatus || "pending",
+          fileName: pq.files?.[0]?.fileName || existing?.fileName || `Order ${pq.tokenCode}`,
+          fileCount: pq.files?.length || existing?.fileCount || 1,
+        });
+      }
+    });
+
+    // 3. Overlay currentJob (active streaming or printing)
+    if (currentJob && currentJob.sessionId) {
+      const existing = jobMap.get(currentJob.sessionId);
+      const isAlreadyInPendingQueue = pendingQueue.some((pq) => pq.sessionId === currentJob.sessionId);
+      jobMap.set(currentJob.sessionId, {
+        ...existing,
+        ...currentJob,
+        status: isAlreadyInPendingQueue ? "pending_payment" : currentJob.status,
+      });
+    }
+
+    return Array.from(jobMap.values());
+  }, [currentJob, recentJobs, pendingQueue]);
 
   return (
     <div className="content fade-in">
@@ -300,7 +329,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                 </span>
               )}
               <span className="status-badge active">
-                {currentJob ? "1 Processing" : `${printQueueJobs.length} Today`}
+                {currentJob ? "1 Processing" : `${combinedQueueJobs.length} Today`}
               </span>
             </div>
           </div>
@@ -316,8 +345,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                 </tr>
               </thead>
               <tbody>
-                {printQueueJobs.length > 0 || pendingQueue.length > 0 ? (
-                  Array.from(new Set([...printQueueJobs, ...pendingQueue])).map((rawJob) => {
+                {combinedQueueJobs.length > 0 ? (
+                  combinedQueueJobs.map((rawJob) => {
                     const job = rawJob as any;
                     const isActive = currentJob?.sessionId === job.sessionId;
                     const isReceiving = job.status === "receiving";
@@ -422,16 +451,29 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                 ● Printing
                               </span>
                             ) : isFailedOrCancelled ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-end" }}>
-                                <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626" }}>
+                              <div className="table-failed-action-group">
+                                <span className={`table-status-pill ${job.status === "cancelled" ? "cancelled" : "failed"}`}>
                                   {job.status === "cancelled" ? "Cancelled" : "Failed"}
                                 </span>
-                                <div style={{ display: "flex", gap: 3 }}>
-                                  {job.status === "error" && (
-                                    <button type="button" className="btn-retry-tiny" onClick={() => onRetryJob?.(job.sessionId)}>Retry</button>
-                                  )}
-                                  <button type="button" className="btn-dismiss-tiny" onClick={() => onDismissJob?.(job.sessionId)}>✕</button>
-                                </div>
+                                {job.status === "error" && (
+                                  <button
+                                    type="button"
+                                    className="table-action-retry-btn"
+                                    onClick={() => onRetryJob?.(job.sessionId)}
+                                    title="Retry printing on hardware spooler"
+                                  >
+                                    <IconRefresh size={12} />
+                                    <span>Retry</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="table-action-dismiss-btn"
+                                  onClick={() => onDismissJob?.(job.sessionId)}
+                                  title="Close and notify customer"
+                                >
+                                  ✕
+                                </button>
                               </div>
                             ) : (
                               <span className="status-badge" style={{ background: "#ecfdf5", color: "#047857" }}>

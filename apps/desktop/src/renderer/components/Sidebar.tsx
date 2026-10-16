@@ -116,21 +116,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
             <div className="sidebar-status-beacon">
-              <span className={`beacon-dot ${isOnline ? "online" : "offline"}`} />
-              <span>{isOnline ? "Terminal Online" : "Terminal Offline"}</span>
+              <span className={`beacon-dot ${isTogglingOnline ? "connecting" : isOnline ? "online" : "offline"}`} />
+              <span>
+                {isTogglingOnline
+                  ? (isOnline ? "Switching Offline..." : "Connecting Shop...")
+                  : (isOnline ? "Terminal Online" : "Terminal Offline")}
+              </span>
             </div>
           </div>
 
           {/* Online / Offline Presence Toggle */}
-          <div className={`sidebar-online-card ${isOnline ? "online" : "offline"}`}>
+          <div className={`sidebar-online-card ${isTogglingOnline ? "connecting" : isOnline ? "online" : "offline"}`}>
             <div className="sidebar-online-header">
               <div className="sidebar-online-label-group">
+                {isTogglingOnline && <div className="sidebar-online-spinner-ring" />}
                 <div className="sidebar-online-text">
                   <span className="sidebar-online-title">
-                    {isOnline ? "Accepting Jobs" : "Shop Offline"}
+                    {isTogglingOnline
+                      ? (isOnline ? "Switching Offline..." : "Going Online...")
+                      : (isOnline ? "Accepting Jobs" : "Shop Offline")}
                   </span>
                   <span className="sidebar-online-subtitle">
-                    {isOnline ? "Customers can print" : "Website is offline"}
+                    {isTogglingOnline
+                      ? "Checking printers & network..."
+                      : (isOnline ? "Customers can print" : "Website is offline")}
                   </span>
                 </div>
               </div>
@@ -142,11 +151,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
                 onClick={handleToggleClick}
                 disabled={isTogglingOnline}
-                aria-label={isOnline ? "Go offline" : "Go online"}
-                title={isOnline ? "Switch shop to offline" : "Switch shop to online"}
+                aria-label={
+                  isTogglingOnline
+                    ? "Updating shop presence..."
+                    : isOnline
+                    ? "Go offline"
+                    : "Go online"
+                }
+                title={
+                  isTogglingOnline
+                    ? "Please wait, updating shop presence..."
+                    : isOnline
+                    ? "Switch shop to offline"
+                    : "Switch shop to online"
+                }
               >
                 <span className="toggle-switch-knob">
-                  {isTogglingOnline && <span className="toggle-spinner" />}
+                  {isTogglingOnline ? (
+                    <span className="toggle-spinner" />
+                  ) : isOnline ? (
+                    <span className="toggle-check-dot" />
+                  ) : null}
                 </span>
               </button>
             </div>

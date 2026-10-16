@@ -285,7 +285,15 @@ function ShopAdminShell(): React.ReactElement {
         setRecentJobs((prev) => {
           const map = new Map<string, LiveJob>();
           orders.forEach((o) => {
-            const isConfirmed = o.payment_status === "confirmed" || o.status === "picked_up";
+            const isFailed = o.status === "failed" || o.status === "failed_refunded";
+            const isCancelled = o.status === "cancelled";
+            const isPrinting = o.status === "printing";
+            const isQueued = o.status === "queued";
+            const isReady = o.status === "ready_for_pickup";
+            const isPickedUp = o.status === "picked_up";
+            const isDone = isReady || isPickedUp;
+            const isConfirmed = !isFailed && !isCancelled && isDone && (o.payment_status === "confirmed" || isPickedUp);
+
             if (isConfirmed) {
               addBoundedSet(confirmedPaymentSessionsRef.current, o.session_id);
             }
@@ -294,23 +302,35 @@ function ShopAdminShell(): React.ReactElement {
               tokenCode: o.token_code || undefined,
               totalAmount: Number(o.total_amount) || 0,
               paymentMethod: (o.payment_method as any) || "upi",
-              paymentStatus: isConfirmed ? "confirmed" : (o.payment_status as any) || "pending",
-              status: o.status === "printing" ? "printing" : "done",
-              detail: `Token ${o.token_code || ""}`,
+              paymentStatus: isConfirmed ? "confirmed" : isFailed || isCancelled ? "pending" : (o.payment_status as any) || "pending",
+              status: isFailed ? "error" : isCancelled ? "cancelled" : isPrinting ? "printing" : isQueued ? "queued" : isDone ? "done" : "error",
+              detail: isFailed ? "Print failed on spooler" : isCancelled ? "Cancelled" : `Token ${o.token_code || ""}`,
               timestamp: new Date(o.created_at),
             });
           });
           prev.forEach((p) => {
             const existing = map.get(p.sessionId);
-            map.set(p.sessionId, {
-              ...existing,
-              ...p,
-              tokenCode: p.tokenCode || existing?.tokenCode,
-              totalAmount:
-                p.totalAmount !== undefined && p.totalAmount > 0
-                  ? p.totalAmount
-                  : existing?.totalAmount,
-            });
+            if (existing && (existing.status === "error" || existing.status === "cancelled")) {
+              map.set(p.sessionId, {
+                ...p,
+                ...existing,
+                tokenCode: p.tokenCode || existing?.tokenCode,
+                totalAmount:
+                  p.totalAmount !== undefined && p.totalAmount > 0
+                    ? p.totalAmount
+                    : existing?.totalAmount,
+              });
+            } else {
+              map.set(p.sessionId, {
+                ...existing,
+                ...p,
+                tokenCode: p.tokenCode || existing?.tokenCode,
+                totalAmount:
+                  p.totalAmount !== undefined && p.totalAmount > 0
+                    ? p.totalAmount
+                    : existing?.totalAmount,
+              });
+            }
           });
           return Array.from(map.values());
         });
@@ -528,19 +548,9 @@ function ShopAdminShell(): React.ReactElement {
           console.warn("[App] Could not update print_order status to failed:", dbErr);
         }
 
-        // Broadcast hardware failure to customer phone so UI updates cleanly
-        if (signalingChannelRef.current) {
-          try {
-            await broadcastOrderStatus(signalingChannelRef.current, {
-              sessionId: job.sessionId,
-              tokenCode: job.tokenCode,
-              status: "error",
-              errorDetail: `${error} (${printerName})`,
-            });
-          } catch (broadcastErr) {
-            console.warn("[App] Error broadcasting failure status to customer:", broadcastErr);
-          }
-        }
+        // NOTE: We do not broadcast error to customer immediately here.
+        // We allow the shopkeeper to inspect the printer, fix paper/offline, and hit "Retry".
+        // The customer error modal will only be triggered if the shopkeeper explicitly closes/dismisses or cancels.
 
         const failedJob: LiveJob = {
           sessionId: job.sessionId,
@@ -556,6 +566,9 @@ function ShopAdminShell(): React.ReactElement {
           status: "error",
           detail: `${error} (${printerName})`,
           timestamp: new Date(),
+          totalAmount: job.totalAmount,
+          paymentMethod: job.paymentMethod,
+          paymentStatus: "pending",
         };
         setRecentJobs((prev) => {
           const filtered = prev.filter((j) => j.sessionId !== job.sessionId);
@@ -596,24 +609,22 @@ function ShopAdminShell(): React.ReactElement {
     async (online: boolean) => {
       if (!shopId) return;
 
-      if (online) {
-        try {
-          const result = await window.electronAPI.listPrinters();
-          const physicalPrinters = (result?.printers || []).filter((p: any) => p.isPhysical);
-          if (physicalPrinters.length === 0) {
-            setToastMessage("Cannot go online: No physical printer connected. Please connect a printer and try again.");
-            return;
-          }
-        } catch (err) {
-          console.error("Failed to check printers:", err);
-          setToastMessage("Failed to check connected printers.");
-          return;
-        }
-      }
-
       setIsTogglingOnline(true);
       try {
         if (online) {
+          try {
+            const result = await window.electronAPI.listPrinters();
+            const physicalPrinters = (result?.printers || []).filter((p: any) => p.isPhysical);
+            if (physicalPrinters.length === 0) {
+              setToastMessage("Cannot go online: No physical printer connected. Please connect a printer and try again.");
+              return;
+            }
+          } catch (err) {
+            console.error("Failed to check printers:", err);
+            setToastMessage("Failed to check connected printers.");
+            return;
+          }
+
           const res = await startPresence(shopId);
           if (res.success) {
             setIsShopOnline(true);
@@ -1002,7 +1013,33 @@ function ShopAdminShell(): React.ReactElement {
           enqueuedAt: new Date(),
         };
 
-        setPendingQueue(prev => [...prev, newJob]);
+        setPendingQueue(prev => {
+          const filtered = prev.filter(j => j.sessionId !== sessionId);
+          return [...filtered, newJob];
+        });
+
+        // Clear active streaming job now that files have arrived into the queue
+        setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
+
+        setRecentJobs((prev) =>
+          prev.map((j) =>
+            j.sessionId === sessionId
+              ? {
+                  ...j,
+                  status: "queued",
+                  detail: `Files received (${files.length}) — awaiting print`,
+                  progressPct: 100,
+                  fileCount: files.length,
+                  files: files.map((f) => ({
+                    fileName: f.fileName,
+                    fileSize: f.fileSize,
+                    pageCount: f.pageCount,
+                    settings: f.settings,
+                  })),
+                }
+              : j
+          )
+        );
 
         // Tell the customer we received the files and are waiting for confirmation
         if (signalingChannelRef.current) {
@@ -1078,10 +1115,18 @@ function ShopAdminShell(): React.ReactElement {
         setRecentJobs((prev) =>
           prev.map((j) =>
             j.sessionId === sessionId
-              ? { ...j, status: "cancelled", detail: error }
+              ? { ...j, status: "error", detail: error }
               : j
           )
         );
+        try {
+          const supabase = getSupabase();
+          supabase
+            .from("print_orders")
+            .update({ status: "failed" })
+            .eq("session_id", sessionId)
+            .then(() => {});
+        } catch {}
       },
     });
 
@@ -1238,13 +1283,35 @@ function ShopAdminShell(): React.ReactElement {
       if (success) {
         console.log(`[App] Retrying failed print job: ${sessionId}`);
         setActiveJob((prev) => {
-          if (!prev || prev.sessionId !== sessionId) return prev;
-          return {
-            ...prev,
-            status: "printing",
-            detail: "Retrying print job on hardware spooler...",
-          };
+          if (prev && prev.sessionId === sessionId) {
+            return {
+              ...prev,
+              status: "printing",
+              detail: "Retrying print job on hardware spooler...",
+            };
+          }
+          const jobInRecent = recentJobsRef.current.find((j) => j.sessionId === sessionId);
+          if (jobInRecent) {
+            return {
+              ...jobInRecent,
+              status: "printing",
+              detail: "Retrying print job on hardware spooler...",
+            };
+          }
+          return prev;
         });
+
+        setRecentJobs((prev) =>
+          prev.map((j) =>
+            j.sessionId === sessionId
+              ? {
+                  ...j,
+                  status: "printing",
+                  detail: "Retrying print job on hardware spooler...",
+                }
+              : j
+          )
+        );
       }
     },
     [shopId, refreshAssignments]
@@ -1255,6 +1322,31 @@ function ShopAdminShell(): React.ReactElement {
     (sessionId: string) => {
       fifoDispatcherRef.current?.dismissFailedJob(sessionId);
       setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
+      setRecentJobs((prev) =>
+        prev.map((j) =>
+          j.sessionId === sessionId
+            ? { ...j, status: "error", detail: "Dismissed by counter operator" }
+            : j
+        )
+      );
+
+      // Explicitly notify customer side now that the shop has dismissed/closed the job
+      if (signalingChannelRef.current) {
+        broadcastOrderStatus(signalingChannelRef.current, {
+          sessionId,
+          status: "error",
+          errorDetail: "The print could not be completed at the counter. Please retry your print.",
+        }).catch((err) => console.warn("[App] Error broadcasting error on dismiss:", err));
+      }
+
+      try {
+        const supabase = getSupabase();
+        supabase
+          .from("print_orders")
+          .update({ status: "failed" })
+          .eq("session_id", sessionId)
+          .then(() => {});
+      } catch {}
     },
     []
   );

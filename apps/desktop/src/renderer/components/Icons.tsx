@@ -44,7 +44,6 @@ export const IconPrinter: React.FC<IconProps> = ({ size = 18, className = "", ..
     <rect x="6" y="14" width="12" height="8" rx="1" />
   </svg>
 );
-
 export const IconAnalytics: React.FC<IconProps> = ({ size = 18, className = "", ...props }) => (
   <svg
     width={size}

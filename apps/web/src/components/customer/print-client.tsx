@@ -340,9 +340,9 @@ export default function PrintClient({
           setStep("error");
           setErrorMsg(
             p.errorDetail ||
-              "Shop printer reported an error. Please check with the counter operator."
+              "The print could not be completed at the counter. Please retry your print."
           );
-          setIsRefundPromptOpen(true);
+          setIsRefundPromptOpen(false);
           return;
         }
         if (p.status === "cancelled") {
@@ -545,9 +545,17 @@ export default function PrintClient({
               errorDetail: p.error || "Transfer failed",
             }).catch(() => {});
 
+            try {
+              getSupabase()
+                .from("print_orders")
+                .update({ status: "failed" })
+                .eq("session_id", sessionId)
+                .then(() => {});
+            } catch {}
+
             setStep("error");
-            setErrorMsg(p.error || "Transfer failed");
-            setIsRefundPromptOpen(true);
+            setErrorMsg(p.error || "Document transfer interrupted. Tap below to retry.");
+            setIsRefundPromptOpen(false);
             setIsSubmitting(false);
           }
         }
@@ -560,11 +568,45 @@ export default function PrintClient({
         errorDetail: String(err),
       }).catch(() => {});
 
+      try {
+        getSupabase()
+          .from("print_orders")
+          .update({ status: "failed" })
+          .eq("session_id", sessionId)
+          .then(() => {});
+      } catch {}
+
       setStep("error");
-      setErrorMsg(String(err));
+      setErrorMsg(String(err) || "Failed to submit print. Please tap retry.");
+      setIsRefundPromptOpen(false);
       setIsSubmitting(false);
     }
   }, [documents, shopId, totalAmount, activeFinishing, isSubmitting]);
+
+  const handleReset = useCallback(() => {
+    setStep("upload");
+    setDocuments([]);
+    setFinishingServices([...initialFinishing]);
+    setProgress(null);
+    setErrorMsg("");
+    setToken(null);
+    setCurrentSessionId("");
+    setIsPaymentConfirmedByShop(false);
+    setIsRefundPromptOpen(false);
+    setPrintTicket("");
+    setJobStatus("queued");
+    localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+  }, [shopId, initialFinishing]);
+
+  const handleRetryPrint = useCallback(() => {
+    setErrorMsg("");
+    setIsRefundPromptOpen(false);
+    if (documents.length > 0) {
+      handleStartPrintAndPayment();
+    } else {
+      handleReset();
+    }
+  }, [documents, handleStartPrintAndPayment, handleReset]);
 
   const handleRefund = useCallback(async () => {
     try {
@@ -588,21 +630,6 @@ export default function PrintClient({
       setErrorMsg("Failed to request refund.");
     }
   }, [shopId, currentSessionId, printTicket]);
-
-  const handleReset = useCallback(() => {
-    setStep("upload");
-    setDocuments([]);
-    setFinishingServices([...initialFinishing]);
-    setProgress(null);
-    setErrorMsg("");
-    setToken(null);
-    setCurrentSessionId("");
-    setIsPaymentConfirmedByShop(false);
-    setIsRefundPromptOpen(false);
-    setPrintTicket("");
-    setJobStatus("queued");
-    localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-  }, [shopId, initialFinishing]);
 
   const handleEditSettings = useCallback(async () => {
     if (currentSessionId && printTicket) {
@@ -790,39 +817,42 @@ export default function PrintClient({
 
         {/* ERROR STATE */}
         {step === "error" && (
-          <div className="animate-fade-in-up text-center">
-            <div className="glass rounded-2xl p-8 border border-red-200 shadow-xl">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl font-bold">
+          <div className="animate-fade-in-up text-center max-w-md mx-auto">
+            <div className="glass rounded-2xl p-8 border border-red-200/60 shadow-xl bg-white/95">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-2xl font-bold border border-red-100">
                 ✕
               </div>
               <h2 className="text-lg font-bold text-zinc-900 mb-2">
-                {errorMsg && /transfer|stream|webrtc/i.test(errorMsg) ? "Transfer Interrupted" : "Order Error"}
+                Print Not Completed
               </h2>
-              <p className="text-xs text-zinc-600 mb-6">{errorMsg}</p>
+              <p className="text-xs text-zinc-600 mb-6 leading-relaxed">
+                {errorMsg || "The counter could not complete your print. Tap below to retry."}
+              </p>
 
-              {isRefundPromptOpen && (
-                <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-left mb-6">
-                  <h3 className="text-sm font-bold text-red-800 mb-1">Did you receive your documents?</h3>
-                  <p className="text-xs text-red-600 mb-4">If the print failed and you did not receive your documents, you can cancel and request a refund.</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleRefund}
-                      className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white shadow cursor-pointer"
-                    >
-                      No, Cancel & Refund
-                    </button>
-                  </div>
-                </div>
-              )}
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={handleRetryPrint}
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 rounded-xl btn-primary text-sm font-bold text-white shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 2v6h-6" />
+                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                    <path d="M3 22v-6h6" />
+                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                  </svg>
+                  <span>{isSubmitting ? "Retrying..." : "Retry Print"}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={handleReset}
-                className="mt-2 px-6 py-2.5 rounded-xl btn-primary text-xs font-bold text-white shadow cursor-pointer"
-              >
-                Start Over
-              </button>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-xs text-zinc-500 hover:text-zinc-800 font-medium py-1 transition-colors cursor-pointer"
+                >
+                  Change documents or start over
+                </button>
+              </div>
             </div>
           </div>
         )}

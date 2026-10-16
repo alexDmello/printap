@@ -82,9 +82,12 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
           token_code: j.tokenCode || existing.token_code,
           total_amount: j.totalAmount !== undefined && j.totalAmount > 0 ? j.totalAmount : existing.total_amount,
           payment_status:
-            j.paymentStatus === "confirmed" || existing.payment_status === "confirmed"
+            j.status === "error" || existing.status === "failed"
+              ? "pending"
+              : j.paymentStatus === "confirmed" || existing.payment_status === "confirmed"
               ? "confirmed"
               : j.paymentStatus || existing.payment_status,
+          status: j.status === "error" ? "failed" : j.status === "cancelled" ? "cancelled" : existing.status,
           file_count: j.files?.length || j.fileCount || existing.file_count,
         });
       } else {
@@ -96,7 +99,7 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
           payment_method: j.paymentMethod || "upi",
           payment_status: j.paymentStatus || "pending",
           total_amount: j.totalAmount || 0,
-          status: j.status || "done",
+          status: j.status === "error" ? "failed" : j.status === "cancelled" ? "cancelled" : j.status || "queued",
           created_at: (j.timestamp || new Date()).toISOString(),
           file_count: j.files?.length || j.fileCount || 1,
         });

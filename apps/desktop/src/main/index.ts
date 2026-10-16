@@ -4,30 +4,34 @@ import fs from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
 import os from "os";
 import zlib from "zlib";
+import crypto from "crypto";
 import { autoUpdater } from "electron-updater";
-
-// ─── Hardware dependencies ───
-// pdf-to-printer: sends PDF to Windows print spooler
-// secure-rm: DoD 5220.22-M compliant file shredding
 import * as ptp from "pdf-to-printer";
 import srm from "secure-rm";
 import { discoverPrinters } from "./printer-discovery";
 import { setShopOnline } from "@printap/shared";
 
-// ─── Register Custom Protocol for Deep-Linking (printap://) ───
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient("printap", process.execPath, [path.resolve(process.argv[1])]);
+    app.setAsDefaultProtocolClient("printap", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
   }
 } else {
   app.setAsDefaultProtocolClient("printap");
 }
 
-// ─── Constants ───
 const TEMP_DIR = path.join(os.tmpdir(), "printap_jobs");
 const FILE_PREFIX = "mellod_job_";
+const MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024; // 25MB cap per XML entry
 
 let mainWindow: BrowserWindow | null = null;
+let activeShopId: string | null = null;
+let isCleaningUp = false;
+
+function sanitizeIdentifier(id: string): string {
+  return id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+}
 
 function handleDeepLink(urlStr: string): void {
   try {
@@ -42,7 +46,28 @@ function handleDeepLink(urlStr: string): void {
   }
 }
 
-// Single instance lock to prevent duplicate hardware agents & handle deep links
+async function sweepOrphanedTempFiles(): Promise<void> {
+  try {
+    if (!existsSync(TEMP_DIR)) {
+      mkdirSync(TEMP_DIR, { recursive: true });
+      return;
+    }
+    const entries = await fs.readdir(TEMP_DIR);
+    for (const entry of entries) {
+      const fullPath = path.join(TEMP_DIR, entry);
+      try {
+        await srm(fullPath, { standard: "secure" });
+      } catch {
+        try {
+          await fs.unlink(fullPath);
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn("[main] Startup temp sweep warning:", err);
+  }
+}
+
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -59,11 +84,14 @@ if (!gotTheLock) {
   });
 }
 
-// ─── Window Setup ───
 function createWindow(): void {
   const devIcon = path.join(__dirname, "../../resources/icon.png");
   const prodIcon = path.join(process.resourcesPath, "icon.png");
-  const windowIcon = existsSync(devIcon) ? devIcon : existsSync(prodIcon) ? prodIcon : undefined;
+  const windowIcon = existsSync(devIcon)
+    ? devIcon
+    : existsSync(prodIcon)
+    ? prodIcon
+    : undefined;
 
   mainWindow = new BrowserWindow({
     width: 1180,
@@ -72,10 +100,12 @@ function createWindow(): void {
     minHeight: 580,
     title: "Printap — Shop Agent",
     icon: windowIcon,
+    backgroundColor: "#F0EBED",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   });
 
@@ -85,7 +115,6 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 
-  // Intercept window close (X button) to guarantee graceful offline cleanup
   mainWindow.on("close", (e) => {
     if (activeShopId && !isCleaningUp) {
       e.preventDefault();
@@ -93,8 +122,9 @@ function createWindow(): void {
     }
   });
 
-  // Check initial startup args for deep link
-  const initialDeepLink = process.argv.find((arg) => arg.startsWith("printap://"));
+  const initialDeepLink = process.argv.find((arg) =>
+    arg.startsWith("printap://")
+  );
   if (initialDeepLink) {
     mainWindow.webContents.once("did-finish-load", () => {
       handleDeepLink(initialDeepLink);
@@ -102,46 +132,42 @@ function createWindow(): void {
   }
 }
 
-let activeShopId: string | null = null;
-let isCleaningUp = false;
-
 function performShutdownCleanup(): void {
   if (isCleaningUp) return;
   isCleaningUp = true;
-  
+
+  const finalizeQuit = async () => {
+    await sweepOrphanedTempFiles();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.destroy();
+    }
+    app.quit();
+  };
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
-      // Ask renderer to set shop offline via Supabase
-      mainWindow.webContents.send("app-will-quit");
-      
-      // Wait for renderer to finish, or force quit after 3 seconds
-      ipcMain.once("confirm-quit", () => {
-        mainWindow?.destroy();
-        app.quit();
-      });
-      
-      setTimeout(() => {
-        mainWindow?.destroy();
-        app.quit();
+      const quitTimer = setTimeout(() => {
+        finalizeQuit();
       }, 3000);
-      
+
+      ipcMain.once("confirm-quit", () => {
+        clearTimeout(quitTimer);
+        finalizeQuit();
+      });
+
+      mainWindow.webContents.send("app-will-quit");
     } catch {
-      app.quit();
+      finalizeQuit();
     }
   } else {
-    app.quit();
+    finalizeQuit();
   }
 }
 
-app.whenReady().then(() => {
-  // Ensure the temp directory exists
-  if (!existsSync(TEMP_DIR)) {
-    mkdirSync(TEMP_DIR, { recursive: true });
-  }
-
+app.whenReady().then(async () => {
+  await sweepOrphanedTempFiles();
   createWindow();
 
-  // Setup auto updater
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
@@ -155,13 +181,22 @@ app.whenReady().then(() => {
     mainWindow?.webContents.send("updater-event", { stage: "not-available", info });
   });
   autoUpdater.on("error", (err) => {
-    mainWindow?.webContents.send("updater-event", { stage: "error", error: err.message });
+    mainWindow?.webContents.send("updater-event", {
+      stage: "error",
+      error: err.message,
+    });
   });
   autoUpdater.on("download-progress", (progressObj) => {
-    mainWindow?.webContents.send("updater-event", { stage: "downloading", progress: progressObj.percent });
+    mainWindow?.webContents.send("updater-event", {
+      stage: "downloading",
+      progress: progressObj.percent,
+    });
   });
   autoUpdater.on("update-downloaded", (info) => {
-    mainWindow?.webContents.send("updater-event", { stage: "downloaded", info });
+    mainWindow?.webContents.send("updater-event", {
+      stage: "downloaded",
+      info,
+    });
   });
 
   if (mainWindow) {
@@ -186,14 +221,16 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// ─── IPC: Auto Updater ───
 ipcMain.on("restart-app", () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
-// ─── IPC: Open External System Browser (for Google OAuth) ───
 ipcMain.handle("open-external", async (_event, url: string) => {
   try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      throw new Error("Blocked non-HTTP/HTTPS external URL");
+    }
     await shell.openExternal(url);
     return { success: true };
   } catch (err) {
@@ -202,13 +239,11 @@ ipcMain.handle("open-external", async (_event, url: string) => {
   }
 });
 
-// ─── IPC: Set Active Shop for cleanup tracking ───
 ipcMain.handle("set-active-shop", (_event, shopId: string | null) => {
   activeShopId = shopId;
   return { success: true };
 });
 
-// ─── IPC: Set Shop Offline on demand ───
 ipcMain.handle("set-shop-offline", async (_event, shopId: string) => {
   const targetId = shopId || activeShopId;
   if (!targetId) return { success: true };
@@ -224,26 +259,17 @@ ipcMain.handle("set-shop-offline", async (_event, shopId: string) => {
   }
 });
 
-// ─── Utility: send status updates to renderer ───
-function sendStatus(
-  sessionId: string,
-  stage: string,
-  detail: string
-): void {
+function sendStatus(sessionId: string, stage: string, detail: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("print-status", { sessionId, stage, detail });
   }
   console.log(`[main] [${sessionId.slice(0, 8)}] ${stage}: ${detail}`);
 }
 
-// ─── IPC: List available printers (Physical hardware machines only) ───
 ipcMain.handle("list-printers", async () => {
   try {
     const printers = await discoverPrinters();
     const physicalPrinters = printers.filter((p) => p.isPhysical);
-    console.log(
-      `[main] Discovered ${physicalPrinters.length} physical hardware printer(s)`
-    );
     return { success: true, printers: physicalPrinters };
   } catch (err) {
     console.error("[main] Failed to list printers:", err);
@@ -251,7 +277,6 @@ ipcMain.handle("list-printers", async () => {
   }
 });
 
-// ─── IPC: Get local network info for counter QR ───
 ipcMain.handle("get-network-info", async () => {
   try {
     const nets = os.networkInterfaces();
@@ -283,21 +308,27 @@ function escapeHtml(str: string): string {
 }
 
 function detectImageMime(uint8: Uint8Array): string {
-  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x47) return "image/png";
-  if (uint8[0] === 0xff && uint8[1] === 0xd8 && uint8[2] === 0xff) return "image/jpeg";
-  if (uint8[0] === 0x47 && uint8[1] === 0x49 && uint8[2] === 0x46) return "image/gif";
+  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x4f)
+    return "image/png";
+  if (uint8[0] === 0xff && uint8[1] === 0xd8 && uint8[2] === 0xff)
+    return "image/jpeg";
+  if (uint8[0] === 0x47 && uint8[1] === 0x49 && uint8[2] === 0x46)
+    return "image/gif";
   if (uint8[0] === 0x42 && uint8[1] === 0x4d) return "image/bmp";
-  if (uint8[0] === 0x52 && uint8[1] === 0x49 && uint8[2] === 0x46 && uint8[3] === 0x46) return "image/webp";
+  if (uint8[0] === 0x52 && uint8[1] === 0x49 && uint8[2] === 0x46 && uint8[3] === 0x46)
+    return "image/webp";
   return "image/png";
 }
 
 function isImageBuffer(uint8: Uint8Array): boolean {
   if (uint8.length < 4) return false;
-  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x47) return true;
+  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x47)
+    return true;
   if (uint8[0] === 0xff && uint8[1] === 0xd8 && uint8[2] === 0xff) return true;
   if (uint8[0] === 0x47 && uint8[1] === 0x49 && uint8[2] === 0x46) return true;
   if (uint8[0] === 0x42 && uint8[1] === 0x4d) return true;
-  if (uint8[0] === 0x52 && uint8[1] === 0x49 && uint8[2] === 0x46 && uint8[3] === 0x46) return true;
+  if (uint8[0] === 0x52 && uint8[1] === 0x49 && uint8[2] === 0x46 && uint8[3] === 0x46)
+    return true;
   return false;
 }
 
@@ -313,9 +344,10 @@ function extractFilesFromZip(buffer: Buffer): Map<string, Buffer> {
   const files = new Map<string, Buffer>();
   let offset = 0;
   let entries = 0;
-  while (offset + 30 <= buffer.length && entries < 500) {
+  let totalDecompressedBytes = 0;
+
+  while (offset + 30 <= buffer.length && entries < 250) {
     entries++;
-    // Check Local File Header signature: 0x04034b50 ("PK\x03\x04")
     if (buffer.readUInt32LE(offset) !== 0x04034b50) {
       break;
     }
@@ -347,9 +379,15 @@ function extractFilesFromZip(buffer: Buffer): Map<string, Buffer> {
       }
       if (nextSig !== -1) {
         compressedSize = nextSig - dataStart;
-        if (compressedSize >= 16 && buffer.readUInt32LE(nextSig - 16) === 0x08074b50) {
+        if (
+          compressedSize >= 16 &&
+          buffer.readUInt32LE(nextSig - 16) === 0x08074b50
+        ) {
           compressedSize -= 16;
-        } else if (compressedSize >= 12 && buffer.readUInt32LE(nextSig - 12) === 0x08074b50) {
+        } else if (
+          compressedSize >= 12 &&
+          buffer.readUInt32LE(nextSig - 12) === 0x08074b50
+        ) {
           compressedSize -= 12;
         }
       } else {
@@ -360,15 +398,28 @@ function extractFilesFromZip(buffer: Buffer): Map<string, Buffer> {
     const dataEnd = dataStart + compressedSize;
     if (dataEnd > buffer.length) break;
 
-    try {
-      if (compression === 0) {
-        files.set(fileName, buffer.subarray(dataStart, dataEnd));
-      } else if (compression === 8) {
-        const decompressed = zlib.inflateRawSync(buffer.subarray(dataStart, dataEnd));
-        files.set(fileName, decompressed);
+    if (fileName.endsWith(".xml")) {
+      try {
+        if (compression === 0) {
+          const slice = buffer.subarray(dataStart, dataEnd);
+          if (slice.byteLength <= MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES) {
+            files.set(fileName, slice);
+            totalDecompressedBytes += slice.byteLength;
+          }
+        } else if (compression === 8) {
+          const decompressed = zlib.inflateRawSync(
+            buffer.subarray(dataStart, dataEnd),
+            { maxOutputLength: MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES }
+          );
+          files.set(fileName, decompressed);
+          totalDecompressedBytes += decompressed.byteLength;
+        }
+        if (totalDecompressedBytes > 50 * 1024 * 1024) {
+          break;
+        }
+      } catch {
+        // Ignore individual corrupt/oversized zip entries
       }
-    } catch {
-      // Ignore individual file decompression errors
     }
 
     offset = dataEnd;
@@ -376,7 +427,10 @@ function extractFilesFromZip(buffer: Buffer): Map<string, Buffer> {
   return files;
 }
 
-function renderDocxToHtml(xml: string, orientation?: "portrait" | "landscape"): string {
+function renderDocxToHtml(
+  xml: string,
+  orientation?: "portrait" | "landscape"
+): string {
   const paragraphs: string[] = [];
   const pRegex = /<w:p\b[^>]*>(.*?)<\/w:p>/gs;
   let match: RegExpExecArray | null;
@@ -412,6 +466,7 @@ function renderDocxToHtml(xml: string, orientation?: "portrait" | "landscape"): 
   return `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <style>
     @page { size: ${orientation === "landscape" ? "landscape" : "portrait"}; margin: 20mm; }
     body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; margin: 0; background: white; }
@@ -423,7 +478,10 @@ function renderDocxToHtml(xml: string, orientation?: "portrait" | "landscape"): 
 </html>`;
 }
 
-function renderPptxToHtml(files: Map<string, Buffer>, _orientation?: "portrait" | "landscape"): string {
+function renderPptxToHtml(
+  files: Map<string, Buffer>,
+  _orientation?: "portrait" | "landscape"
+): string {
   const slideKeys = Array.from(files.keys())
     .filter((k) => /^ppt\/slides\/slide\d+\.xml$/.test(k))
     .sort((a, b) => {
@@ -449,7 +507,12 @@ function renderPptxToHtml(files: Map<string, Buffer>, _orientation?: "portrait" 
         )}</h1>
         ${texts
           .slice(1)
-          .map((t) => `<p style="font-size: 13pt; margin: 5pt 0; color: #333;">${escapeHtml(t)}</p>`)
+          .map(
+            (t) =>
+              `<p style="font-size: 13pt; margin: 5pt 0; color: #333;">${escapeHtml(
+                t
+              )}</p>`
+          )
           .join("")}
       </div>
     `);
@@ -458,6 +521,7 @@ function renderPptxToHtml(files: Map<string, Buffer>, _orientation?: "portrait" 
   return `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <style>
     @page { size: landscape; margin: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: white; }
@@ -469,8 +533,12 @@ function renderPptxToHtml(files: Map<string, Buffer>, _orientation?: "portrait" 
 </html>`;
 }
 
-function renderXlsxToHtml(files: Map<string, Buffer>, orientation?: "portrait" | "landscape"): string {
-  const sharedStringsXml = files.get("xl/sharedStrings.xml")?.toString("utf8") || "";
+function renderXlsxToHtml(
+  files: Map<string, Buffer>,
+  orientation?: "portrait" | "landscape"
+): string {
+  const sharedStringsXml =
+    files.get("xl/sharedStrings.xml")?.toString("utf8") || "";
   const sharedStrings: string[] = [];
   const siRegex = /<si>(.*?)<\/si>/gs;
   let siMatch: RegExpExecArray | null;
@@ -479,14 +547,16 @@ function renderXlsxToHtml(files: Map<string, Buffer>, orientation?: "portrait" |
     sharedStrings.push(tMatch ? tMatch[1] : "");
   }
 
-  const sheetXml = files.get("xl/worksheets/sheet1.xml")?.toString("utf8") || "";
+  const sheetXml =
+    files.get("xl/worksheets/sheet1.xml")?.toString("utf8") || "";
   const rowRegex = /<row\b[^>]*>(.*?)<\/row>/gs;
   let rowMatch: RegExpExecArray | null;
   const rows: string[][] = [];
 
   while ((rowMatch = rowRegex.exec(sheetXml)) !== null) {
     const rowContent = rowMatch[1];
-    const cRegex = /<c\b[^>]*?(?:\bt="([^"]*)")?[^>]*>(?:<v>([^<]*)<\/v>)?<\/c>/gs;
+    const cRegex =
+      /<c\b[^>]*?(?:\bt="([^"]*)")?[^>]*>(?:<v>([^<]*)<\/v>)?<\/c>/gs;
     let cMatch: RegExpExecArray | null;
     const cells: string[] = [];
 
@@ -511,7 +581,9 @@ function renderXlsxToHtml(files: Map<string, Buffer>, orientation?: "portrait" |
         `<tr>${r
           .map(
             (c) =>
-              `<${rIdx === 0 ? "th" : "td"} style="border: 1px solid #ddd; padding: 5px 8px; font-size: 9pt; ${
+              `<${
+                rIdx === 0 ? "th" : "td"
+              } style="border: 1px solid #ddd; padding: 5px 8px; font-size: 9pt; ${
                 rIdx === 0 ? "background: #f4f4f5; font-weight: bold;" : ""
               }">${escapeHtml(c)}</${rIdx === 0 ? "th" : "td"}>`
           )
@@ -522,6 +594,7 @@ function renderXlsxToHtml(files: Map<string, Buffer>, orientation?: "portrait" |
   return `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <style>
     @page { size: ${orientation === "portrait" ? "portrait" : "landscape"}; margin: 15mm; }
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: white; }
@@ -553,7 +626,7 @@ async function convertBufferToPdf(
     mkdirSync(TEMP_DIR, { recursive: true });
   }
 
-  const renderId = `render_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const renderId = `render_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
   const tempHtmlPath = path.join(TEMP_DIR, `${renderId}.html`);
   let tempImagePath: string | null = null;
 
@@ -564,8 +637,9 @@ async function convertBufferToPdf(
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
-      webSecurity: false,
+      sandbox: true,
+      webSecurity: true,
+      javascript: false,
     },
   });
 
@@ -573,7 +647,11 @@ async function convertBufferToPdf(
     let htmlContent = "";
     if (isImage) {
       const mime = detectImageMime(uint8);
-      const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+      const ext = mime.includes("png")
+        ? "png"
+        : mime.includes("webp")
+        ? "webp"
+        : "jpg";
       tempImagePath = path.join(TEMP_DIR, `${renderId}.${ext}`);
       await fs.writeFile(tempImagePath, nodeBuf);
 
@@ -581,6 +659,7 @@ async function convertBufferToPdf(
       htmlContent = `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <style>
     @page { size: ${orientation === "landscape" ? "landscape" : "portrait"}; margin: 0; }
     html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: white; }
@@ -598,77 +677,51 @@ async function convertBufferToPdf(
           zipFiles.get("word/document.xml")!.toString("utf8"),
           orientation
         );
-      } else if (Array.from(zipFiles.keys()).some((k) => k.startsWith("ppt/slides/"))) {
+      } else if (
+        Array.from(zipFiles.keys()).some((k) => k.startsWith("ppt/slides/"))
+      ) {
         htmlContent = renderPptxToHtml(zipFiles, orientation);
       } else if (zipFiles.has("xl/worksheets/sheet1.xml")) {
         htmlContent = renderXlsxToHtml(zipFiles, orientation);
       } else {
         const decoder = new TextDecoder("utf-8", { fatal: false });
-        const rawText = decoder.decode(buffer);
-        const cleanText = rawText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();
-        htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    @page { size: ${orientation === "landscape" ? "landscape" : "portrait"}; margin: 15mm; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 0; }
-  </style>
-</head>
-<body>
-  <div style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(cleanText.slice(0, 100000))}</div>
-</body>
-</html>`;
+        const cleanText = decoder
+          .decode(buffer)
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ")
+          .trim();
+        htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8" /><style>@page { size: ${
+          orientation === "landscape" ? "landscape" : "portrait"
+        }; margin: 15mm; } body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 0; }</style></head><body><div style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(
+          cleanText.slice(0, 100000)
+        )}</div></body></html>`;
       }
     } else if (isText) {
       const decoder = new TextDecoder("utf-8");
       const text = decoder.decode(buffer);
-      htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    @page { size: ${orientation === "landscape" ? "landscape" : "portrait"}; margin: 15mm; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 0; white-space: pre-wrap; word-wrap: break-word; }
-  </style>
-</head>
-<body>${escapeHtml(text)}</body>
-</html>`;
+      htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8" /><style>@page { size: ${
+        orientation === "landscape" ? "landscape" : "portrait"
+      }; margin: 15mm; } body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 0; white-space: pre-wrap; word-wrap: break-word; }</style></head><body>${escapeHtml(
+        text
+      )}</body></html>`;
     } else {
-      // Office / binary document text fallback
       const decoder = new TextDecoder("utf-8", { fatal: false });
-      const rawText = decoder.decode(buffer);
-      const cleanText = rawText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();
-      htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    @page { size: ${orientation === "landscape" ? "landscape" : "portrait"}; margin: 15mm; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 0; }
-  </style>
-</head>
-<body>
-  <div style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(cleanText.slice(0, 100000))}</div>
-</body>
-</html>`;
+      const cleanText = decoder
+        .decode(buffer)
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ")
+        .trim();
+      htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8" /><style>@page { size: ${
+        orientation === "landscape" ? "landscape" : "portrait"
+      }; margin: 15mm; } body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 0; }</style></head><body><div style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(
+        cleanText.slice(0, 100000)
+      )}</div></body></html>`;
     }
+
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
     const conversionPromise = (async () => {
       await fs.writeFile(tempHtmlPath, htmlContent, "utf8");
       await printWin.loadFile(tempHtmlPath);
-
-      if (isImage) {
-        await printWin.webContents.executeJavaScript(`
-          new Promise((resolve) => {
-            const img = document.querySelector('img');
-            if (!img) return resolve(true);
-            if (img.complete && img.naturalWidth > 0) return resolve(true);
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(true);
-            setTimeout(() => resolve(true), 2500);
-          });
-        `);
-      } else {
-        await new Promise((r) => setTimeout(r, 200));
-      }
+      await sleep(250);
 
       const pdfData = await printWin.webContents.printToPDF({
         landscape: orientation === "landscape",
@@ -680,29 +733,39 @@ async function convertBufferToPdf(
     })();
 
     const timeoutPromise = new Promise<Buffer>((_, reject) => {
-      const timer = setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         reject(new Error("Document to PDF conversion timed out after 15 seconds"));
       }, 15_000);
-      conversionPromise.finally(() => clearTimeout(timer));
     });
 
-    return await Promise.race([conversionPromise, timeoutPromise]);
+    try {
+      return await Promise.race([conversionPromise, timeoutPromise]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
   } finally {
     if (!printWin.isDestroyed()) {
       printWin.destroy();
     }
-    try {
-      await fs.unlink(tempHtmlPath);
-    } catch {}
+    await secureDeleteFile(tempHtmlPath);
     if (tempImagePath) {
-      try {
-        await fs.unlink(tempImagePath);
-      } catch {}
+      await secureDeleteFile(tempImagePath);
     }
   }
 }
 
-// ─── IPC: Print PDF (the main hardware bridge) ───
+async function secureDeleteFile(filePath: string): Promise<void> {
+  if (!existsSync(filePath)) return;
+  try {
+    await srm(filePath, { standard: "secure" });
+  } catch {
+    try {
+      await fs.unlink(filePath);
+    } catch {}
+  }
+}
+
+// ─── IPC: Print PDF (Unique File Per Invocation + Spooler Hold Verification) ───
 ipcMain.handle(
   "print-pdf",
   async (
@@ -710,44 +773,55 @@ ipcMain.handle(
     buffer: ArrayBuffer,
     sessionId: string,
     options?: {
+      fileId?: string;
       printer?: string;
       copies?: number;
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
     }
   ) => {
-    // SECURITY: Sanitize sessionId to prevent Path Traversal
-    const safeSessionId = sessionId.replace(/[^a-zA-Z0-9-]/g, '');
+    const safeSessionId = sanitizeIdentifier(sessionId);
     if (!safeSessionId) throw new Error("Invalid session ID");
 
+    const uniqueJobSuffix = sanitizeIdentifier(
+      options?.fileId || crypto.randomUUID().slice(0, 8)
+    );
     const shortId = safeSessionId.slice(0, 8);
-    const fileName = `${FILE_PREFIX}${safeSessionId}.pdf`;
+    const fileName = `${FILE_PREFIX}${safeSessionId}_${uniqueJobSuffix}.pdf`;
     const filePath = path.join(TEMP_DIR, fileName);
 
     try {
-      // ──────────────────────────────────────────────
-      // STAGE 1: Convert to PDF if needed & save
-      // ──────────────────────────────────────────────
+      if (!existsSync(TEMP_DIR)) {
+        mkdirSync(TEMP_DIR, { recursive: true });
+      }
+
       const uint8 = new Uint8Array(buffer);
       const isPdf =
         uint8.length >= 4 &&
         uint8[0] === 0x25 && // %
         uint8[1] === 0x50 && // P
         uint8[2] === 0x44 && // D
-        uint8[3] === 0x46; // F
+        uint8[3] === 0x46;   // F
 
       let pdfBytes: Buffer | Uint8Array;
       if (isPdf) {
-        sendStatus(sessionId, "saving", `Writing ${buffer.byteLength} bytes to ${filePath}`);
+        sendStatus(
+          sessionId,
+          "saving",
+          `Writing ${buffer.byteLength} bytes to ${fileName}`
+        );
         pdfBytes = uint8;
       } else {
-        sendStatus(sessionId, "saving", `Rendering document/image to PDF for hardware spooler...`);
+        sendStatus(
+          sessionId,
+          "saving",
+          `Rendering document/image to PDF for hardware spooler...`
+        );
         pdfBytes = await convertBufferToPdf(buffer, options?.orientation);
       }
 
-      await fs.writeFile(filePath, pdfBytes);
+      await fs.writeFile(filePath, pdfBytes, { mode: 0o600 });
 
-      // Verify the file was written correctly
       const stat = await fs.stat(filePath);
       if (stat.size !== pdfBytes.byteLength) {
         throw new Error(
@@ -756,28 +830,21 @@ ipcMain.handle(
       }
       sendStatus(sessionId, "saved", `File prepared (${stat.size} bytes)`);
 
-      // ──────────────────────────────────────────────
-      // STAGE 2: Print via Windows spooler
-      // ──────────────────────────────────────────────
       sendStatus(sessionId, "printing", "Sending to print spooler...");
 
-      const printOptions: Record<string, string> = {
+      const printOptions: ptp.PrintOptions = {
         scale: options?.scale || "noscale",
       };
 
-      // If a specific printer was requested
       if (options?.printer) {
         printOptions.printer = options.printer;
       }
 
-      // If orientation was specified
       if (options?.orientation) {
         printOptions.orientation = options.orientation;
       }
 
-      // If multiple copies requested, we print one-by-one
-      // (pdf-to-printer doesn't have a native copies flag)
-      const copyCount = options?.copies ?? 1;
+      const copyCount = Math.max(1, Math.min(500, options?.copies ?? 1));
 
       for (let i = 0; i < copyCount; i++) {
         if (copyCount > 1) {
@@ -791,48 +858,19 @@ ipcMain.handle(
       }
 
       sendStatus(sessionId, "printed", `Print job sent (${copyCount} copies)`);
-
-      // ──────────────────────────────────────────────
-      // STAGE 3: Wait for spooler to release the file
-      // ──────────────────────────────────────────────
-      // The print spooler may hold a lock on the file briefly.
-      // Poll until we can open it exclusively, or timeout after 30s.
       sendStatus(sessionId, "waiting", "Waiting for spooler to release file...");
 
       await waitForFileRelease(filePath, 30_000);
 
       sendStatus(sessionId, "released", "Spooler released the file");
+      sendStatus(
+        sessionId,
+        "shredding",
+        "Securely shredding temp file (DoD 5220.22-M)..."
+      );
 
-      // ──────────────────────────────────────────────
-      // STAGE 4: Secure shred the temp file
-      // ──────────────────────────────────────────────
-      sendStatus(sessionId, "shredding", "Securely shredding temp file (DoD 5220.22-M)...");
-
-      try {
-        await srm(filePath, { standard: "gutmann" });
-        sendStatus(sessionId, "shredded", "File securely deleted");
-      } catch (shredErr) {
-        // If secure-rm fails (e.g. permissions), fall back to a basic unlink
-        // so we don't leave files around
-        console.error(`[main] secure-rm failed, falling back to unlink:`, shredErr);
-        sendStatus(
-          sessionId,
-          "shredding-fallback",
-          "secure-rm failed, performing standard delete"
-        );
-
-        try {
-          await fs.unlink(filePath);
-          sendStatus(sessionId, "deleted", "File deleted (standard delete)");
-        } catch (unlinkErr) {
-          console.error(`[main] Even unlink failed:`, unlinkErr);
-          sendStatus(sessionId, "warning", `Could not delete temp file: ${filePath}`);
-        }
-      }
-
-      // ──────────────────────────────────────────────
-      // DONE
-      // ──────────────────────────────────────────────
+      await secureDeleteFile(filePath);
+      sendStatus(sessionId, "shredded", "File securely deleted");
       sendStatus(sessionId, "complete", "Print cycle complete");
 
       return {
@@ -845,14 +883,7 @@ ipcMain.handle(
       console.error(`[main] Print pipeline failed for ${shortId}:`, err);
       sendStatus(sessionId, "error", errorMsg);
 
-      // Best-effort cleanup: try to delete the temp file if it exists
-      try {
-        if (existsSync(filePath)) {
-          await fs.unlink(filePath);
-        }
-      } catch {
-        // ignore cleanup errors
-      }
+      await secureDeleteFile(filePath);
 
       return {
         success: false,
@@ -863,31 +894,34 @@ ipcMain.handle(
   }
 );
 
-// ─── Utility: Wait for file to be released by the print spooler ───
 async function waitForFileRelease(
   filePath: string,
   timeoutMs: number
 ): Promise<void> {
+  await sleep(1200);
+
   const start = Date.now();
-  const pollInterval = 500; // ms
+  const pollInterval = 400;
+  let consecutiveSuccesses = 0;
 
   while (Date.now() - start < timeoutMs) {
     try {
-      // Try to open the file with exclusive access
       const handle = await fs.open(filePath, "r+");
       await handle.close();
-      return; // File is free
+      consecutiveSuccesses++;
+      if (consecutiveSuccesses >= 2) {
+        return;
+      }
+      await sleep(pollInterval);
     } catch {
-      // File is still locked — wait and retry
+      consecutiveSuccesses = 0;
       await sleep(pollInterval);
     }
   }
 
-  // Timeout — proceed anyway (the file might still be printable)
   console.warn(`[main] Timed out waiting for file release after ${timeoutMs}ms`);
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-

@@ -33,7 +33,6 @@ body {
     linear-gradient(to right, rgba(209, 200, 204, 0.28) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(209, 200, 204, 0.28) 1px, transparent 1px);
   background-size: 100% 100%, 48px 48px, 48px 48px;
-  background-attachment: fixed;
   color: #16181D;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

@@ -320,7 +320,9 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                   Array.from(new Set([...printQueueJobs, ...pendingQueue])).map((rawJob) => {
                     const job = rawJob as any;
                     const isActive = currentJob?.sessionId === job.sessionId;
-                    const isPendingPayment = !job.paymentStatus || job.paymentStatus === "pending";
+                    const isReceiving = job.status === "receiving";
+                    const isFailedOrCancelled = job.status === "error" || job.status === "cancelled";
+                    const isPendingPayment = (!job.paymentStatus || job.paymentStatus === "pending") && !isReceiving && !isFailedOrCancelled;
                     const docCount = job.files?.length || job.fileCount || 1;
                     const amount = job.totalAmount ?? 0;
                     const totalPages =
@@ -360,7 +362,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                   </button>
                                 )}
                               </div>
-                              {isActive && job.status === "receiving" && typeof job.progressPct === "number" && (
+                              {isActive && isReceiving && typeof job.progressPct === "number" && (
                                 <div className="table-progress-track">
                                   <div
                                     className="table-progress-fill"
@@ -400,21 +402,34 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                   ✕
                                 </button>
                               </div>
-                            ) : job.status === "receiving" ? (
-                              <span className="status-badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>
-                                Stream ({job.progressPct || 0}%)
-                              </span>
+                            ) : isReceiving ? (
+                              <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", alignItems: "center" }}>
+                                <span className="status-badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>
+                                  Stream ({job.progressPct || 0}%)
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn-dismiss-tiny hover-pop"
+                                  style={{ padding: "6px", borderRadius: "6px", background: "#fee2e2", color: "#dc2626", border: "none", cursor: "pointer" }}
+                                  onClick={() => onCancelOrder(job.sessionId)}
+                                  title="Cancel Order"
+                                >
+                                  ✕
+                                </button>
+                              </div>
                             ) : job.status === "printing" ? (
                               <span className="status-badge active" style={{ background: "#fef3c7", color: "#b45309" }}>
                                 ● Printing
                               </span>
-                            ) : job.status === "error" ? (
+                            ) : isFailedOrCancelled ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-end" }}>
                                 <span className="status-badge" style={{ background: "#fee2e2", color: "#dc2626" }}>
-                                  Failed
+                                  {job.status === "cancelled" ? "Cancelled" : "Failed"}
                                 </span>
                                 <div style={{ display: "flex", gap: 3 }}>
-                                  <button type="button" className="btn-retry-tiny" onClick={() => onRetryJob?.(job.sessionId)}>Retry</button>
+                                  {job.status === "error" && (
+                                    <button type="button" className="btn-retry-tiny" onClick={() => onRetryJob?.(job.sessionId)}>Retry</button>
+                                  )}
                                   <button type="button" className="btn-dismiss-tiny" onClick={() => onDismissJob?.(job.sessionId)}>✕</button>
                                 </div>
                               </div>

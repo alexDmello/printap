@@ -1,16 +1,6 @@
-/**
- * Shop-side WebRTC signaling handler.
- *
- * Listens on the Supabase Realtime Broadcast channel for WebRTC offers
- * from customers. For each offer, creates a peer connection, generates
- * an answer, and relays ICE candidates back through the same channel.
- *
- * Supports both legacy single-file transfers and rich multi-file orders
- * with print settings, token codes, and pickup PINs.
- */
-
 import {
   joinSignalingChannel,
+  leaveSignalingChannel,
   broadcast,
   DEFAULT_ICE_SERVERS,
   waitForIceGathering,
@@ -28,13 +18,16 @@ export interface ShopSession {
   dataChannel: RTCDataChannel | null;
 }
 
-/** Active sessions keyed by sessionId */
-const sessions = new Map<string, ShopSession>();
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB hard cap per file
+const MAX_ORDER_TOTAL_BYTES = 250 * 1024 * 1024; // 250MB hard cap per order
+const PROGRESS_THROTTLE_MS = 100; // Max 10 UI updates per second
 
-/** Early remote ICE candidates buffered before remoteDescription is set */
+const sessions = new Map<string, ShopSession>();
 const earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
 const earlyCandidateTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sessionInactivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+let activeSignalingShopId: string | null = null;
 
 function resetSessionTimeout(sessionId: string, timeoutMs = 90_000): void {
   const existing = sessionInactivityTimers.get(sessionId);
@@ -94,9 +87,6 @@ export interface SignalingCallbacks {
   onSessionError?: (sessionId: string, error: string) => void;
 }
 
-/**
- * Start listening for WebRTC offers on the given shop's signaling channel.
- */
 export function startShopSignaling(
   shopId: string,
   callbacksOrHandler: FileReceivedCallback | SignalingCallbacks
@@ -106,14 +96,15 @@ export function startShopSignaling(
       ? { onFileReceived: callbacksOrHandler }
       : callbacksOrHandler;
 
-  const channel = joinSignalingChannel(shopId);
+  activeSignalingShopId = shopId;
+  const channel = joinSignalingChannel(shopId, true);
 
-  // Listen for new customer offers
   channel.on(
     "broadcast",
     { event: "webrtc-offer" },
     async ({ payload }: { payload: Record<string, unknown> }) => {
       const { sessionId, data } = payload as unknown as SignalPayload;
+      if (!sessionId || !data) return;
       console.log(`[shop] Received offer for session ${sessionId}`);
       callbacks.onSessionStart?.(sessionId);
       await handleOffer(
@@ -125,58 +116,73 @@ export function startShopSignaling(
     }
   );
 
-  // Listen for remote ICE candidates
   channel.on(
     "broadcast",
     { event: "webrtc-ice" },
     async ({ payload }: { payload: Record<string, unknown> }) => {
       const { sessionId, data } = payload as unknown as SignalPayload;
       const candidateInit = data as RTCIceCandidateInit;
-      if (!candidateInit || !candidateInit.candidate) return;
+      if (!sessionId || !candidateInit || !candidateInit.candidate) return;
       const session = sessions.get(sessionId);
 
-      // Buffer candidate if session doesn't exist yet or remote description isn't set
       if (!session || !session.pc.remoteDescription) {
         if (!earlyCandidates.has(sessionId)) {
           earlyCandidates.set(sessionId, []);
         }
-        earlyCandidates.get(sessionId)!.push(candidateInit);
+        const queue = earlyCandidates.get(sessionId)!;
+        if (queue.length < 50) {
+          queue.push(candidateInit);
+        }
         if (!earlyCandidateTimers.has(sessionId)) {
           earlyCandidateTimers.set(
             sessionId,
             setTimeout(() => {
               earlyCandidates.delete(sessionId);
               earlyCandidateTimers.delete(sessionId);
-              console.log(`[shop] Cleaned up abandoned early ICE candidates for ${sessionId}`);
             }, 60_000)
           );
         }
-        console.log(`[shop] Buffered early ICE candidate for ${sessionId}`);
         return;
       }
 
       try {
-        await session.pc.addIceCandidate(
-          new RTCIceCandidate(candidateInit)
-        );
-        console.log(`[shop] Added remote ICE candidate for ${sessionId}`);
+        await session.pc.addIceCandidate(new RTCIceCandidate(candidateInit));
       } catch (err) {
         console.error(`[shop] Failed to add ICE candidate:`, err);
       }
     }
   );
 
-  // Listen for customer token allocation requests (zero-db local atomic tokens)
   channel.on(
     "broadcast",
     { event: "request-token" },
     ({ payload }: { payload: Record<string, unknown> }) => {
       const { sessionId, hasColor, totalAmount, fileCount } =
         payload as unknown as SignalPayload;
-      console.log(
-        `[shop] Received request-token for session ${sessionId} (hasColor: ${hasColor})`
+      if (!sessionId) return;
+      callbacks.onRequestToken?.(
+        sessionId,
+        Boolean(hasColor),
+        totalAmount,
+        fileCount
       );
-      callbacks.onRequestToken?.(sessionId, Boolean(hasColor), totalAmount, fileCount);
+    }
+  );
+
+  channel.on(
+    "broadcast",
+    { event: "order-status" },
+    ({ payload }: { payload: Record<string, unknown> }) => {
+      const { sessionId, status, errorDetail } =
+        payload as unknown as SignalPayload;
+      if (!sessionId) return;
+      if (status === "cancelled" || status === "error") {
+        callbacks.onSessionError?.(
+          sessionId,
+          errorDetail || `Customer order was ${status}`
+        );
+        cleanup(sessionId);
+      }
     }
   );
 
@@ -184,17 +190,16 @@ export function startShopSignaling(
   return channel;
 }
 
-/**
- * Stop signaling and cleanup active connections.
- */
 export function stopShopSignaling(channel: RealtimeChannel | null): void {
-  if (channel) {
+  if (activeSignalingShopId) {
+    leaveSignalingChannel(activeSignalingShopId).catch(() => {});
+    activeSignalingShopId = null;
+  } else if (channel) {
     try {
       channel.unsubscribe();
-    } catch (e) {
-      console.error("[shop] Error unsubscribing channel:", e);
-    }
+    } catch {}
   }
+
   for (const timer of earlyCandidateTimers.values()) {
     clearTimeout(timer);
   }
@@ -211,10 +216,6 @@ export function stopShopSignaling(channel: RealtimeChannel | null): void {
   }
 }
 
-/**
- * Handle an incoming WebRTC offer: create peer connection, answer, and
- * set up the DataChannel listener.
- */
 async function handleOffer(
   channel: RealtimeChannel,
   sessionId: string,
@@ -223,16 +224,12 @@ async function handleOffer(
 ): Promise<void> {
   const existing = sessions.get(sessionId);
   if (existing) {
-    console.log(
-      `[shop] Session ${sessionId} already exists (state: ${existing.pc.connectionState}, signaling: ${existing.pc.signalingState})`
-    );
     if (
       existing.pc.connectionState === "connected" ||
       existing.pc.connectionState === "connecting" ||
       existing.pc.signalingState === "stable"
     ) {
       if (existing.pc.localDescription) {
-        console.log(`[shop] Re-transmitting existing answer for session ${sessionId}`);
         const localDesc = existing.pc.localDescription;
         await broadcast(channel, "webrtc-answer", {
           sessionId,
@@ -260,7 +257,6 @@ async function handleOffer(
   };
   sessions.set(sessionId, session);
 
-  // Relay our ICE candidates to the customer
   pc.onicecandidate = (event) => {
     if (event.candidate && event.candidate.candidate) {
       broadcast(channel, "webrtc-ice", {
@@ -271,68 +267,51 @@ async function handleOffer(
   };
 
   pc.onconnectionstatechange = () => {
-    console.log(
-      `[shop] Connection state: ${pc.connectionState} (ice: ${pc.iceConnectionState})`
-    );
     if (pc.connectionState === "failed" || pc.connectionState === "closed") {
-      callbacks.onSessionError?.(sessionId, "WebRTC peer connection closed or failed");
+      callbacks.onSessionError?.(
+        sessionId,
+        "WebRTC peer connection closed or failed"
+      );
       cleanup(sessionId);
     }
   };
 
-  // The customer creates the DataChannel; we listen for it here.
   pc.ondatachannel = (event) => {
-    console.log(`[shop] DataChannel received: ${event.channel.label}`);
     session.dataChannel = event.channel;
     setupDataChannelReceiver(session, callbacks);
   };
 
   try {
-    // Set remote offer and create answer
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-    // Drain any buffered early ICE candidates now that remote description is set
     const buffered = earlyCandidates.get(sessionId);
     if (buffered && buffered.length > 0) {
-      console.log(`[shop] Draining ${buffered.length} early ICE candidates for ${sessionId}`);
       for (const cand of buffered) {
         try {
           if (cand && cand.candidate) {
             await pc.addIceCandidate(new RTCIceCandidate(cand));
           }
-        } catch (e) {
-          console.warn(`[shop] Failed to add early ICE candidate:`, e);
-        }
+        } catch {}
       }
       earlyCandidates.delete(sessionId);
     }
 
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-
-    // Wait up to 800ms for initial host (LAN) and STUN candidates to be gathered
     await waitForIceGathering(pc, 800);
 
     const localAnswer = pc.localDescription || answer;
-
-    // Send answer back to customer via broadcast
     await broadcast(channel, "webrtc-answer", {
       sessionId,
       data: { type: localAnswer.type, sdp: localAnswer.sdp },
     });
-
-    console.log(`[shop] Sent answer for session ${sessionId}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[shop] Failed to negotiate answer:`, err);
     callbacks.onSessionError?.(sessionId, msg);
     cleanup(sessionId);
   }
 }
 
-/**
- * Set up the DataChannel to receive multi-file orders and file chunks.
- */
 function setupDataChannelReceiver(
   session: ShopSession,
   callbacks: SignalingCallbacks
@@ -342,27 +321,34 @@ function setupDataChannelReceiver(
 
   let manifest: TransferManifestOrder | null = null;
   const receivedFiles: ReceivedOrderFile[] = [];
+  let orderTotalBytesReceived = 0;
 
   let currentFileHeader: TransferFileHeaderMessage | null = null;
-  let chunks: ArrayBuffer[] = [];
+  let legacyMetadata: { fileName: string; fileSize: number; totalChunks: number } | null = null;
+
+  let assemblyBuffer: Uint8Array | null = null;
   let expectedSize = 0;
   let receivedSize = 0;
-  let legacyMetadata: { fileName: string; fileSize: number; totalChunks: number } | null = null;
+  let lastProgressEmitTime = 0;
+
+  const finalizeCurrentFile = (): ArrayBuffer | null => {
+    if (!assemblyBuffer || receivedSize === 0) return null;
+    const rawBuffer = assemblyBuffer.buffer as ArrayBuffer;
+    const finalBuffer =
+      receivedSize === assemblyBuffer.byteLength
+        ? rawBuffer
+        : rawBuffer.slice(0, receivedSize);
+    assemblyBuffer = null;
+    return finalBuffer;
+  };
 
   dc.onmessage = (event) => {
     resetSessionTimeout(session.sessionId);
-    // String messages: JSON messages or EOF
-    if (typeof event.data === "string") {
-      // 1. Check for legacy plain EOF
-      if (event.data === "EOF") {
-        if (chunks.length > 0) {
-          const assembled = new Uint8Array(receivedSize);
-          let offset = 0;
-          for (const chunk of chunks) {
-            assembled.set(new Uint8Array(chunk), offset);
-            offset += chunk.byteLength;
-          }
 
+    if (typeof event.data === "string") {
+      if (event.data === "EOF") {
+        const finalBuf = finalizeCurrentFile();
+        if (finalBuf) {
           const fileName =
             currentFileHeader?.fileName ||
             legacyMetadata?.fileName ||
@@ -376,53 +362,54 @@ function setupDataChannelReceiver(
               receivedFiles.push({
                 fileId: currentFileHeader.fileId,
                 fileName: currentFileHeader.fileName,
-                fileSize: currentFileHeader.fileSize,
+                fileSize: finalBuf.byteLength,
                 pageCount: currentFileHeader.pageCount,
                 settings: currentFileHeader.settings,
-                buffer: assembled.buffer,
+                buffer: finalBuf,
               });
             }
           }
 
-          // Trigger single-file callback ONLY if NOT part of a structured order manifest!
           if (!manifest) {
-            callbacks.onFileReceived(session.sessionId, assembled.buffer, fileName);
+            callbacks.onFileReceived(session.sessionId, finalBuf, fileName);
           }
 
-          chunks = [];
           receivedSize = 0;
+          expectedSize = 0;
           legacyMetadata = null;
         }
         return;
       }
 
-      // 2. Parse JSON
       try {
         const msg = JSON.parse(event.data);
 
-        // Case A: Order Manifest
         if (msg.type === "order-manifest") {
-          console.log(`[shop] Order manifest received:`, msg);
           manifest = msg.order;
           callbacks.onManifestReceived?.(session.sessionId, msg.order);
           return;
         }
 
-        // Case B: File Header
         if (msg.type === "file-header") {
-          console.log(`[shop] File header received:`, msg);
-          
-          // SECURITY: Enforce maximum file size of 100MB to prevent Memory Exhaustion (DoS)
-          if (msg.fileSize > 100 * 1024 * 1024) {
-             callbacks.onSessionError?.(session.sessionId, "Security Exception: File size exceeds 100MB limit.");
-             cleanup(session.sessionId);
-             return;
+          if (
+            typeof msg.fileSize !== "number" ||
+            msg.fileSize <= 0 ||
+            msg.fileSize > MAX_FILE_SIZE_BYTES
+          ) {
+            callbacks.onSessionError?.(
+              session.sessionId,
+              "Security Exception: File size invalid or exceeds 100MB limit."
+            );
+            cleanup(session.sessionId);
+            return;
           }
 
           currentFileHeader = msg as TransferFileHeaderMessage;
           expectedSize = currentFileHeader.fileSize;
           receivedSize = 0;
-          chunks = [];
+          assemblyBuffer = new Uint8Array(expectedSize);
+          lastProgressEmitTime = 0;
+
           callbacks.onFileProgress?.(
             session.sessionId,
             currentFileHeader.fileName,
@@ -435,17 +422,9 @@ function setupDataChannelReceiver(
           return;
         }
 
-        // Case C: File EOF
         if (msg.type === "file-eof") {
-          console.log(`[shop] File EOF received for ${msg.fileId}`);
-          if (currentFileHeader && chunks.length > 0) {
-            const assembled = new Uint8Array(receivedSize);
-            let offset = 0;
-            for (const chunk of chunks) {
-              assembled.set(new Uint8Array(chunk), offset);
-              offset += chunk.byteLength;
-            }
-
+          const finalBuf = finalizeCurrentFile();
+          if (currentFileHeader && finalBuf) {
             const alreadyPushed = receivedFiles.some(
               (f) => f.fileId === currentFileHeader!.fileId
             );
@@ -453,32 +432,27 @@ function setupDataChannelReceiver(
               receivedFiles.push({
                 fileId: currentFileHeader.fileId,
                 fileName: currentFileHeader.fileName,
-                fileSize: currentFileHeader.fileSize,
+                fileSize: finalBuf.byteLength,
                 pageCount: currentFileHeader.pageCount,
                 settings: currentFileHeader.settings,
-                buffer: assembled.buffer,
+                buffer: finalBuf,
               });
             }
 
-            // Only call legacy onFileReceived if NOT part of a structured order manifest!
             if (!manifest) {
               callbacks.onFileReceived(
                 session.sessionId,
-                assembled.buffer,
+                finalBuf,
                 currentFileHeader.fileName
               );
             }
-            chunks = [];
-            receivedSize = 0;
           }
+          receivedSize = 0;
+          expectedSize = 0;
           return;
         }
 
-        // Case D: Order Complete
         if (msg.type === "order-complete") {
-          console.log(
-            `[shop] Order complete received! Total files: ${receivedFiles.length}`
-          );
           if (manifest && callbacks.onOrderReceived) {
             callbacks.onOrderReceived({
               sessionId: session.sessionId,
@@ -489,19 +463,22 @@ function setupDataChannelReceiver(
           return;
         }
 
-        // Case E: Legacy metadata { fileName, fileSize, totalChunks }
         if (msg.fileName && typeof msg.fileSize === "number") {
-          // SECURITY: Enforce maximum file size of 100MB to prevent Memory Exhaustion (DoS)
-          if (msg.fileSize > 100 * 1024 * 1024) {
-             callbacks.onSessionError?.(session.sessionId, "Security Exception: File size exceeds 100MB limit.");
-             cleanup(session.sessionId);
-             return;
+          if (msg.fileSize <= 0 || msg.fileSize > MAX_FILE_SIZE_BYTES) {
+            callbacks.onSessionError?.(
+              session.sessionId,
+              "Security Exception: File size exceeds 100MB limit."
+            );
+            cleanup(session.sessionId);
+            return;
           }
 
           legacyMetadata = msg;
           expectedSize = msg.fileSize;
           receivedSize = 0;
-          chunks = [];
+          assemblyBuffer = new Uint8Array(expectedSize);
+          lastProgressEmitTime = 0;
+
           callbacks.onFileProgress?.(
             session.sessionId,
             msg.fileName,
@@ -519,21 +496,39 @@ function setupDataChannelReceiver(
       return;
     }
 
-    // Binary message: file chunk
     const chunk = event.data as ArrayBuffer;
-    chunks.push(chunk);
-    receivedSize += chunk.byteLength;
+    const chunkBytes = chunk.byteLength;
 
-    const currentName =
-      currentFileHeader?.fileName ||
-      legacyMetadata?.fileName ||
-      "receiving...";
-
-    if (expectedSize > 0) {
-      const pct = Math.min(
-        100,
-        Math.round((receivedSize / expectedSize) * 100)
+    orderTotalBytesReceived += chunkBytes;
+    if (
+      !assemblyBuffer ||
+      receivedSize + chunkBytes > expectedSize ||
+      orderTotalBytesReceived > MAX_ORDER_TOTAL_BYTES
+    ) {
+      callbacks.onSessionError?.(
+        session.sessionId,
+        "Security Exception: Binary stream overflowed declared file header size."
       );
+      assemblyBuffer = null;
+      cleanup(session.sessionId);
+      return;
+    }
+
+    assemblyBuffer.set(new Uint8Array(chunk), receivedSize);
+    receivedSize += chunkBytes;
+
+    const now = performance.now();
+    if (
+      expectedSize > 0 &&
+      (now - lastProgressEmitTime >= PROGRESS_THROTTLE_MS ||
+        receivedSize === expectedSize)
+    ) {
+      lastProgressEmitTime = now;
+      const currentName =
+        currentFileHeader?.fileName ||
+        legacyMetadata?.fileName ||
+        "receiving...";
+      const pct = Math.min(100, Math.round((receivedSize / expectedSize) * 100));
       callbacks.onFileProgress?.(
         session.sessionId,
         currentName,
@@ -546,19 +541,15 @@ function setupDataChannelReceiver(
     }
   };
 
-  dc.onopen = () => {
-    console.log(`[shop] DataChannel open for session ${session.sessionId}`);
-  };
-
   dc.onclose = () => {
-    console.log(`[shop] DataChannel closed for session ${session.sessionId}`);
+    assemblyBuffer = null;
     setTimeout(() => {
       cleanup(session.sessionId);
     }, 5000);
   };
 
-  dc.onerror = (err) => {
-    console.error(`[shop] DataChannel error:`, err);
+  dc.onerror = () => {
+    assemblyBuffer = null;
     callbacks.onSessionError?.(
       session.sessionId,
       "DataChannel encountered an error"
@@ -566,7 +557,6 @@ function setupDataChannelReceiver(
   };
 }
 
-/** Cleanup a completed or failed session. */
 function cleanup(sessionId: string): void {
   const earlyTimer = earlyCandidateTimers.get(sessionId);
   if (earlyTimer) {
@@ -587,14 +577,10 @@ function cleanup(sessionId: string): void {
   try {
     session.dataChannel?.close();
     session.pc.close();
-  } catch (e) {
-    // Ignore close errors
-  }
+  } catch {}
   sessions.delete(sessionId);
-  console.log(`[shop] Session ${sessionId} cleaned up`);
 }
 
-/** Broadcast payment confirmation event to the customer. */
 export async function broadcastPaymentConfirmed(
   channel: RealtimeChannel,
   sessionId: string,
@@ -607,7 +593,6 @@ export async function broadcastPaymentConfirmed(
   });
 }
 
-/** Broadcast order/queue status to customer. */
 export async function broadcastOrderStatus(
   channel: RealtimeChannel,
   payload: {
@@ -623,7 +608,6 @@ export async function broadcastOrderStatus(
   await broadcast(channel, "order-status", payload);
 }
 
-/** Broadcast locally allocated authoritative token to customer. */
 export async function broadcastTokenAssigned(
   channel: RealtimeChannel,
   payload: {
@@ -635,4 +619,3 @@ export async function broadcastTokenAssigned(
 ): Promise<void> {
   await broadcast(channel, "assign-token", payload);
 }
-

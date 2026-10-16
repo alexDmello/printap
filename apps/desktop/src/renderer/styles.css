@@ -84,7 +84,6 @@ body {
     linear-gradient(to right, rgba(209, 200, 204, 0.28) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(209, 200, 204, 0.28) 1px, transparent 1px);
   background-size: 100% 100%, 48px 48px, 48px 48px;
-  background-attachment: fixed;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -95,12 +94,17 @@ body {
 
 #root {
   height: 100vh;
+  width: 100vw;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 /* ─── Window Layout Shell ─── */
 .app-shell {
   display: flex;
+  flex: 1;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
@@ -2270,3 +2274,86 @@ body {
 .sidebar-topup-btn:active {
   transform: translateY(0);
 }
+
+/* ─── Global Button & Micro-Animation Utilities ─── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-structure);
+  color: #FFFFFF;
+  border: 1px solid var(--color-structure);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+}
+
+.btn-primary:hover {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #FFFFFF;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-canvas);
+  border-color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #FFFFFF;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.pill-btn:hover {
+  background: var(--bg-canvas);
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.hover-pop {
+  transition: transform var(--transition);
+}
+
+.hover-pop:hover {
+  transform: translateY(-1px);
+}
+
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+

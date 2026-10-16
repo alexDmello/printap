@@ -1,6 +1,7 @@
 export { getSupabase } from "./supabase";
 export {
   joinSignalingChannel,
+  leaveSignalingChannel,
   waitForChannelReady,
   broadcast,
   channelName,

@@ -76,6 +76,7 @@ interface ElectronAPI {
     buffer: ArrayBuffer,
     sessionId: string,
     options?: {
+      fileId?: string;
       printer?: string;
       copies?: number;
       orientation?: "portrait" | "landscape";

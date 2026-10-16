@@ -258,33 +258,16 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
       });
 
       const supabase = getSupabase();
-      const { error } = await supabase
-        .from("shops")
-        .update({
-          price_bw: priceBw,
-          price_color: priceColor,
-          services: updatedServices,
-          platform_fee: platformFee,
-          gst_percentage: gstPercentage,
-          gst_amount: gstAmount,
-          total_charge: totalCharge,
-        })
-        .eq("id", shopId);
+      const { data, error } = await supabase.rpc("update_shop_settings", {
+        p_shop_id: shopId,
+        p_price_bw: priceBw,
+        p_price_color: priceColor,
+        p_services: updatedServices,
+      });
 
       if (error) throw error;
-
-      // Also upsert global platform_settings table
-      try {
-        await supabase.from("platform_settings").upsert({
-          id: "global",
-          platform_fee: platformFee,
-          gst_percentage: gstPercentage,
-          gst_amount: gstAmount,
-          total_charge: totalCharge,
-          updated_at: new Date().toISOString(),
-        });
-      } catch (psErr) {
-        console.warn("Could not upsert platform_settings:", psErr);
+      if (data && !data.success) {
+        throw new Error(data.error || "Failed to update shop settings");
       }
 
       await refreshShop();

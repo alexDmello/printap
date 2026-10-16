@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
       alert: data.alert,
     });
   } catch (error) {
-    console.error("[reserve-token] Error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
+    const errorMsg = error instanceof Error ? error.message : "Internal Server Error";
+    console.error("[reserve-token] Error:", errorMsg);
+    return NextResponse.json({ success: false, error: errorMsg }, { status: 500 });
   }
 }

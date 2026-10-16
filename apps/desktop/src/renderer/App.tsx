@@ -1072,9 +1072,15 @@ function ShopAdminShell(): React.ReactElement {
       onSessionError: (sessionId, error) => {
         console.error(`[App] Session ${sessionId} error:`, error);
         setActiveJob((prev) =>
-          prev && prev.sessionId === sessionId
-            ? { ...prev, status: "error", detail: error }
-            : null
+          prev && prev.sessionId === sessionId ? null : prev
+        );
+        setPendingQueue((prev) => prev.filter((j) => j.sessionId !== sessionId));
+        setRecentJobs((prev) =>
+          prev.map((j) =>
+            j.sessionId === sessionId
+              ? { ...j, status: "cancelled", detail: error }
+              : j
+          )
         );
       },
     });
@@ -1089,23 +1095,28 @@ function ShopAdminShell(): React.ReactElement {
     };
   }, [isAuthenticated, shopId, isShopOnline, loadTodayPrintsCount, refreshAssignments]);
 
-  // Payment Confirmation Handler called from LiveDashboard
+  // Payment Confirmation Handler called from LiveDashboard (StrictMode-safe)
   const handleConfirmPayment = useCallback(
     async (sessionId: string) => {
       console.log(`[App] Confirming payment and enqueuing for session ${sessionId}...`);
       addBoundedSet(confirmedPaymentSessionsRef.current, sessionId);
-      fifoDispatcherRef.current?.updateJobPaymentStatus(sessionId, "confirmed");
+      fifoDispatcherRef.current?.updateJobPaymentStatus(
+        sessionId,
+        "confirmed",
+        assignmentsRef.current
+      );
 
-      // Find the job in the pendingQueue and actually enqueue it to print
-      setPendingQueue(prev => {
-        const jobIndex = prev.findIndex(j => j.sessionId === sessionId);
-        if (jobIndex >= 0) {
-          const job = prev[jobIndex];
-          fifoDispatcherRef.current?.enqueue(job, assignmentsRef.current);
-          return prev.filter((_, i) => i !== jobIndex);
-        }
-        return prev;
+      let matchedJob: QueuedPrintJob | undefined;
+      setPendingQueue((prev) => {
+        const idx = prev.findIndex((j) => j.sessionId === sessionId);
+        if (idx === -1) return prev;
+        matchedJob = { ...prev[idx], paymentStatus: "confirmed" };
+        return prev.filter((_, i) => i !== idx);
       });
+
+      if (matchedJob) {
+        fifoDispatcherRef.current?.enqueue(matchedJob, assignmentsRef.current);
+      }
 
       setActiveJob((prev) => {
         if (!prev || prev.sessionId !== sessionId) return prev;
@@ -1132,7 +1143,6 @@ function ShopAdminShell(): React.ReactElement {
         (activeJobRef.current?.sessionId === sessionId ? activeJobRef.current : null) ||
         recentJobsRef.current.find((j) => j.sessionId === sessionId);
 
-      // 1. Broadcast payment-confirmed event to customer over signaling channel
       if (signalingChannelRef.current) {
         try {
           await broadcastPaymentConfirmed(
@@ -1140,13 +1150,11 @@ function ShopAdminShell(): React.ReactElement {
             sessionId,
             targetJob?.tokenCode
           );
-          console.log(`[App] Broadcasted payment-confirmed to customer!`);
         } catch (err) {
           console.warn("[App] Error broadcasting payment confirmation:", err);
         }
       }
 
-      // 2. Update Supabase print_orders table: marked confirmed and completed
       try {
         const supabase = getSupabase();
         await supabase
@@ -1164,26 +1172,40 @@ function ShopAdminShell(): React.ReactElement {
     []
   );
 
-  // Cancel Order Handler
+  // Cancel Order Handler (Releases ArrayBuffers & Refunds Escrowed Shop Token)
   const handleCancelOrder = useCallback(
     async (sessionId: string) => {
       console.log(`[App] Cancelling order for session ${sessionId}...`);
-      setPendingQueue(prev => prev.filter(j => j.sessionId !== sessionId));
-      
-      setActiveJob((prev) => prev?.sessionId === sessionId ? null : prev);
-      setRecentJobs(prev => prev.map(job => job.sessionId === sessionId ? { ...job, status: "cancelled" } : job));
+
+      setPendingQueue((prev) => {
+        const target = prev.find((j) => j.sessionId === sessionId);
+        if (target) {
+          target.files.forEach((f) => {
+            (f as { buffer: ArrayBuffer | null }).buffer = new ArrayBuffer(0);
+          });
+        }
+        return prev.filter((j) => j.sessionId !== sessionId);
+      });
+
+      fifoDispatcherRef.current?.cancelJob(sessionId, assignmentsRef.current);
+      setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
+      setRecentJobs((prev) =>
+        prev.map((job) =>
+          job.sessionId === sessionId ? { ...job, status: "cancelled" } : job
+        )
+      );
 
       if (signalingChannelRef.current) {
-         try {
-            await broadcastOrderStatus(signalingChannelRef.current, {
-               sessionId,
-               status: "cancelled"
-            });
-         } catch (err) {
-            console.warn("[App] Error broadcasting cancel status to customer:", err);
-         }
+        try {
+          await broadcastOrderStatus(signalingChannelRef.current, {
+            sessionId,
+            status: "cancelled",
+          });
+        } catch (err) {
+          console.warn("[App] Error broadcasting cancel status to customer:", err);
+        }
       }
-      
+
       try {
         const supabase = getSupabase();
         await supabase
@@ -1193,11 +1215,18 @@ function ShopAdminShell(): React.ReactElement {
             updated_at: new Date().toISOString(),
           })
           .eq("session_id", sessionId);
+
+        if (shopId) {
+          await supabase.rpc("refund_shop_token", {
+            p_shop_id: shopId,
+            p_session_id: sessionId,
+          });
+        }
       } catch (err) {
-        console.warn("[App] Error cancelling print_orders in Supabase:", err);
+        console.warn("[App] Error cancelling print_orders or refunding token:", err);
       }
     },
-    []
+    [shopId]
   );
 
   // Retry Failed Print Job Handler called from LiveDashboard
@@ -1509,11 +1538,8 @@ export default function App(): React.ReactElement {
   }, []);
 
   const shouldShowUpdater =
-    updateState.stage === "checking" ||
-    updateState.stage === "available" ||
     updateState.stage === "downloading" ||
-    updateState.stage === "downloaded" ||
-    updateState.stage === "error";
+    updateState.stage === "downloaded";
 
   return (
     <>

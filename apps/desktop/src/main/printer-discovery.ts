@@ -24,13 +24,15 @@ export interface PrinterHardwareInfo {
 }
 
 const POWERSHELL_DISCOVERY_SCRIPT = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'SilentlyContinue'
 
-$defaultPrinterName = (Get-CimInstance Win32_Printer | Where-Object { $_.Default -eq $true } | Select-Object -First 1).Name
+$wmiPrinters = @(Get-CimInstance -ClassName Win32_Printer -OperationTimeoutSec 4)
+$defaultPrinterName = ($wmiPrinters | Where-Object { $_.Default -eq $true } | Select-Object -First 1).Name
 
-$printers = Get-Printer
-$ports = Get-PrinterPort
-$wmiPrinters = Get-CimInstance Win32_Printer
+$printers = @(Get-Printer)
+$ports = @(Get-PrinterPort)
 
 $knownVirtualDrivers = @(
     "*Microsoft Print To PDF*",
@@ -61,6 +63,7 @@ $knownVirtualPorts = @(
 )
 
 $results = foreach ($p in $printers) {
+    if (-not $p -or -not $p.Name) { continue }
     $port = $ports | Where-Object { $_.Name -eq $p.PortName } | Select-Object -First 1
     $wmi = $wmiPrinters | Where-Object { $_.Name -eq $p.Name } | Select-Object -First 1
 
@@ -71,22 +74,33 @@ $results = foreach ($p in $printers) {
             break
         }
     }
-    
+
     $isVirtualPort = $false
-    if ($knownVirtualPorts -contains $p.PortName -or $p.PortName -like "*OneNote*" -or $p.PortName -like "*Microsoft.Office*" -or $p.PortName -like "*PDF*") {
+    if (
+        ($knownVirtualPorts -contains $p.PortName) -or
+        ($p.PortName -like "*OneNote*") -or
+        ($p.PortName -like "*Microsoft.Office*") -or
+        ($p.PortName -like "*PDF*") -or
+        ($p.PortName -like "*XPS*") -or
+        ($wmi -and $wmi.PrintProcessor -eq "winprint" -and $p.PortName -eq "FILE:")
+    ) {
         $isVirtualPort = $true
     }
 
-    # Dummy test queues (e.g. mock Point and Print compatibility drivers on COM/dummy ports or PrintSpot)
     $isDummyQueue = $false
-    if ($p.Name -like "*PrintSpot*" -or ($p.DriverName -like "*Point and Print compatibility driver*" -and ($p.PortName -like "COM*" -or $p.PortName -like "LPT*"))) {
+    if (
+        ($p.Name -like "*PrintSpot*") -or
+        ($p.DriverName -like "*Point and Print*" -and ($p.PortName -like "COM*" -or $p.PortName -like "LPT*"))
+    ) {
         $isDummyQueue = $true
     }
 
-    # Exclude virtual queues, print-to-file converters, and dummy queues completely
     if ($isDummyQueue -or $isVirtualPort -or $isVirtualDriver) {
         continue
     }
+
+    # Note: PrinterType enum in Microsoft.Management.Infrastructure: 0 = Local, 1 = Connection
+    $isNetworkConnection = ([int]$p.Type -eq 1) -or ($wmi -and $wmi.Network -eq $true) -or ($p.Shared -eq $true)
 
     $connectionType = "USB"
     $details = "Direct USB connection ($($p.PortName))"
@@ -99,16 +113,16 @@ $results = foreach ($p in $printers) {
         $connectionType = "Network (WSD)"
         $details = "Network Plug & Play printer (WSD)"
     }
-    elseif ($port.PrinterHostAddress -or $p.PortName -match '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}' -or $p.PortName -like "IP_*") {
+    elseif (($port -and $port.PrinterHostAddress) -or $p.PortName -match '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}' -or $p.PortName -like "IP_*") {
         $connectionType = "Network (TCP/IP)"
-        $addr = if ($port.PrinterHostAddress) { $port.PrinterHostAddress } else { $p.PortName }
+        $addr = if ($port -and $port.PrinterHostAddress) { $port.PrinterHostAddress } else { $p.PortName }
         $details = "Local Network printer at $addr"
     }
     elseif ($p.PortName -like "http*" -or $p.PortName -like "ipp*") {
         $connectionType = "Network (IPP)"
         $details = "Network IPP print service"
     }
-    elseif ($p.Type -eq "Connection" -or $p.Shared) {
+    elseif ($isNetworkConnection) {
         $connectionType = "Network (Shared)"
         $details = "Shared LAN printer queue"
     }
@@ -128,12 +142,17 @@ $results = foreach ($p in $printers) {
     $isOnline = $true
     $statusText = "Online"
     if ($wmi) {
-        if ($wmi.WorkOffline -or ($wmi.PrinterStatus -eq 7) -or ($wmi.DetectedErrorState -eq 9)) {
+        if (
+            $wmi.WorkOffline -eq $true -or
+            $wmi.PrinterStatus -eq 7 -or
+            $wmi.ExtendedPrinterStatus -eq 7 -or
+            $wmi.DetectedErrorState -eq 9
+        ) {
             $isOnline = $false
             $statusText = "Offline"
         } elseif ($wmi.PrinterStatus -eq 4) {
             $statusText = "Printing"
-        } elseif ($wmi.PrinterStatus -eq 1 -or $wmi.DetectedErrorState -gt 2) {
+        } elseif ($wmi.PrinterStatus -eq 1 -or ($wmi.DetectedErrorState -gt 2 -and $wmi.DetectedErrorState -ne 9)) {
             $statusText = "Error"
         }
     }
@@ -141,37 +160,40 @@ $results = foreach ($p in $printers) {
     $isDefault = ($p.Name -eq $defaultPrinterName)
 
     [PSCustomObject]@{
-        name = $p.Name
-        isDefault = $isDefault
+        name = [string]$p.Name
+        isDefault = [bool]$isDefault
         isPhysical = $true
         connectionType = $connectionType
-        portName = $p.PortName
-        driverName = $p.DriverName
-        hostAddress = $port.PrinterHostAddress
+        portName = [string]$p.PortName
+        driverName = [string]$p.DriverName
+        hostAddress = if ($port -and $port.PrinterHostAddress) { [string]$port.PrinterHostAddress } else { $null }
         status = $statusText
-        isOnline = $isOnline
+        isOnline = [bool]$isOnline
         details = $details
     }
 }
 
 if ($results) {
-    $results | ConvertTo-Json -Depth 3
+    ConvertTo-Json -InputObject @($results) -Depth 3 -Compress
 } else {
     "[]"
 }
 `;
 
-/**
- * Discover printers using Windows Management Instrumentation & PowerShell.
- * Discovers and returns exclusively physical hardware machines (USB, Network, WSD, Bluetooth).
- * Virtual software drivers and print-to-file queues are completely excluded.
- */
 export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
   return new Promise((resolve) => {
     execFile(
       "powershell.exe",
-      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", POWERSHELL_DISCOVERY_SCRIPT],
-      { timeout: 8000 },
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        POWERSHELL_DISCOVERY_SCRIPT,
+      ],
+      { timeout: 8000, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
       async (err, stdout) => {
         if (!err && stdout && stdout.trim()) {
           try {
@@ -179,7 +201,7 @@ export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
             const list: PrinterHardwareInfo[] = (Array.isArray(parsed)
               ? parsed
               : [parsed]
-            ).filter((p) => p && p.isPhysical);
+            ).filter((p): p is PrinterHardwareInfo => Boolean(p && p.isPhysical && p.name));
             return resolve(list);
           } catch (jsonErr) {
             console.warn(
@@ -191,7 +213,6 @@ export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
           console.warn("[printer-discovery] PowerShell discovery warning:", err.message);
         }
 
-        // Fallback to basic pdf-to-printer list if PowerShell fails
         try {
           const basicPrinters = await ptp.getPrinters();
           const fallbackList: PrinterHardwareInfo[] = basicPrinters

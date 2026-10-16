@@ -19,6 +19,7 @@ import {
   SESSION_STORAGE_KEY,
   getSupabase,
   joinSignalingChannel,
+  broadcast,
 } from "@printap/shared";
 import type { PersistedSession } from "@printap/shared";
 import {
@@ -458,6 +459,13 @@ export default function PrintClient({
       });
       const data = await res.json();
       if (!data.success) {
+        const channel = joinSignalingChannel(shopId);
+        broadcast(channel, "order-status", {
+          sessionId,
+          status: "cancelled",
+          errorDetail: data.error || "Could not reserve print token from shop.",
+        }).catch(() => {});
+
         setStep("error");
         setErrorMsg(data.error || "Could not reserve print token from shop.");
         setIsSubmitting(false);
@@ -466,6 +474,13 @@ export default function PrintClient({
       localPrintTicket = data.printTicket;
       setPrintTicket(localPrintTicket);
     } catch (err) {
+      const channel = joinSignalingChannel(shopId);
+      broadcast(channel, "order-status", {
+        sessionId,
+        status: "cancelled",
+        errorDetail: "Failed to contact server for token reservation.",
+      }).catch(() => {});
+
       setStep("error");
       setErrorMsg("Failed to contact server for token reservation.");
       setIsSubmitting(false);
@@ -523,6 +538,13 @@ export default function PrintClient({
           if (p.status === "complete") {
             setJobStatus("printing");
           } else if (p.status === "error") {
+            const channel = joinSignalingChannel(shopId);
+            broadcast(channel, "order-status", {
+              sessionId,
+              status: "error",
+              errorDetail: p.error || "Transfer failed",
+            }).catch(() => {});
+
             setStep("error");
             setErrorMsg(p.error || "Transfer failed");
             setIsRefundPromptOpen(true);
@@ -531,6 +553,13 @@ export default function PrintClient({
         }
       );
     } catch (err) {
+      const channel = joinSignalingChannel(shopId);
+      broadcast(channel, "order-status", {
+        sessionId,
+        status: "error",
+        errorDetail: String(err),
+      }).catch(() => {});
+
       setStep("error");
       setErrorMsg(String(err));
       setIsSubmitting(false);
@@ -767,7 +796,7 @@ export default function PrintClient({
                 ✕
               </div>
               <h2 className="text-lg font-bold text-zinc-900 mb-2">
-                Transfer Interrupted
+                {errorMsg && /transfer|stream|webrtc/i.test(errorMsg) ? "Transfer Interrupted" : "Order Error"}
               </h2>
               <p className="text-xs text-zinc-600 mb-6">{errorMsg}</p>
 

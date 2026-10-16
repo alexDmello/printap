@@ -1,18 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-/**
- * Exposes a safe, typed API to the renderer via contextBridge.
- *
- * Available methods:
- * - printPdf(buffer, sessionId, options?) → prints and shreds
- * - listPrinters() → returns available Windows printers
- * - onPrintStatus(callback) → live status updates from main process
- */
 contextBridge.exposeInMainWorld("electronAPI", {
   printPdf: (
     buffer: ArrayBuffer,
     sessionId: string,
     options?: {
+      fileId?: string;
       printer?: string;
       copies?: number;
       orientation?: "portrait" | "landscape";
@@ -33,8 +26,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ) => callback(data);
 
     ipcRenderer.on("print-status", handler);
-
-    // Return a cleanup function to remove the listener
     return () => {
       ipcRenderer.removeListener("print-status", handler);
     };
@@ -67,26 +58,34 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ) => callback(data);
 
     ipcRenderer.on("deep-link-auth", handler);
-
     return () => {
       ipcRenderer.removeListener("deep-link-auth", handler);
     };
   },
+
   onUpdaterEvent: (
-    callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
+    callback: (data: {
+      stage: string;
+      progress?: number;
+      error?: string;
+      info?: Record<string, unknown>;
+    }) => void
   ) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
-      data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }
+      data: {
+        stage: string;
+        progress?: number;
+        error?: string;
+        info?: Record<string, unknown>;
+      }
     ) => callback(data);
 
     ipcRenderer.on("updater-event", handler);
-
     return () => {
       ipcRenderer.removeListener("updater-event", handler);
     };
   },
+
   restartApp: () => ipcRenderer.send("restart-app"),
 });
-
-

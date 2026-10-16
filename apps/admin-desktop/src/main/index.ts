@@ -18,6 +18,7 @@ function createWindow(): void {
     minHeight: 640,
     title: "Printap Platform Admin — Executive Console",
     icon: windowIcon,
+    backgroundColor: "#F0EBED",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,

@@ -23,7 +23,7 @@ export interface LiveJobFile {
 export interface LiveJob {
   sessionId: string;
   fileName?: string;
-  status: "receiving" | "saving" | "printing" | "shredding" | "done" | "error" | "cancelled";
+  status: "receiving" | "saving" | "printing" | "shredding" | "done" | "error" | "cancelled" | "queued" | "pending_payment";
   progressPct?: number;
   stage?: string;
   detail?: string;

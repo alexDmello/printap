@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-client";
+import { enforceSessionTimeout } from "@/lib/session-manager";
 
 function DownloadContent() {
   const searchParams = useSearchParams();
@@ -29,7 +30,10 @@ function DownloadContent() {
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.email) {
-        email = session.user.email.toLowerCase().trim();
+        const { valid } = await enforceSessionTimeout(supabase);
+        if (valid) {
+          email = session.user.email.toLowerCase().trim();
+        }
       }
 
       if (slugParam) {

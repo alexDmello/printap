@@ -6,6 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sanitizeSubdomain } from "@printap/shared";
 import { getBrowserSupabase } from "@/lib/supabase-client";
+import {
+  LOGIN_SESSION_MAX_AGE_MS,
+  enforceSessionTimeout,
+  getLoginSessionRemainingMs,
+  isLoginSessionExpired,
+  clearLoginSession,
+  formatRemainingTime,
+} from "@/lib/session-manager";
 
 // Dynamically import MapLocationPicker with SSR disabled (Leaflet requires browser window)
 const MapLocationPicker = dynamic(
@@ -50,6 +58,7 @@ function OnboardContent() {
   const [googleUser, setGoogleUser] = useState<GoogleAuthUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [sessionRemainingMs, setSessionRemainingMs] = useState<number>(LOGIN_SESSION_MAX_AGE_MS);
 
   // Stepper State: 1 = Store & Password, 2 = Location, 3 = UPI Payout
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -150,6 +159,18 @@ function OnboardContent() {
           avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture,
         };
 
+        // Enforce 10-minute maximum session retention policy
+        const { valid, remainingMs } = await enforceSessionTimeout(supabase);
+        if (!valid) {
+          clearLoginSession();
+          setGoogleUser(null);
+          setCurrentStep(1);
+          setHighestStep(1);
+          setStepError("Your login session expired after 10 minutes. Please sign in again.");
+          return;
+        }
+        setSessionRemainingMs(remainingMs);
+
         // Check if user already has an onboarded shop (case-insensitive)
         const { data: existingShop } = await supabase
           .from("shops")
@@ -223,6 +244,29 @@ function OnboardContent() {
     };
   }, [router]);
 
+  // 10-Minute Login Session Retention Sweeper
+  useEffect(() => {
+    if (!googleUser) return;
+
+    const checkTimeout = async () => {
+      const remaining = getLoginSessionRemainingMs();
+      setSessionRemainingMs(remaining);
+      if (remaining <= 0) {
+        const supabase = getBrowserSupabase();
+        await supabase.auth.signOut();
+        clearLoginSession();
+        setGoogleUser(null);
+        setCurrentStep(1);
+        setHighestStep(1);
+        setStepError("Your login session timed out (10-minute limit). Please sign in again.");
+      }
+    };
+
+    checkTimeout();
+    const interval = setInterval(checkTimeout, 1000);
+    return () => clearInterval(interval);
+  }, [googleUser]);
+
   // Google OAuth 2.0 Sign In
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
@@ -264,6 +308,7 @@ function OnboardContent() {
   const handleSignOut = async () => {
     const supabase = getBrowserSupabase();
     await supabase.auth.signOut();
+    clearLoginSession();
     setGoogleUser(null);
     setCurrentStep(1);
     setHighestStep(1);
@@ -408,12 +453,32 @@ function OnboardContent() {
       return;
     }
 
+    if (isLoginSessionExpired()) {
+      const supabase = getBrowserSupabase();
+      await supabase.auth.signOut();
+      clearLoginSession();
+      setGoogleUser(null);
+      setCurrentStep(1);
+      setHighestStep(1);
+      setStepError("Your login session timed out (10-minute limit). Please sign in again.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      const supabase = getBrowserSupabase();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+
       const res = await fetch("/api/auth/register-google", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           shopName: shopName.trim(),
           slug: slug.trim(),
@@ -434,6 +499,7 @@ function OnboardContent() {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data.existingSlug) {
+          clearLoginSession();
           router.push(`/download?shop=${encodeURIComponent(data.existingSlug)}`);
           return;
         }
@@ -442,7 +508,8 @@ function OnboardContent() {
         return;
       }
 
-      // Successful registration: Redirect straight to desktop app download page!
+      // Successful registration: Clear temporary onboarding session and redirect straight to desktop app download page!
+      clearLoginSession();
       const assignedSlug = data.shop?.slug || slug.trim();
       router.push(`/download?shop=${encodeURIComponent(assignedSlug)}`);
     } catch (err) {
@@ -660,7 +727,20 @@ function OnboardContent() {
                   Signed In
                 </span>
               </div>
-              <div className="text-[11px] text-zinc-500 font-mono truncate">{googleUser.email}</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-mono truncate">
+                <span className="truncate">{googleUser.email}</span>
+                <span className="text-zinc-300">•</span>
+                <span
+                  className={`font-semibold shrink-0 ${
+                    sessionRemainingMs < 2 * 60 * 1000
+                      ? "text-amber-600 animate-pulse font-bold"
+                      : "text-zinc-400"
+                  }`}
+                  title="Shop onboarding login session retains for 10 minutes"
+                >
+                  ⏱ {formatRemainingTime(sessionRemainingMs)}
+                </span>
+              </div>
             </div>
             <button
               type="button"

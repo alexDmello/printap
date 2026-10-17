@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-client";
+import { enforceSessionTimeout } from "@/lib/session-manager";
 import type { ShopInfo } from "@printap/shared";
 
 type AuthState =
@@ -153,7 +154,7 @@ function DesktopLoginContent() {
     };
 
     // 1. Check existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.warn("[desktop-login] getSession error:", error.message);
         if (isMounted) setState("prompt");
@@ -161,6 +162,11 @@ function DesktopLoginContent() {
       }
 
       if (session?.user?.email) {
+        const { valid } = await enforceSessionTimeout(supabase);
+        if (!valid) {
+          if (isMounted) setState("prompt");
+          return;
+        }
         verifyShopForUser(session.user.email);
       } else {
         if (isMounted) setState("prompt");

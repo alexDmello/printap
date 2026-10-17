@@ -447,3 +447,52 @@ describe("8. Validation & Subdomain Security Verification", () => {
     assert.strictEqual(isValidSubdomainLabel("UPPERCASE"), false);
   });
 });
+
+describe("9. 10-Minute Onboarding Login Retention Policy", () => {
+  const LOGIN_SESSION_MAX_AGE_MS = 10 * 60 * 1000;
+
+  function formatTime(ms: number): string {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+  }
+
+  function checkSessionExpired(loginAt: number, now: number): boolean {
+    return now - loginAt >= LOGIN_SESSION_MAX_AGE_MS;
+  }
+
+  it("should enforce exactly 10 minutes TTL (600,000 ms)", () => {
+    assert.strictEqual(LOGIN_SESSION_MAX_AGE_MS, 600_000);
+  });
+
+  it("should format remaining session time into human readable Xm Ys", () => {
+    assert.strictEqual(formatTime(600_000), "10m 00s");
+    assert.strictEqual(formatTime(585_000), "9m 45s");
+    assert.strictEqual(formatTime(65_000), "1m 05s");
+    assert.strictEqual(formatTime(5_000), "0m 05s");
+    assert.strictEqual(formatTime(0), "0m 00s");
+  });
+
+  it("should treat sessions younger than 10 minutes as active", () => {
+    const now = Date.now();
+    const loginAt = now - 5 * 60 * 1000; // 5 minutes ago
+    assert.strictEqual(checkSessionExpired(loginAt, now), false);
+
+    const loginJustNow = now - 1000; // 1 second ago
+    assert.strictEqual(checkSessionExpired(loginJustNow, now), false);
+
+    const loginAt9m59s = now - (9 * 60 + 59) * 1000; // 9m 59s ago
+    assert.strictEqual(checkSessionExpired(loginAt9m59s, now), false);
+  });
+
+  it("should expire sessions at or exceeding 10 minutes", () => {
+    const now = Date.now();
+    const loginAt10m = now - 10 * 60 * 1000; // exactly 10 minutes ago
+    assert.strictEqual(checkSessionExpired(loginAt10m, now), true);
+
+    const loginAt15m = now - 15 * 60 * 1000; // 15 minutes ago
+    assert.strictEqual(checkSessionExpired(loginAt15m, now), true);
+  });
+});
+

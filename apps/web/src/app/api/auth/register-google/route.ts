@@ -40,6 +40,35 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate session token if provided (10-minute maximum retention limit)
+    const authHeader = request.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "").trim();
+      const supabaseAuth = getServerSupabase();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabaseAuth.auth.getUser(token);
+
+      if (userError || !user) {
+        return NextResponse.json(
+          { error: "Your login session is invalid or has expired. Please sign in again." },
+          { status: 401 }
+        );
+      }
+
+      if (user.last_sign_in_at) {
+        const lastSignInTime = new Date(user.last_sign_in_at).getTime();
+        const MAX_SESSION_AGE_MS = 10 * 60 * 1000;
+        if (Date.now() - lastSignInTime > MAX_SESSION_AGE_MS) {
+          return NextResponse.json(
+            { error: "Your onboarding login session has expired (10-minute limit). Please sign in again." },
+            { status: 401 }
+          );
+        }
+      }
+    }
+
     // 2. Validate counter terminal password
     const pwdStrength = validatePasswordStrength(password || "");
     if (!pwdStrength.valid) {

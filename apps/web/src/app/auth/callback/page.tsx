@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase-client";
+import { setLoginSessionTime } from "@/lib/session-manager";
 
 function CallbackHandler() {
   const router = useRouter();
@@ -38,6 +39,9 @@ function CallbackHandler() {
       if (!user || !user.email) return;
       if (!isMounted || handledRef.current) return;
       handledRef.current = true;
+
+      // Retain login session for exactly 10 minutes
+      setLoginSessionTime(Date.now());
 
       if (desktopSession) {
         router.replace(`/auth/desktop-login?session=${encodeURIComponent(desktopSession)}`);

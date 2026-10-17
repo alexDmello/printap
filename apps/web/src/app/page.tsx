@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase-client";
+import { enforceSessionTimeout } from "@/lib/session-manager";
 
 interface DemoDoc {
   name: string;
@@ -43,6 +44,12 @@ export default function Home() {
       const supabase = getBrowserSupabase();
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session?.user?.email) {
+          const { valid } = await enforceSessionTimeout(supabase);
+          if (!valid) {
+            setUserShopSlug(null);
+            return;
+          }
+
           const { data: existingShop } = await supabase
             .from("shops")
             .select("slug")

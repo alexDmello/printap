@@ -121,6 +121,7 @@ $$;
 
 -- Restrict analytics mutations strictly to service_role or platform_admins
 DROP POLICY IF EXISTS "shop_daily_analytics_upsert_all" ON public.shop_daily_analytics;
+DROP POLICY IF EXISTS "shop_daily_analytics_write_admin" ON public.shop_daily_analytics;
 CREATE POLICY "shop_daily_analytics_write_admin"
   ON public.shop_daily_analytics FOR ALL
   USING (
@@ -133,6 +134,7 @@ CREATE POLICY "shop_daily_analytics_write_admin"
   );
 
 DROP POLICY IF EXISTS "platform_daily_analytics_upsert_all" ON public.platform_daily_analytics;
+DROP POLICY IF EXISTS "platform_daily_analytics_write_admin" ON public.platform_daily_analytics;
 CREATE POLICY "platform_daily_analytics_write_admin"
   ON public.platform_daily_analytics FOR ALL
   USING (
@@ -145,9 +147,15 @@ CREATE POLICY "platform_daily_analytics_write_admin"
   );
 
 DROP POLICY IF EXISTS "archive_audit_log_all" ON public.archive_audit_log;
-CREATE POLICY "archive_audit_log_select_admin"
-  ON public.archive_audit_log FOR SELECT
+DROP POLICY IF EXISTS "archive_audit_log_select_admin" ON public.archive_audit_log;
+DROP POLICY IF EXISTS "archive_audit_log_admin_all" ON public.archive_audit_log;
+CREATE POLICY "archive_audit_log_admin_all"
+  ON public.archive_audit_log FOR ALL
   USING (
+    auth.role() = 'service_role'
+    OR EXISTS (SELECT 1 FROM public.platform_admins WHERE id = auth.uid())
+  )
+  WITH CHECK (
     auth.role() = 'service_role'
     OR EXISTS (SELECT 1 FROM public.platform_admins WHERE id = auth.uid())
   );

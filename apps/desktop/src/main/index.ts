@@ -46,6 +46,13 @@ function handleDeepLink(urlStr: string): void {
   }
 }
 
+if ((srm as any).standards && !(srm as any).standards.dod) {
+  (srm as any).standards.dod = (srm as any).standards.HMG_IS5 || (srm as any).standards.secure;
+  if (Array.isArray((srm as any).validIDs) && !(srm as any).validIDs.includes("dod")) {
+    (srm as any).validIDs.push("dod");
+  }
+}
+
 async function sweepOrphanedTempFiles(): Promise<void> {
   try {
     if (!existsSync(TEMP_DIR)) {
@@ -56,7 +63,7 @@ async function sweepOrphanedTempFiles(): Promise<void> {
     for (const entry of entries) {
       const fullPath = path.join(TEMP_DIR, entry);
       try {
-        await srm(fullPath, { standard: "secure" });
+        await srm(fullPath, { standard: "dod" as any });
       } catch {
         try {
           await fs.unlink(fullPath);
@@ -757,7 +764,7 @@ async function convertBufferToPdf(
 async function secureDeleteFile(filePath: string): Promise<void> {
   if (!existsSync(filePath)) return;
   try {
-    await srm(filePath, { standard: "secure" });
+    await srm(filePath, { standard: "dod" as any });
   } catch {
     try {
       await fs.unlink(filePath);

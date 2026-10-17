@@ -17,6 +17,8 @@ import {
   calculateOrderTotal,
   calculateOrderSheets,
   SESSION_STORAGE_KEY,
+  isOrderCompleted,
+  isOrderFailed,
   getSupabase,
   joinSignalingChannel,
   broadcast,
@@ -124,29 +126,94 @@ export default function PrintClient({
   
   // Try to restore session on mount
   useEffect(() => {
+    let isMounted = true;
     try {
       const saved = localStorage.getItem(SESSION_STORAGE_KEY(shopId));
       if (saved) {
         const parsed = JSON.parse(saved) as PersistedSession;
-        if (parsed.status !== "picked_up" && parsed.status !== "cancelled") {
+        if (!isOrderCompleted(parsed.status) && !isOrderFailed(parsed.status)) {
           setCurrentSessionId(parsed.orderId);
           setToken(parsed.token);
           setJobStatus(parsed.status);
+          if (parsed.printTicket) setPrintTicket(parsed.printTicket);
+          if (parsed.isPaymentConfirmed || parsed.status === "ready_for_pickup") {
+            setIsPaymentConfirmedByShop(true);
+          }
           if (parsed.totalAmount !== undefined) setPersistedTotalAmount(parsed.totalAmount);
           if (parsed.documentCount !== undefined) setPersistedDocumentCount(parsed.documentCount);
           setStep("print_pay"); // Resume straight to print progress screen
+
+          // Immediately verify live status with Supabase in case order status changed while offline
+          (async () => {
+            try {
+              const supabase = getSupabase();
+              const { data } = await supabase
+                .from("print_orders")
+                .select("status, payment_status, token_code")
+                .eq("session_id", parsed.orderId)
+                .maybeSingle();
+
+              if (!isMounted || !data) return;
+              if (data.token_code) {
+                setToken((prev) => (prev ? { ...prev, tokenCode: data.token_code! } : prev));
+              }
+              if (data.payment_status === "confirmed") {
+                setIsPaymentConfirmedByShop(true);
+              }
+              const liveStatus = data.status;
+              if (isOrderCompleted(liveStatus)) {
+                try {
+                  localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+                } catch {}
+                setJobStatus("picked_up");
+              } else if (isOrderFailed(liveStatus)) {
+                try {
+                  localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+                } catch {}
+                setStep("error");
+                setErrorMsg(
+                  liveStatus === "cancelled"
+                    ? "Your order was cancelled by the shop."
+                    : "Hardware print spooler reported an error. The shopkeeper can retry your print at the counter."
+                );
+                if (liveStatus === "failed" || liveStatus === "failed_refunded") {
+                  setIsRefundPromptOpen(true);
+                }
+              } else if (liveStatus) {
+                setJobStatus(liveStatus as JobStatus);
+              }
+            } catch (err) {
+              console.warn("[PrintClient] Live status check on restore error:", err);
+            }
+          })();
         } else {
-          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          try {
+            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          } catch {}
         }
       }
     } catch (e) {
       console.warn("[PrintClient] Failed to load persisted session", e);
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [shopId]);
 
-  // Persist session automatically
+  // Persist session automatically while active; end immediately once completed or failed
   useEffect(() => {
-    if (currentSessionId && token && step === "print_pay" && jobStatus !== "cancelled") {
+    const isCompleted = isOrderCompleted(jobStatus);
+    const isFailed = isOrderFailed(jobStatus) || step === "error";
+
+    if (isCompleted || isFailed || step === "upload") {
+      try {
+        localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+      } catch {}
+      return;
+    }
+
+    if (currentSessionId && token && step === "print_pay") {
       const persisted: PersistedSession = {
         orderId: currentSessionId,
         shopId,
@@ -159,12 +226,32 @@ export default function PrintClient({
             finishingServices,
           }, finishingServices.filter((s) => s.enabled)) + (totalCharge !== undefined ? totalCharge : Math.round(((platformFee !== undefined ? platformFee : 0.82) + (gstAmount !== undefined ? gstAmount : Math.round((platformFee !== undefined ? platformFee : 0.82) * ((gstPercentage !== undefined ? gstPercentage : 18) / 100) * 100) / 100)) * 100) / 100)) : persistedTotalAmount,
         documentCount: documents.length > 0 ? documents.length : persistedDocumentCount,
+        printTicket,
+        isPaymentConfirmed: isPaymentConfirmedByShop,
       };
-      localStorage.setItem(SESSION_STORAGE_KEY(shopId), JSON.stringify(persisted));
-    } else if (step === "upload") {
-      localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+      try {
+        localStorage.setItem(SESSION_STORAGE_KEY(shopId), JSON.stringify(persisted));
+      } catch {}
     }
-  }, [currentSessionId, token, jobStatus, step, shopId]);
+  }, [
+    currentSessionId,
+    token,
+    jobStatus,
+    step,
+    shopId,
+    documents,
+    priceBw,
+    priceColor,
+    finishingServices,
+    totalCharge,
+    platformFee,
+    gstAmount,
+    gstPercentage,
+    persistedTotalAmount,
+    persistedDocumentCount,
+    printTicket,
+    isPaymentConfirmedByShop,
+  ]);
 
   // Monitor shop online status in realtime and verify on mount
   useEffect(() => {
@@ -284,13 +371,6 @@ export default function PrintClient({
   }, [step]);
   const isError = step === "error";
 
-  // Clean state on mount / refresh (ensures user is never trapped in stale session)
-  useEffect(() => {
-    try {
-      localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-    } catch {}
-  }, [shopId]);
-
   // Refs to allow broadcast listeners to read latest state without re-subscribing
   const tokenRef = React.useRef(token);
   tokenRef.current = token;
@@ -337,6 +417,9 @@ export default function PrintClient({
           setToken((prev) => (prev ? { ...prev, tokenCode: p.tokenCode! } : prev));
         }
         if (p.status === "error") {
+          try {
+            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          } catch {}
           setStep("error");
           setErrorMsg(
             p.errorDetail ||
@@ -346,12 +429,32 @@ export default function PrintClient({
           return;
         }
         if (p.status === "cancelled") {
+          try {
+            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          } catch {}
           setStep("error");
           setErrorMsg(
             p.errorDetail ||
               "Your order was cancelled by the shop."
           );
-          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          return;
+        }
+        if (isOrderCompleted(p.status)) {
+          try {
+            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          } catch {}
+          setJobStatus("picked_up");
+          return;
+        }
+        if (isOrderFailed(p.status)) {
+          try {
+            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+          } catch {}
+          setStep("error");
+          setErrorMsg(
+            p.errorDetail ||
+              "The print failed at the counter."
+          );
           return;
         }
         if (p.status) {
@@ -402,15 +505,31 @@ export default function PrintClient({
             setJobStatus("ready_for_pickup");
           }
           if (row.status === "cancelled") {
+            try {
+              localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+            } catch {}
             setStep("error");
             setErrorMsg("Your order was cancelled by the shop.");
-            localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-          } else if (row.status === "failed") {
+          } else if (row.status === "failed" || row.status === "failed_refunded") {
+            try {
+              localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+            } catch {}
             setStep("error");
             setErrorMsg(
               "Hardware print spooler reported an error. The shopkeeper can retry your print at the counter."
             );
             setIsRefundPromptOpen(true);
+          } else if (isOrderCompleted(row.status)) {
+            try {
+              localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+            } catch {}
+            setJobStatus("picked_up");
+          } else if (isOrderFailed(row.status)) {
+            try {
+              localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+            } catch {}
+            setStep("error");
+            setErrorMsg("Your order failed at the counter.");
           } else if (row.status) {
             setJobStatus(row.status as JobStatus);
           }
@@ -459,6 +578,9 @@ export default function PrintClient({
       });
       const data = await res.json();
       if (!data.success) {
+        try {
+          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+        } catch {}
         const channel = joinSignalingChannel(shopId);
         broadcast(channel, "order-status", {
           sessionId,
@@ -474,6 +596,9 @@ export default function PrintClient({
       localPrintTicket = data.printTicket;
       setPrintTicket(localPrintTicket);
     } catch (err) {
+      try {
+        localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+      } catch {}
       const channel = joinSignalingChannel(shopId);
       broadcast(channel, "order-status", {
         sessionId,
@@ -538,6 +663,9 @@ export default function PrintClient({
           if (p.status === "complete") {
             setJobStatus("printing");
           } else if (p.status === "error") {
+            try {
+              localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+            } catch {}
             const channel = joinSignalingChannel(shopId);
             broadcast(channel, "order-status", {
               sessionId,
@@ -561,6 +689,9 @@ export default function PrintClient({
         }
       );
     } catch (err) {
+      try {
+        localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
+      } catch {}
       const channel = joinSignalingChannel(shopId);
       broadcast(channel, "order-status", {
         sessionId,

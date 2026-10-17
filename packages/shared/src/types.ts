@@ -310,6 +310,19 @@ export function calculateOrderTotal(
 export const SESSION_STORAGE_KEY = (shopId: string) =>
   `printap_active_order_${shopId}`;
 
+export function isOrderCompleted(status?: string): boolean {
+  return status === "picked_up" || status === "completed";
+}
+
+export function isOrderFailed(status?: string): boolean {
+  return (
+    status === "cancelled" ||
+    status === "failed" ||
+    status === "failed_refunded" ||
+    status === "error"
+  );
+}
+
 export interface PersistedSession {
   orderId: string;
   shopId: string;
@@ -318,6 +331,8 @@ export interface PersistedSession {
   createdAt: string;
   totalAmount?: number;
   documentCount?: number;
+  printTicket?: string;
+  isPaymentConfirmed?: boolean;
 }
 
 // ─── WebRTC Transfer Protocol Payloads ───

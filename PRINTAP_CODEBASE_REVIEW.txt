@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-17T13:26:31.550Z
+Generated: 2026-10-17T13:58:37.975Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ mellod/printap/
 [10] supabase/migrations/016_platform_admins.sql             (1.0 KB, 28 lines) — SQL Migration: Platform Admin Permissions & RLS
 [11] supabase/migrations/017_security_hardening_and_fixes.sql (12.0 KB, 375 lines) — SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
 [12] packages/shared/package.json                            (0.3 KB, 15 lines) — Shared Package Definition
-[13] packages/shared/src/index.ts                            (2.9 KB, 139 lines) — Shared Package Main Exports
+[13] packages/shared/src/index.ts                            (3.0 KB, 141 lines) — Shared Package Main Exports
 [14] packages/shared/src/supabase.ts                         (2.0 KB, 67 lines) — Shared Supabase Client, Domain Sanitizer, Types
 [15] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
 [16] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
@@ -1658,6 +1658,8 @@ export {
   DEFAULT_SHOP_SERVICES,
   DEFAULT_RATE_CARD,
   SESSION_STORAGE_KEY,
+  isOrderCompleted,
+  isOrderFailed,
   calculateSheets,
   calculateOrderSheets,
   calculateDocumentPrice,

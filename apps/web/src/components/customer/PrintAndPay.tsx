@@ -45,10 +45,10 @@ export default function PrintAndPay({
     setTimeout(() => setCopiedToken(false), 2000);
   };
 
-  // Determine spooling status message
+  // Determine spooling status message (if session restored from storage without active stream, transfer is already complete)
   const isTransferring = progress && progress.status === "sending";
-  const isCompleteTransfer = progress && progress.status === "complete";
-  const percent = progress?.percent ?? 0;
+  const isCompleteTransfer = (progress && progress.status === "complete") || !progress;
+  const percent = progress?.percent ?? (isCompleteTransfer ? 100 : 0);
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -122,7 +122,7 @@ export default function PrintAndPay({
 
           <div className="flex justify-between items-center text-[11px] text-zinc-500">
             <span className="truncate max-w-[240px] sm:max-w-xs font-medium">
-              📄 {progress?.currentFileName || documents[0]?.file.name}
+              📄 {progress?.currentFileName || documents[0]?.file?.name || "Print Order Document"}
             </span>
             <span className="font-mono font-bold text-zinc-700">
               {isCompleteTransfer ? "100% Spooled ✓" : `${percent}%`}

@@ -38,6 +38,8 @@ export {
   DEFAULT_SHOP_SERVICES,
   DEFAULT_RATE_CARD,
   SESSION_STORAGE_KEY,
+  isOrderCompleted,
+  isOrderFailed,
   calculateSheets,
   calculateOrderSheets,
   calculateDocumentPrice,

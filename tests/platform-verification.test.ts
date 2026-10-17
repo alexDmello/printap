@@ -9,9 +9,14 @@ import {
   isValidEmail,
   isValidSubdomainLabel,
   isReservedSubdomain,
+  SESSION_STORAGE_KEY,
+  isOrderCompleted,
+  isOrderFailed,
   type PrintSettings,
   type ShopRateCard,
   type FinishingService,
+  type PersistedSession,
+  type QueueToken,
 } from "../packages/shared/src/index";
 
 // -------------------------------------------------------------
@@ -495,4 +500,181 @@ describe("9. 10-Minute Onboarding Login Retention Policy", () => {
     assert.strictEqual(checkSessionExpired(loginAt15m, now), true);
   });
 });
+
+describe("10. User Side Session Retention & Lifecycle Termination", () => {
+  const shopId = "test-shop-uuid-123";
+  const storageKey = SESSION_STORAGE_KEY(shopId);
+
+  // Mock localStorage for lifecycle testing
+  class MockLocalStorage {
+    private store: Record<string, string> = {};
+    getItem(key: string): string | null {
+      return this.store[key] ?? null;
+    }
+    setItem(key: string, value: string): void {
+      this.store[key] = value;
+    }
+    removeItem(key: string): void {
+      delete this.store[key];
+    }
+    clear(): void {
+      this.store = {};
+    }
+  }
+
+  it("should generate the deterministic customer session storage key for a shop", () => {
+    assert.strictEqual(storageKey, "printap_active_order_test-shop-uuid-123");
+    assert.strictEqual(SESSION_STORAGE_KEY("central-xerox"), "printap_active_order_central-xerox");
+  });
+
+  it("should accurately identify completed order states", () => {
+    assert.strictEqual(isOrderCompleted("picked_up"), true);
+    assert.strictEqual(isOrderCompleted("completed"), true);
+    assert.strictEqual(isOrderCompleted("queued"), false);
+    assert.strictEqual(isOrderCompleted("printing"), false);
+    assert.strictEqual(isOrderCompleted("ready_for_pickup"), false);
+    assert.strictEqual(isOrderCompleted("pending_payment"), false);
+    assert.strictEqual(isOrderCompleted("cancelled"), false);
+    assert.strictEqual(isOrderCompleted("failed"), false);
+    assert.strictEqual(isOrderCompleted(undefined), false);
+  });
+
+  it("should accurately identify failed order states", () => {
+    assert.strictEqual(isOrderFailed("cancelled"), true);
+    assert.strictEqual(isOrderFailed("failed"), true);
+    assert.strictEqual(isOrderFailed("failed_refunded"), true);
+    assert.strictEqual(isOrderFailed("error"), true);
+    assert.strictEqual(isOrderFailed("picked_up"), false);
+    assert.strictEqual(isOrderFailed("completed"), false);
+    assert.strictEqual(isOrderFailed("queued"), false);
+    assert.strictEqual(isOrderFailed("printing"), false);
+    assert.strictEqual(isOrderFailed("ready_for_pickup"), false);
+    assert.strictEqual(isOrderFailed(undefined), false);
+  });
+
+  it("should retain active order session across serialization and restoration", () => {
+    const storage = new MockLocalStorage();
+    const token: QueueToken = {
+      tokenCode: "#105",
+      queuePosition: 1,
+      estimatedWaitMinutes: 3,
+    };
+
+    const session: PersistedSession = {
+      orderId: "session-order-uuid-abc",
+      shopId,
+      token,
+      status: "printing",
+      createdAt: new Date().toISOString(),
+      totalAmount: 25.5,
+      documentCount: 2,
+      printTicket: "ticket-12345",
+      isPaymentConfirmed: false,
+    };
+
+    // Customer places order -> saved to storage
+    storage.setItem(storageKey, JSON.stringify(session));
+
+    // Customer refreshes page -> restored from storage
+    const raw = storage.getItem(storageKey);
+    assert.notStrictEqual(raw, null);
+    const parsed = JSON.parse(raw!) as PersistedSession;
+
+    assert.strictEqual(parsed.orderId, "session-order-uuid-abc");
+    assert.strictEqual(parsed.token.tokenCode, "#105");
+    assert.strictEqual(parsed.status, "printing");
+    assert.strictEqual(parsed.totalAmount, 25.5);
+    assert.strictEqual(parsed.documentCount, 2);
+    assert.strictEqual(isOrderCompleted(parsed.status), false);
+    assert.strictEqual(isOrderFailed(parsed.status), false);
+  });
+
+  it("should retain session when order is ready for pickup or awaiting payment", () => {
+    const storage = new MockLocalStorage();
+    const token: QueueToken = {
+      tokenCode: "#105",
+      queuePosition: 1,
+      estimatedWaitMinutes: 0,
+    };
+
+    const session: PersistedSession = {
+      orderId: "session-order-uuid-abc",
+      shopId,
+      token,
+      status: "ready_for_pickup",
+      createdAt: new Date().toISOString(),
+      totalAmount: 18.0,
+      documentCount: 1,
+      isPaymentConfirmed: true,
+    };
+
+    storage.setItem(storageKey, JSON.stringify(session));
+
+    const raw = storage.getItem(storageKey);
+    assert.notStrictEqual(raw, null);
+    const parsed = JSON.parse(raw!) as PersistedSession;
+    assert.strictEqual(parsed.status, "ready_for_pickup");
+    assert.strictEqual(parsed.isPaymentConfirmed, true);
+    assert.strictEqual(isOrderCompleted(parsed.status), false);
+    assert.strictEqual(isOrderFailed(parsed.status), false);
+  });
+
+  it("should end (purge) session when order is completed or picked up", () => {
+    const storage = new MockLocalStorage();
+    const token: QueueToken = {
+      tokenCode: "#105",
+      queuePosition: 1,
+      estimatedWaitMinutes: 0,
+    };
+
+    storage.setItem(
+      storageKey,
+      JSON.stringify({
+        orderId: "session-order-uuid-abc",
+        shopId,
+        token,
+        status: "printing",
+        createdAt: new Date().toISOString(),
+      })
+    );
+
+    // Order completes at counter -> status updated to picked_up
+    const newStatus = "picked_up";
+    if (isOrderCompleted(newStatus) || isOrderFailed(newStatus)) {
+      storage.removeItem(storageKey);
+    }
+
+    assert.strictEqual(storage.getItem(storageKey), null);
+  });
+
+  it("should end (purge) session when order fails, is cancelled, or errors", () => {
+    const failedStatuses = ["cancelled", "failed", "failed_refunded", "error"];
+
+    for (const failure of failedStatuses) {
+      const storage = new MockLocalStorage();
+      storage.setItem(
+        storageKey,
+        JSON.stringify({
+          orderId: "session-order-uuid-abc",
+          shopId,
+          token: { tokenCode: "#105", queuePosition: 1, estimatedWaitMinutes: 0 },
+          status: "queued",
+          createdAt: new Date().toISOString(),
+        })
+      );
+
+      // Failure occurs
+      if (isOrderCompleted(failure) || isOrderFailed(failure)) {
+        storage.removeItem(storageKey);
+      }
+
+      assert.strictEqual(
+        storage.getItem(storageKey),
+        null,
+        `Expected session to be purged on status ${failure}`
+      );
+    }
+  });
+});
+
 

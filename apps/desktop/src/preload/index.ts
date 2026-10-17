@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       fileId?: string;
       printer?: string;
       copies?: number;
+      colorMode?: "bw" | "color";
+      duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
     }

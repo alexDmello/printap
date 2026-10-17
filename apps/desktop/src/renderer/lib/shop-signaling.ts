@@ -41,6 +41,12 @@ function resetSessionTimeout(sessionId: string, timeoutMs = 90_000): void {
   );
 }
 
+async function computeSha256Hex(buffer: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export interface ReceivedOrderFile {
   fileId: string;
   fileName: string;
@@ -342,13 +348,25 @@ function setupDataChannelReceiver(
     return finalBuffer;
   };
 
-  dc.onmessage = (event) => {
+  dc.onmessage = async (event) => {
     resetSessionTimeout(session.sessionId);
 
     if (typeof event.data === "string") {
       if (event.data === "EOF") {
         const finalBuf = finalizeCurrentFile();
         if (finalBuf) {
+          if (currentFileHeader && (currentFileHeader as any).sha256) {
+            const actualHash = await computeSha256Hex(finalBuf);
+            if (actualHash !== (currentFileHeader as any).sha256) {
+              callbacks.onSessionError?.(
+                session.sessionId,
+                `Integrity check failed for ${currentFileHeader.fileName}`
+              );
+              cleanup(session.sessionId);
+              return;
+            }
+          }
+
           const fileName =
             currentFileHeader?.fileName ||
             legacyMetadata?.fileName ||
@@ -425,6 +443,18 @@ function setupDataChannelReceiver(
         if (msg.type === "file-eof") {
           const finalBuf = finalizeCurrentFile();
           if (currentFileHeader && finalBuf) {
+            if ((currentFileHeader as any).sha256) {
+              const actualHash = await computeSha256Hex(finalBuf);
+              if (actualHash !== (currentFileHeader as any).sha256) {
+                callbacks.onSessionError?.(
+                  session.sessionId,
+                  `Integrity check failed for ${currentFileHeader.fileName}`
+                );
+                cleanup(session.sessionId);
+                return;
+              }
+            }
+
             const alreadyPushed = receivedFiles.some(
               (f) => f.fileId === currentFileHeader!.fileId
             );

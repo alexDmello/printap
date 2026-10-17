@@ -276,6 +276,15 @@ export const PrintersControl: React.FC<PrintersControlProps> = React.memo(({
           .from("printer_assignments")
           .upsert(records, { onConflict: "shop_id,printer_name" });
 
+        const activeNames = Object.keys(cleanedAssignments);
+        if (activeNames.length > 0) {
+          await supabase
+            .from("printer_assignments")
+            .delete()
+            .eq("shop_id", shopId)
+            .not("printer_name", "in", `(${activeNames.map((n) => `"${n.replace(/"/g, '\\"')}"`).join(",")})`);
+        }
+
         if (error) {
           setStatusMessage({
             text: "Saved locally! (Database sync ready)",

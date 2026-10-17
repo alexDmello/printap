@@ -16,6 +16,7 @@ const filesToInclude = [
   { path: "supabase/migrations/013_shop_tokens.sql", desc: "SQL Migration: Token Ledger & Subscription Balance" },
   { path: "supabase/migrations/014_token_escrow_and_refunds.sql", desc: "SQL Migration: Atomic Token Escrow & Automatic Refunds" },
   { path: "supabase/migrations/016_platform_admins.sql", desc: "SQL Migration: Platform Admin Permissions & RLS" },
+  { path: "supabase/migrations/017_security_hardening_and_fixes.sql", desc: "SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security" },
 
   // ─── Shared Core Package ───
   { path: "packages/shared/package.json", desc: "Shared Package Definition" },
@@ -86,19 +87,21 @@ Printap replaces this with a ZERO-CLOUD-STORAGE peer-to-peer streaming pipeline:
    - Customer and Shop negotiate an encrypted WebRTC PeerConnection via Supabase Realtime Broadcast signaling.
    - Files are sliced into 64KB binary chunks and streamed DIRECTLY from the customer's mobile browser to the shop desktop terminal over an encrypted RTCDataChannel.
    - ZERO file bytes are ever uploaded to, or stored on, Supabase storage or cloud servers.
-   - SHA-256 chunk checksums verify end-to-end payload integrity before spooling.
+   - Event-driven DataChannel backpressure monitoring (1MB high-water threshold, 256KB low-water drain event) ensures reliable transmission without buffer overflow.
+   - Contiguous pre-allocated zero-copy byte assembly on the desktop terminal prevents double memory allocation.
 
 3. COUNTER TERMINAL AGENT (Electron Desktop App):
    - Runs locally on the shopkeeper's counter PC (Windows).
-   - Automatically discovers physical hardware printers via native PowerShell/WMI and excludes virtual queues (PDF writers, OneNote, fax).
+   - Automatically discovers physical hardware printers via native PowerShell/WMI and excludes virtual queues (PDF writers, OneNote, fax), with UTF-8 encoding and bounded timeouts.
    - Maps document print settings (B&W vs Color, A4 vs A3) to target physical printers.
-   - Manages a local FIFO spooling queue with atomic Token verification.
+   - Manages a local FIFO spooling queue with atomic Token verification and bounded memory retention (zeroing V8 ArrayBuffers upon completion/cancellation).
    - Streams PDF buffers directly into the Windows native print spooler (\`pdf-to-printer\`).
-   - Implements SECURE SHREDDING (\`secure-rm\` multi-pass overwrite) immediately after physical spooling completes.
+   - Implements SECURE SHREDDING (\`secure-rm\` DoD 5220.22-M 3-pass overwrite with unlinking fallback) immediately after two-phase spooler lock release.
 
 4. TOKEN & ESCROW MONETIZATION ENGINE:
    - Each print transaction requires 1 Printap Token.
-   - PostgreSQL RPCs (\`escrow_shop_tokens\`, \`consume_escrowed_token\`, \`release_escrowed_token\`) enforce atomic token balance verification.
+   - PostgreSQL RPCs (\`reserve_shop_token\`, \`refund_shop_token\`, \`credit_shop_tokens\`) enforce atomic token balance verification.
+   - Pessimistic row-locking (\`FOR UPDATE\`) and unique partial constraints eliminate race conditions and double reservations/refunds.
    - Tokens are escrowed upon WebRTC handshake and atomically consumed only when the physical print job succeeds.
    - If the printer jams, runs out of paper, or the customer cancels, the escrowed token is instantly refunded back to the shop's balance.
 

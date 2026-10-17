@@ -315,7 +315,7 @@ function escapeHtml(str: string): string {
 }
 
 function detectImageMime(uint8: Uint8Array): string {
-  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x4f)
+  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x47)
     return "image/png";
   if (uint8[0] === 0xff && uint8[1] === 0xd8 && uint8[2] === 0xff)
     return "image/jpeg";
@@ -783,6 +783,8 @@ ipcMain.handle(
       fileId?: string;
       printer?: string;
       copies?: number;
+      colorMode?: "bw" | "color";
+      duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
     }
@@ -837,10 +839,18 @@ ipcMain.handle(
       }
       sendStatus(sessionId, "saved", `File prepared (${stat.size} bytes)`);
 
-      sendStatus(sessionId, "printing", "Sending to print spooler...");
+      const copyCount = Math.max(1, Math.min(500, options?.copies ?? 1));
+      sendStatus(
+        sessionId,
+        "printing",
+        `Sending to print spooler (${copyCount} ${copyCount === 1 ? "copy" : "copies"})...`
+      );
 
       const printOptions: ptp.PrintOptions = {
         scale: options?.scale || "noscale",
+        copies: copyCount,
+        monochrome: options?.colorMode === "bw",
+        side: options?.duplex === "double" ? "duplex" : "simplex",
       };
 
       if (options?.printer) {
@@ -851,18 +861,7 @@ ipcMain.handle(
         printOptions.orientation = options.orientation;
       }
 
-      const copyCount = Math.max(1, Math.min(500, options?.copies ?? 1));
-
-      for (let i = 0; i < copyCount; i++) {
-        if (copyCount > 1) {
-          sendStatus(
-            sessionId,
-            "printing",
-            `Printing copy ${i + 1} of ${copyCount}...`
-          );
-        }
-        await ptp.print(filePath, printOptions);
-      }
+      await ptp.print(filePath, printOptions);
 
       sendStatus(sessionId, "printed", `Print job sent (${copyCount} copies)`);
       sendStatus(sessionId, "waiting", "Waiting for spooler to release file...");

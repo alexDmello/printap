@@ -1111,7 +1111,15 @@ function ShopAdminShell(): React.ReactElement {
         setActiveJob((prev) =>
           prev && prev.sessionId === sessionId ? null : prev
         );
-        setPendingQueue((prev) => prev.filter((j) => j.sessionId !== sessionId));
+        setPendingQueue((prev) => {
+          const target = prev.find((j) => j.sessionId === sessionId);
+          if (target) {
+            target.files.forEach((f) => {
+              (f as { buffer: ArrayBuffer | null }).buffer = new ArrayBuffer(0);
+            });
+          }
+          return prev.filter((j) => j.sessionId !== sessionId);
+        });
         setRecentJobs((prev) =>
           prev.map((j) =>
             j.sessionId === sessionId
@@ -1126,6 +1134,14 @@ function ShopAdminShell(): React.ReactElement {
             .update({ status: "failed" })
             .eq("session_id", sessionId)
             .then(() => {});
+          if (shopId) {
+            supabase
+              .rpc("refund_shop_token", {
+                p_shop_id: shopId,
+                p_session_id: sessionId,
+              })
+              .then(() => {});
+          }
         } catch {}
       },
     });
@@ -1139,6 +1155,47 @@ function ShopAdminShell(): React.ReactElement {
       setIsListening(false);
     };
   }, [isAuthenticated, shopId, isShopOnline, loadTodayPrintsCount, refreshAssignments]);
+
+  // Auto-expire unpaid pendingQueue jobs older than 30 minutes to free V8 ArrayBuffer memory
+  useEffect(() => {
+    const EXPIRY_MS = 30 * 60 * 1000;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setPendingQueue((prev) => {
+        const expired = prev.filter(
+          (job) => now - new Date(job.enqueuedAt).getTime() > EXPIRY_MS
+        );
+        if (expired.length === 0) return prev;
+
+        expired.forEach((job) => {
+          console.log(`[App] Auto-expiring abandoned unpaid order ${job.sessionId}`);
+          job.files.forEach((f) => {
+            (f as { buffer: ArrayBuffer | null }).buffer = new ArrayBuffer(0);
+          });
+          const supabase = getSupabase();
+          supabase
+            .from("print_orders")
+            .update({ status: "cancelled", updated_at: new Date().toISOString() })
+            .eq("session_id", job.sessionId)
+            .then(() => {});
+          if (shopId) {
+            supabase
+              .rpc("refund_shop_token", {
+                p_shop_id: shopId,
+                p_session_id: job.sessionId,
+              })
+              .then(() => {});
+          }
+        });
+
+        return prev.filter(
+          (job) => now - new Date(job.enqueuedAt).getTime() <= EXPIRY_MS
+        );
+      });
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, [shopId]);
 
   // Payment Confirmation Handler called from LiveDashboard (StrictMode-safe)
   const handleConfirmPayment = useCallback(

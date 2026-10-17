@@ -358,6 +358,7 @@ export interface TransferFileHeaderMessage {
   totalChunks: number;
   pageCount: number;
   settings: PrintSettings;
+  sha256?: string;
 }
 
 export interface TransferFileEofMessage {

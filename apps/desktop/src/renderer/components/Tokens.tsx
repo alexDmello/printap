@@ -54,24 +54,35 @@ export const Tokens: React.FC = React.memo(() => {
     setErrorMsg("");
 
     try {
-      const supabase = getSupabase();
-      // In a real production app, this would redirect to a payment gateway (e.g., Razorpay) 
-      // and the top-up would be credited via a secure webhook. 
-      // For this demo, we credit directly.
-      const { data, error } = await supabase.rpc("credit_shop_tokens", {
-        p_shop_id: shopId,
-        p_amount: tokenAmount,
-        p_note: "Direct Admin Top-up (₹1/token)",
+      const apiUrl = import.meta.env.VITE_API_URL || "https://www.mellod.in";
+      const response = await fetch(`${apiUrl}/api/tokens/topup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopId, amount: tokenAmount }),
       });
 
-      if (error) throw error;
-      if (data?.success) {
-        setSuccessMsg(`Successfully added ${tokenAmount} tokens!`);
-        setTokenAmount(100); // reset
-        fetchTransactions();
-      } else {
-        setErrorMsg(data?.error || "Top-up failed.");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.checkoutUrl) {
+          if (window.electronAPI?.openExternal) {
+            await window.electronAPI.openExternal(data.checkoutUrl);
+          } else {
+            window.open(data.checkoutUrl, "_blank");
+          }
+          setSuccessMsg("Checkout opened in browser. Tokens will credit automatically upon payment confirmation.");
+          setTokenAmount(100);
+          fetchTransactions();
+          return;
+        }
+        if (data.success) {
+          setSuccessMsg(`Successfully added ${tokenAmount} tokens!`);
+          setTokenAmount(100);
+          fetchTransactions();
+          return;
+        }
       }
+
+      setErrorMsg("Payment gateway is in admin-approval mode. Please contact platform support or admin console to approve token top-up.");
     } catch (err: any) {
       setErrorMsg(err.message || "An error occurred during top-up.");
     } finally {

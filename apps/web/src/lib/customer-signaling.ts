@@ -71,6 +71,12 @@ export interface SendOrderPayload {
   finishingServices: FinishingService[];
 }
 
+export async function computeSha256Hex(buffer: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function waitForBufferDrain(dc: RTCDataChannel): Promise<void> {
   if (dc.bufferedAmount <= MAX_BUFFERED_AMOUNT) {
     return;
@@ -247,6 +253,7 @@ export async function streamOrderToShop(
           const item = files[fIdx];
           const arrayBuffer = await item.file.arrayBuffer();
           const totalBytes = arrayBuffer.byteLength;
+          const sha256 = await computeSha256Hex(arrayBuffer);
 
           dc.send(
             JSON.stringify({
@@ -256,6 +263,7 @@ export async function streamOrderToShop(
               fileSize: totalBytes,
               pageCount: item.pageCount,
               settings: item.settings,
+              sha256,
             })
           );
 

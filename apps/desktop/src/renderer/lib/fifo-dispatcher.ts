@@ -307,6 +307,8 @@ export class FifoPrintDispatcher {
             fileId: file.fileId || `f${fIdx + 1}`,
             printer: printerName,
             copies: settings.copies || 1,
+            colorMode: settings.colorMode || "bw",
+            duplex: settings.duplex || "single",
             orientation: settings.orientation,
             scale: settings.pageFit === "fill" ? "noscale" : "fit",
           }

@@ -41,7 +41,8 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
         .from("print_orders")
         .select("id, shop_id, session_id, token_code, payment_method, payment_status, total_amount, status, created_at")
         .eq("shop_id", shopId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (!error && data) {
         setOrders(data as PrintOrderRecord[]);
@@ -156,8 +157,13 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
     let totalRevenue = 0;
     let upiRevenue = 0;
     let cashRevenue = 0;
+    let settledCount = 0;
 
     filteredOrders.forEach((o) => {
+      if (o.status === "cancelled" || o.status === "failed" || o.status === "failed_refunded") {
+        return;
+      }
+      settledCount++;
       const amt = Number(o.total_amount) || 0;
       totalRevenue += amt;
       if (o.payment_method === "upi") upiRevenue += amt;
@@ -165,7 +171,7 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
     });
 
     return {
-      count: filteredOrders.length,
+      count: settledCount,
       totalRevenue,
       upiRevenue,
       cashRevenue,
@@ -443,22 +449,40 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
                       {order.payment_method ? order.payment_method.toUpperCase() : "UPI"}
                     </span>
 
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: "#059669",
-                        background: "rgba(16, 185, 129, 0.1)",
-                        padding: "3px 8px",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    >
-                      <IconCheck size={12} />
-                      <span>Settled & Paid</span>
-                    </span>
+                    {order.status === "cancelled" || order.status === "failed" || order.status === "failed_refunded" ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "#ef4444",
+                          background: "rgba(239, 68, 68, 0.1)",
+                          padding: "3px 8px",
+                          borderRadius: "var(--radius-sm)",
+                        }}
+                      >
+                        <span>{order.status === "cancelled" ? "Cancelled" : "Failed"}</span>
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "#059669",
+                          background: "rgba(16, 185, 129, 0.1)",
+                          padding: "3px 8px",
+                          borderRadius: "var(--radius-sm)",
+                        }}
+                      >
+                        <IconCheck size={12} />
+                        <span>Settled & Paid</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Right: Amount & Copy */}
@@ -467,8 +491,18 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
                       <div style={{ fontSize: 15, fontWeight: 800, color: "#16181D", fontFamily: "var(--font-mono)" }}>
                         ₹{amount.toFixed(2)}
                       </div>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                        Verified
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color:
+                            order.status === "cancelled" || order.status === "failed" || order.status === "failed_refunded"
+                              ? "#ef4444"
+                              : "var(--text-muted)",
+                        }}
+                      >
+                        {order.status === "cancelled" || order.status === "failed" || order.status === "failed_refunded"
+                          ? "Refunded"
+                          : "Verified"}
                       </div>
                     </div>
 

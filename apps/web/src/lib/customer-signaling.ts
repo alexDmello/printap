@@ -371,7 +371,7 @@ export async function sendOrderToShop(
   }));
 
   try {
-    const { cleanup } = await streamOrderToShop(
+    await streamOrderToShop(
       shopId,
       sessionId,
       manifestOrder,

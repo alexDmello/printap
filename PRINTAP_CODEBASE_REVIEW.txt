@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-17T04:39:00.474Z
+Generated: 2026-10-17T05:51:52.652Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ mellod/printap/
 ───────────────────────────────────────────────────────────────────────────────
 3. TABLE OF CONTENTS OF INCLUDED FILES
 ───────────────────────────────────────────────────────────────────────────────
-[01] package.json                                            (0.6 KB, 23 lines) — Monorepo Root Package Configuration
+[01] package.json                                            (0.7 KB, 24 lines) — Monorepo Root Package Configuration
 [02] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
 [03] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
 [04] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
@@ -133,7 +133,8 @@ PURPOSE: Monorepo Root Package Configuration
     "dist:desktop": "npm -w apps/desktop run dist",
     "dev:admin-desktop": "npm -w apps/admin-desktop run dev",
     "build:admin-desktop": "npm -w apps/admin-desktop run build",
-    "dist:admin-desktop": "npm -w apps/admin-desktop run dist"
+    "dist:admin-desktop": "npm -w apps/admin-desktop run dist",
+    "test": "npx tsx --test tests/platform-verification.test.ts"
   },
   "engines": {
     "node": ">=18"
@@ -16173,7 +16174,7 @@ export async function sendOrderToShop(
   }));
 
   try {
-    const { cleanup } = await streamOrderToShop(
+    await streamOrderToShop(
       shopId,
       sessionId,
       manifestOrder,

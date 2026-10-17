@@ -14,7 +14,8 @@
     "dist:desktop": "npm -w apps/desktop run dist",
     "dev:admin-desktop": "npm -w apps/admin-desktop run dev",
     "build:admin-desktop": "npm -w apps/admin-desktop run build",
-    "dist:admin-desktop": "npm -w apps/admin-desktop run dist"
+    "dist:admin-desktop": "npm -w apps/admin-desktop run dist",
+    "test": "npx tsx --test tests/platform-verification.test.ts"
   },
   "engines": {
     "node": ">=18"

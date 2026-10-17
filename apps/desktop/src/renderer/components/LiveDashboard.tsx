@@ -341,7 +341,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                   <th style={{ width: 68 }}>Token</th>
                   <th>Document & Specs</th>
                   <th>Amount</th>
-                  <th style={{ width: 140, textAlign: "right" }}>Status / Action</th>
+                  <th style={{ width: 150, textAlign: "right" }}>Status / Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -423,12 +423,11 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-dismiss-tiny hover-pop"
-                                  style={{ padding: "6px", borderRadius: "6px", background: "#fee2e2", color: "#dc2626", border: "none", cursor: "pointer" }}
+                                  className="table-cancel-btn hover-pop"
                                   onClick={() => onCancelOrder(job.sessionId)}
                                   title="Cancel Order & Refund"
                                 >
-                                  ✕
+                                  Cancel
                                 </button>
                               </div>
                             ) : isReceiving ? (
@@ -438,12 +437,11 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                 </span>
                                 <button
                                   type="button"
-                                  className="btn-dismiss-tiny hover-pop"
-                                  style={{ padding: "6px", borderRadius: "6px", background: "#fee2e2", color: "#dc2626", border: "none", cursor: "pointer" }}
+                                  className="table-cancel-btn hover-pop"
                                   onClick={() => onCancelOrder(job.sessionId)}
                                   title="Cancel Order"
                                 >
-                                  ✕
+                                  Cancel
                                 </button>
                               </div>
                             ) : job.status === "printing" ? (

@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-17T09:13:44.686Z
+Generated: 2026-10-17T13:26:31.550Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ mellod/printap/
 [27] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
 [28] apps/desktop/src/renderer/lib/fifo-dispatcher.ts        (15.7 KB, 557 lines) — FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
 [29] apps/desktop/src/renderer/components/Sidebar.tsx        (9.8 KB, 297 lines) — Navigation Sidebar & Live Online/Offline Toggle
-[30] apps/desktop/src/renderer/components/LiveDashboard.tsx  (26.8 KB, 619 lines) — Live Monitor: Active Print Progress, Live Queue, Handover Ledger
+[30] apps/desktop/src/renderer/components/LiveDashboard.tsx  (26.5 KB, 617 lines) — Live Monitor: Active Print Progress, Live Queue, Handover Ledger
 [31] apps/desktop/src/renderer/components/PrintHistory.tsx   (21.1 KB, 562 lines) — Print History & Activity Ledger with CSV Export
 [32] apps/desktop/src/renderer/components/PrintersControl.tsx (25.3 KB, 784 lines) — Hardware Printer Mapping & Capability Assignment
 [33] apps/desktop/src/renderer/components/ServicesRates.tsx  (32.9 KB, 909 lines) — Shop Services, Rate Card & Document Pricing Matrix
@@ -106,7 +106,7 @@ mellod/printap/
 [40] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
 [41] apps/desktop/src/renderer/components/ErrorBoundary.tsx  (4.5 KB, 163 lines) — Global React Exception Boundary
 [42] apps/desktop/src/renderer/components/Icons.tsx          (9.9 KB, 411 lines) — SVG Icon Set
-[43] apps/desktop/src/renderer/styles.css                    (52.6 KB, 2492 lines) — High-Contrast Structural Design System Stylesheet
+[43] apps/desktop/src/renderer/styles.css                    (53.0 KB, 2515 lines) — High-Contrast Structural Design System Stylesheet
 [44] apps/web/src/lib/customer-signaling.ts                  (13.3 KB, 509 lines) — Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -7762,7 +7762,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                   <th style={{ width: 68 }}>Token</th>
                   <th>Document & Specs</th>
                   <th>Amount</th>
-                  <th style={{ width: 140, textAlign: "right" }}>Status / Action</th>
+                  <th style={{ width: 150, textAlign: "right" }}>Status / Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -7844,12 +7844,11 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-dismiss-tiny hover-pop"
-                                  style={{ padding: "6px", borderRadius: "6px", background: "#fee2e2", color: "#dc2626", border: "none", cursor: "pointer" }}
+                                  className="table-cancel-btn hover-pop"
                                   onClick={() => onCancelOrder(job.sessionId)}
                                   title="Cancel Order & Refund"
                                 >
-                                  ✕
+                                  Cancel
                                 </button>
                               </div>
                             ) : isReceiving ? (
@@ -7859,12 +7858,11 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
                                 </span>
                                 <button
                                   type="button"
-                                  className="btn-dismiss-tiny hover-pop"
-                                  style={{ padding: "6px", borderRadius: "6px", background: "#fee2e2", color: "#dc2626", border: "none", cursor: "pointer" }}
+                                  className="table-cancel-btn hover-pop"
                                   onClick={() => onCancelOrder(job.sessionId)}
                                   title="Cancel Order"
                                 >
-                                  ✕
+                                  Cancel
                                 </button>
                               </div>
                             ) : job.status === "printing" ? (
@@ -15169,6 +15167,29 @@ body {
 .table-confirm-btn:hover {
   background: var(--text-secondary);
   border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.table-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #fca5a5;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.table-cancel-btn:hover {
+  background: #fecaca;
+  color: #b91c1c;
+  border-color: #f87171;
   transform: translateY(-1px);
 }
 

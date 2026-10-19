@@ -208,7 +208,9 @@ app.whenReady().then(async () => {
 
   if (mainWindow) {
     mainWindow.webContents.once("did-finish-load", () => {
-      autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.warn("[autoUpdater] Check error:", err?.message || err);
+      });
     });
   }
 

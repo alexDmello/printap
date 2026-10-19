@@ -1675,12 +1675,20 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     if (window.electronAPI?.onUpdaterEvent) {
       const cleanup = window.electronAPI.onUpdaterEvent((data) => {
-        setUpdateState((prev) => ({
-          ...prev,
-          stage: data.stage as any,
-          progress: data.progress,
-          error: data.error,
-        }));
+        setUpdateState((prev) => {
+          // If error occurs during background check on startup (e.g. offline, private repo, 404),
+          // suppress it silently so the user is not blocked. Only show error if downloading was in progress.
+          if (data.stage === "error" && prev.stage !== "downloading" && prev.stage !== "available") {
+            console.warn("[updater] Background check skipped/failed:", data.error);
+            return prev;
+          }
+          return {
+            ...prev,
+            stage: data.stage as any,
+            progress: data.progress,
+            error: data.error,
+          };
+        });
       });
       return cleanup;
     }

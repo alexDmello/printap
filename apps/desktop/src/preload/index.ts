@@ -89,5 +89,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     };
   },
 
+  startDownloadUpdate: () => ipcRenderer.send("start-download-update"),
   restartApp: () => ipcRenderer.send("restart-app"),
 });

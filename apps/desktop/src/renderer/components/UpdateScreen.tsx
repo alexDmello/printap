@@ -1,145 +1,111 @@
 import React from "react";
 
+export type UpdateStage = "available" | "downloading" | "downloaded" | "error" | null;
+
 interface UpdateScreenProps {
-  stage: "checking" | "available" | "downloading" | "downloaded" | "error" | "not-available";
+  stage: UpdateStage;
   progress?: number;
   error?: string;
+  onStartDownload: () => void;
   onRestart: () => void;
   onDismiss: () => void;
 }
 
-export function UpdateScreen({ stage, progress, error, onRestart, onDismiss }: UpdateScreenProps) {
-  // Silent checks should not block the app
-  if (stage === "checking" || stage === "not-available") {
-    return null;
-  }
+export const UpdateScreen: React.FC<UpdateScreenProps> = ({
+  stage,
+  progress = 0,
+  error,
+  onStartDownload,
+  onRestart,
+  onDismiss,
+}) => {
+  if (!stage) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(22, 24, 29, 0.72)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10000,
-        padding: 24,
-      }}
-    >
-      <div
-        className="fade-in"
-        style={{
-          backgroundColor: "#FFFFFF",
-          border: "1px solid var(--border-active, #16181D)",
-          borderRadius: "var(--radius-lg, 2px)",
-          padding: "36px 32px",
-          maxWidth: 440,
-          width: "100%",
-          textAlign: "center",
-          boxShadow: "var(--shadow-glass-modal, 0 20px 48px rgba(22, 24, 29, 0.16))",
-        }}
-      >
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            backgroundColor: "var(--color-structure, #16181D)",
-            color: "#FFFFFF",
-            borderRadius: "var(--radius-sm, 1px)",
-            margin: "0 auto 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg style={{ width: 24, height: 24 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-            />
-          </svg>
-        </div>
+    <div className="modal-overlay">
+      <div className="confirm-dialog-card" style={{ minWidth: 380 }}>
+        {/* State 1: Update Available */}
+        {stage === "available" && (
+          <>
+            <div className="confirm-dialog-title">Software Update Available</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
+              A new version of the Printap Terminal Agent is available. Would you like to download and install it now to get the latest features and security improvements?
+            </div>
+            <div className="confirm-dialog-actions">
+              <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
+                Remind Me Later
+              </button>
+              <button type="button" className="btn-dialog-confirm" onClick={onStartDownload}>
+                Download Update
+              </button>
+            </div>
+          </>
+        )}
 
-        <h2
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            fontFamily: "var(--font-sans)",
-            color: "var(--text-primary, #16181D)",
-            marginBottom: 8,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {stage === "available" && "Software Update Available"}
-          {stage === "downloading" && "Downloading Package..."}
-          {stage === "downloaded" && "Update Ready to Install"}
-          {stage === "error" && "Update Verification"}
-        </h2>
-
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-secondary, #424750)",
-            lineHeight: 1.5,
-            marginBottom: 24,
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          {stage === "available" && "A new version of the counter terminal is available and preparing to download."}
-          {stage === "downloading" && "Downloading release assets in the background. Please keep the app open."}
-          {stage === "downloaded" && "The update has been securely verified and downloaded. Restart now to apply."}
-          {stage === "error" && (error || "Unable to retrieve update package.")}
-        </p>
-
+        {/* State 2: Downloading */}
         {stage === "downloading" && (
-          <div
-            style={{
-              width: "100%",
-              height: 6,
-              backgroundColor: "rgba(209, 200, 204, 0.5)",
-              borderRadius: 1,
-              overflow: "hidden",
-              marginBottom: 16,
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: `${Math.round(progress || 0)}%`,
-                backgroundColor: "var(--color-structure, #16181D)",
-                transition: "width 0.3s ease",
-              }}
-            />
-          </div>
+          <>
+            <div className="confirm-dialog-title">Downloading Update...</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+                Please wait while the update downloads in the background.
+              </div>
+              
+              <div style={{ width: "100%", height: 8, background: "rgba(0,0,0,0.06)", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+                <div 
+                  style={{ 
+                    height: "100%", 
+                    width: `${Math.min(100, Math.max(0, progress))}%`, 
+                    background: "var(--accent-emerald)",
+                    transition: "width 0.2s ease-out"
+                  }} 
+                />
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
+                {Math.round(progress)}%
+              </div>
+            </div>
+          </>
         )}
 
+        {/* State 3: Downloaded & Ready */}
         {stage === "downloaded" && (
-          <button
-            type="button"
-            onClick={onRestart}
-            className="btn-primary"
-            style={{ width: "100%", padding: "11px 18px", fontSize: 13 }}
-          >
-            Restart & Install Update
-          </button>
+          <>
+            <div className="confirm-dialog-title" style={{ color: "var(--accent-emerald)" }}>Update Ready to Install</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
+              The update has been successfully downloaded. The terminal needs to restart to apply the changes. 
+              <br/><br/>
+              <strong>Note:</strong> Ensure no active print jobs are running before restarting.
+            </div>
+            <div className="confirm-dialog-actions">
+              <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
+                Install Later
+              </button>
+              <button type="button" className="btn-dialog-confirm" style={{ background: "var(--accent-emerald)", borderColor: "var(--accent-emerald)" }} onClick={onRestart}>
+                Restart & Install
+              </button>
+            </div>
+          </>
         )}
 
+        {/* State 4: Error */}
         {stage === "error" && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="btn-secondary"
-            style={{ width: "100%", padding: "10px 18px", fontSize: 13 }}
-          >
-            Continue to Counter Terminal
-          </button>
+          <>
+            <div className="confirm-dialog-title" style={{ color: "var(--accent-rose)" }}>Update Failed</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
+              There was an error while trying to download the update:
+              <div style={{ marginTop: 8, padding: 8, background: "rgba(239, 68, 68, 0.1)", borderRadius: 6, fontSize: 11, color: "var(--accent-rose)", fontFamily: "monospace", wordBreak: "break-all" }}>
+                {error || "Unknown network error"}
+              </div>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
+                Close
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
   );
-}
+};

@@ -175,7 +175,7 @@ app.whenReady().then(async () => {
   await sweepOrphanedTempFiles();
   createWindow();
 
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false; // <--- Changed to false to prevent silent background downloads
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on("checking-for-update", () => {
@@ -230,6 +230,10 @@ app.on("window-all-closed", () => {
 
 ipcMain.on("restart-app", () => {
   autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.on("start-download-update", () => {
+  autoUpdater.downloadUpdate();
 });
 
 ipcMain.handle("open-external", async (_event, url: string) => {

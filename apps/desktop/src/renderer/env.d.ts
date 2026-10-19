@@ -107,6 +107,7 @@ interface ElectronAPI {
   onUpdaterEvent: (
     callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
   ) => () => void;
+  startDownloadUpdate: () => void;
   restartApp: () => void;
 }
 

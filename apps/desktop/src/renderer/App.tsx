@@ -1687,8 +1687,10 @@ export default function App(): React.ReactElement {
   }, []);
 
   const shouldShowUpdater =
+    updateState.stage === "available" ||
     updateState.stage === "downloading" ||
-    updateState.stage === "downloaded";
+    updateState.stage === "downloaded" ||
+    updateState.stage === "error";
 
   return (
     <>
@@ -1700,6 +1702,7 @@ export default function App(): React.ReactElement {
           stage={updateState.stage as any}
           progress={updateState.progress}
           error={updateState.error}
+          onStartDownload={() => window.electronAPI.startDownloadUpdate()}
           onRestart={() => window.electronAPI.restartApp()}
           onDismiss={() => setUpdateState({ stage: null })}
         />

@@ -238,7 +238,7 @@ export const UpdateScreen: React.FC<UpdateScreenProps> = ({
               </div>
             </div>
             <div className="confirm-dialog-actions" style={{ flexShrink: 0, marginTop: "auto", display: "flex", gap: 10 }}>
-              {onDismiss && (
+              {!isCompulsory && onDismiss && (
                 <button
                   type="button"
                   className="btn-dialog-cancel"

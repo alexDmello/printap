@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-19T11:22:06.677Z
+Generated: 2026-10-19T11:37:03.194Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -2304,7 +2304,7 @@ PURPOSE: Desktop Electron App Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
   "name": "@printap/desktop",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "description": "Printap — Privacy-First Xerox & Print Shop Agent",
   "author": "Mellod",
   "repository": {
@@ -13273,7 +13273,7 @@ export const UpdateScreen: React.FC<UpdateScreenProps> = ({
               </div>
             </div>
             <div className="confirm-dialog-actions" style={{ flexShrink: 0, marginTop: "auto", display: "flex", gap: 10 }}>
-              {onDismiss && (
+              {!isCompulsory && onDismiss && (
                 <button
                   type="button"
                   className="btn-dialog-cancel"

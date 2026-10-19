@@ -1,5 +1,9 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+const DEFAULT_SUPABASE_URL = "https://pjwystvflmigolgtlpow.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips";
+
 const getUrl = (): string => {
   // 1. Try Next.js process.env
   if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) {
@@ -17,7 +21,7 @@ const getUrl = (): string => {
     }
   } catch (e) {}
   
-  return "";
+  return DEFAULT_SUPABASE_URL;
 };
 
 const getKey = (): string => {
@@ -37,11 +41,11 @@ const getKey = (): string => {
     }
   } catch (e) {}
 
-  return "";
+  return DEFAULT_SUPABASE_ANON_KEY;
 };
 
-const SUPABASE_URL = getUrl();
-const SUPABASE_ANON_KEY = getKey();
+const SUPABASE_URL = getUrl() || DEFAULT_SUPABASE_URL;
+const SUPABASE_ANON_KEY = getKey() || DEFAULT_SUPABASE_ANON_KEY;
 
 let client: SupabaseClient | null = null;
 

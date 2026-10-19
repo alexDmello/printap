@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-19T11:37:03.194Z
+Generated: 2026-10-19T11:46:11.008Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ mellod/printap/
 3. TABLE OF CONTENTS OF INCLUDED FILES
 ───────────────────────────────────────────────────────────────────────────────
 [01] package.json                                            (0.7 KB, 24 lines) — Monorepo Root Package Configuration
-[02] .github/workflows/release.yml                           (1.2 KB, 54 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
+[02] .github/workflows/release.yml                           (1.5 KB, 57 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
 [03] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
 [04] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
 [05] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
@@ -79,10 +79,10 @@ mellod/printap/
 [13] supabase/migrations/018_enterprise_lockdown.sql         (6.8 KB, 202 lines) — SQL Migration: Enterprise Security Lockdown & RPC Hardening
 [14] packages/shared/package.json                            (0.3 KB, 15 lines) — Shared Package Definition
 [15] packages/shared/src/index.ts                            (3.0 KB, 141 lines) — Shared Package Main Exports
-[16] packages/shared/src/supabase.ts                         (2.0 KB, 67 lines) — Shared Supabase Client, Domain Sanitizer, Types
+[16] packages/shared/src/supabase.ts                         (2.4 KB, 71 lines) — Shared Supabase Client, Domain Sanitizer, Types
 [17] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
 [18] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
-[19] apps/desktop/electron.vite.config.ts                    (0.8 KB, 29 lines) — Electron-Vite Build & Alias Configuration
+[19] apps/desktop/electron.vite.config.ts                    (1.7 KB, 44 lines) — Electron-Vite Build & Alias Configuration
 [20] apps/desktop/electron-builder.yml                       (0.6 KB, 30 lines) — Electron-Builder Windows Packaging Configuration
 [21] apps/desktop/src/main/index.ts                          (28.9 KB, 976 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
 [22] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
@@ -103,7 +103,7 @@ mellod/printap/
 [37] apps/desktop/src/renderer/components/CounterQr.tsx      (21.7 KB, 634 lines) — Customer QR Code Stand Generator & Print Sheet
 [38] apps/desktop/src/renderer/components/Tokens.tsx         (9.6 KB, 260 lines) — Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
 [39] apps/desktop/src/renderer/components/Profile.tsx        (8.4 KB, 246 lines) — Shop Information, Operating Hours & Geolocation Configuration
-[40] apps/desktop/src/renderer/components/Login.tsx          (21.2 KB, 632 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
+[40] apps/desktop/src/renderer/components/Login.tsx          (18.2 KB, 549 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
 [41] apps/desktop/src/renderer/components/UpdateScreen.tsx   (9.5 KB, 266 lines) — Software Auto-Updater Modal (Download Progress & Restart)
 [42] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
 [43] apps/desktop/src/renderer/components/ErrorBoundary.tsx  (4.5 KB, 163 lines) — Global React Exception Boundary
@@ -176,6 +176,9 @@ jobs:
         run: npm ci
 
       - name: Build Desktop App
+        env:
+          VITE_SUPABASE_URL: "https://pjwystvflmigolgtlpow.supabase.co"
+          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips"
         run: npm -w apps/desktop run build
 
       - name: Package Desktop App (NSIS)
@@ -2034,6 +2037,10 @@ PURPOSE: Shared Supabase Client, Domain Sanitizer, Types
 ───────────────────────────────────────────────────────────────────────────────
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+const DEFAULT_SUPABASE_URL = "https://pjwystvflmigolgtlpow.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips";
+
 const getUrl = (): string => {
   // 1. Try Next.js process.env
   if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) {
@@ -2051,7 +2058,7 @@ const getUrl = (): string => {
     }
   } catch (e) {}
   
-  return "";
+  return DEFAULT_SUPABASE_URL;
 };
 
 const getKey = (): string => {
@@ -2071,11 +2078,11 @@ const getKey = (): string => {
     }
   } catch (e) {}
 
-  return "";
+  return DEFAULT_SUPABASE_ANON_KEY;
 };
 
-const SUPABASE_URL = getUrl();
-const SUPABASE_ANON_KEY = getKey();
+const SUPABASE_URL = getUrl() || DEFAULT_SUPABASE_URL;
+const SUPABASE_ANON_KEY = getKey() || DEFAULT_SUPABASE_ANON_KEY;
 
 let client: SupabaseClient | null = null;
 
@@ -2304,7 +2311,7 @@ PURPOSE: Desktop Electron App Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
   "name": "@printap/desktop",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "description": "Printap — Privacy-First Xerox & Print Shop Agent",
   "author": "Mellod",
   "repository": {
@@ -2352,6 +2359,11 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://pjwystvflmigolgtlpow.supabase.co";
+const SUPABASE_ANON_KEY =
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips";
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: ["@printap/shared"] })],
@@ -2360,6 +2372,10 @@ export default defineConfig({
         "@shared": path.resolve(__dirname, "../../packages/shared/src"),
         "@printap/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
       },
+    },
+    define: {
+      "process.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
+      "process.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(SUPABASE_ANON_KEY),
     },
   },
   preload: {
@@ -2373,6 +2389,12 @@ export default defineConfig({
         "@printap/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
         "@renderer": path.resolve(__dirname, "src/renderer"),
       },
+    },
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
+      "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(SUPABASE_ANON_KEY),
+      "process.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
+      "process.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(SUPABASE_ANON_KEY),
     },
   },
 });
@@ -12403,34 +12425,9 @@ import { validateEmail } from "@printap/shared";
 
 const SAVED_EMAIL_KEY = "printap_saved_email";
 
-const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
-  <svg style={{ width: size, height: size, flexShrink: 0 }} viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-    />
-  </svg>
-);
-
 export const Login: React.FC = () => {
   const {
     login,
-    loginWithGoogle,
-    isGoogleSigningIn,
-    cancelGoogleLogin,
-    reopenGoogleBrowser,
     sendResetOtp,
     resetPassword,
   } = useAuth();
@@ -12501,13 +12498,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setErrorMessage(null);
-    const result = await loginWithGoogle();
-    if (!result.success && result.error && result.error !== "Login cancelled by user.") {
-      setErrorMessage(result.error);
-    }
-  };
 
   // Step 1: Send OTP for password reset
   const handleSendResetCode = async (e: React.FormEvent) => {
@@ -12577,58 +12567,7 @@ export const Login: React.FC = () => {
           Sign in with your registered shop account to connect your counter terminal.
         </p>
 
-        {/* Google Sign-In Option */}
-        <div style={{ marginTop: 20 }}>
-          {isGoogleSigningIn ? (
-            <div className="login-waiting-card fade-in">
-              <div className="login-waiting-spinner" />
-              <div style={{ textAlign: "left", flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
-                  Authorizing with Google...
-                </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                  Check your browser tab to complete sign-in.
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  type="button"
-                  onClick={reopenGoogleBrowser}
-                  className="btn-ghost"
-                  style={{ fontSize: 11, padding: "4px 8px" }}
-                  title="Reopen login tab in browser"
-                >
-                  Reopen
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelGoogleLogin}
-                  className="btn-ghost"
-                  style={{ fontSize: 11, padding: "4px 8px", color: "var(--accent-rose, #f43f5e)" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={isSubmitting || isGoogleSigningIn}
-              className="login-google-btn"
-            >
-              <GoogleIcon size={18} />
-              <span>Continue with Google</span>
-            </button>
-          )}
-        </div>
-
-        {/* Divider */}
-        <div className="login-divider">
-          <span>or sign in with password</span>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ marginTop: 0 }}>
+        <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
           {/* Email Input */}
           <div style={{ textAlign: "left", marginBottom: 6 }}>
             <label

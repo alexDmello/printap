@@ -29,10 +29,6 @@ jobs:
         env:
           # GITHUB_TOKEN is automatically provided by GitHub Actions to upload the release
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-          # Remove these two lines if you are testing WITHOUT a code signing certificate
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
           npm -w packages/shared run build
           npm -w apps/desktop run build

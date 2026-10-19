@@ -11,11 +11,16 @@ directories:
 files:
   - out/**/*
   - package.json
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/icon.ico
+    to: icon.ico
 asar: true
 asarUnpack:
   - "**/node_modules/pdf-to-printer/**/*"
 win:
-  icon: build/icon.ico
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch:

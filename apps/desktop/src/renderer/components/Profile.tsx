@@ -5,13 +5,62 @@ import { IconCopy, IconCheck, IconQr, IconShield } from "./Icons";
 
 interface ProfileProps {
   onNavigateToQr?: () => void;
+  isTerminalOnline?: boolean;
 }
 
-export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) => {
+export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr, isTerminalOnline = false }) => {
   const { shop } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<string>(() => {
+    if (typeof __APP_VERSION__ !== "undefined") {
+      return __APP_VERSION__;
+    }
+    return "0.3.20";
+  });
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI
+        .getAppVersion()
+        .then((ver) => {
+          if (isMounted && ver) {
+            setAppVersion(ver);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!window.electronAPI?.onUpdaterEvent) return;
+    const unsubscribe = window.electronAPI.onUpdaterEvent((event) => {
+      if (event.stage === "checking") {
+        setIsCheckingUpdate(true);
+      } else if (event.stage === "not-available") {
+        setIsCheckingUpdate(false);
+        setUpdateMessage(`✓ Printap v${appVersion} is up to date`);
+      } else if (event.stage === "available") {
+        setIsCheckingUpdate(false);
+        setUpdateMessage("Update available! Downloading mandatory update...");
+      } else if (event.stage === "downloading") {
+        setUpdateMessage(`Downloading update... ${Math.round(event.progress || 0)}%`);
+      } else if (event.stage === "downloaded") {
+        setUpdateMessage("Update downloaded. Restarting application to apply...");
+      } else if (event.stage === "error") {
+        setIsCheckingUpdate(false);
+        setUpdateMessage("Update check failed — please check connection");
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [appVersion]);
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -60,11 +109,26 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
             <span
               className="profile-field-value"
               style={{
-                color: "var(--accent-emerald)",
+                color: isTerminalOnline ? "var(--accent-emerald)" : "var(--text-muted)",
                 fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
-              {shop?.status ? shop.status.charAt(0).toUpperCase() + shop.status.slice(1) : "Active"} • Ready for incoming prints
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: isTerminalOnline ? "var(--accent-emerald)" : "#a1a1aa",
+                  boxShadow: isTerminalOnline ? "0 0 6px rgba(16, 185, 129, 0.4)" : "none",
+                  display: "inline-block",
+                }}
+              />
+              {isTerminalOnline
+                ? "Terminal Online — Ready for incoming prints"
+                : "Terminal Offline — Counter paused (Toggle in menu)"}
             </span>
           </div>
 
@@ -165,7 +229,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
         <div className="card-body">
           <div className="profile-field">
             <span className="profile-field-label">Installed Version</span>
-            <span className="profile-field-value">v0.3.15</span>
+            <span className="profile-field-value">v{appVersion}</span>
           </div>
 
           <div className="profile-field">
@@ -173,7 +237,11 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
             <span
               className="profile-field-value"
               style={{
-                color: updateMessage?.includes("failed") ? "var(--accent-rose, #f43f5e)" : "var(--accent-emerald)",
+                color: updateMessage?.includes("failed")
+                  ? "var(--accent-rose, #f43f5e)"
+                  : updateMessage?.includes("available")
+                  ? "var(--accent-indigo, #6366f1)"
+                  : "var(--accent-emerald)",
                 fontWeight: 600,
               }}
             >
@@ -193,13 +261,23 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
                   if (window.electronAPI?.checkForUpdates) {
                     const res = await window.electronAPI.checkForUpdates();
                     if (res?.isDev) {
-                      setUpdateMessage("Running in development mode");
+                      setUpdateMessage(`Printap v${appVersion} is up to date (Development mode)`);
+                    } else if (res?.isLatest) {
+                      setUpdateMessage(`✓ Printap v${res.currentVersion || appVersion} is up to date`);
+                    } else if (res?.latestVersion && res.latestVersion !== appVersion) {
+                      setUpdateMessage(`Update available: v${res.latestVersion}. Downloading compulsory update...`);
+                    } else if (res?.success === false) {
+                      setUpdateMessage(res.error ? `Check failed: ${res.error}` : "Check failed — verify internet connection");
+                    } else {
+                      setUpdateMessage(`✓ Printap v${appVersion} is up to date`);
                     }
+                  } else {
+                    setUpdateMessage(`✓ Printap v${appVersion} is up to date`);
                   }
                 } catch {
                   setUpdateMessage("Check failed — verify internet connection");
                 } finally {
-                  setTimeout(() => setIsCheckingUpdate(false), 2000);
+                  setTimeout(() => setIsCheckingUpdate(false), 1200);
                 }
               }}
             >

@@ -1,6 +1,11 @@
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
+
+const pkg = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8")
+);
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://pjwystvflmigolgtlpow.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -34,6 +39,8 @@ export default defineConfig({
       },
     },
     define: {
+      "__APP_VERSION__": JSON.stringify(pkg.version),
+      "import.meta.env.PACKAGE_VERSION": JSON.stringify(pkg.version),
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
       "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(SUPABASE_ANON_KEY),
       "process.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),

@@ -16,6 +16,8 @@ node_modules
 dist
 out
 build
+!apps/desktop/build/**
+!apps/admin-desktop/build/**
 .next
 .turbo
 .vercel

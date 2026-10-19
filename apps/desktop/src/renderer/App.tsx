@@ -1622,7 +1622,10 @@ function ShopAdminShell(): React.ReactElement {
 
           {currentPage === "profile" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
-              <Profile onNavigateToQr={() => handleSelectPage("qr")} />
+              <Profile
+                onNavigateToQr={() => handleSelectPage("qr")}
+                isTerminalOnline={isShopOnline}
+              />
             </div>
           )}
         </main>

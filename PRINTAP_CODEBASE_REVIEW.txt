@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-19T11:53:55.980Z
+Generated: 2026-10-19T14:59:15.158Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -82,14 +82,14 @@ mellod/printap/
 [16] packages/shared/src/supabase.ts                         (2.4 KB, 71 lines) — Shared Supabase Client, Domain Sanitizer, Types
 [17] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
 [18] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
-[19] apps/desktop/electron.vite.config.ts                    (1.7 KB, 44 lines) — Electron-Vite Build & Alias Configuration
-[20] apps/desktop/electron-builder.yml                       (0.6 KB, 30 lines) — Electron-Builder Windows Packaging Configuration
-[21] apps/desktop/src/main/index.ts                          (28.9 KB, 976 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
+[19] apps/desktop/electron.vite.config.ts                    (1.9 KB, 51 lines) — Electron-Vite Build & Alias Configuration
+[20] apps/desktop/electron-builder.yml                       (0.7 KB, 35 lines) — Electron-Builder Windows Packaging Configuration
+[21] apps/desktop/src/main/index.ts                          (29.7 KB, 1001 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
 [22] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
-[23] apps/desktop/src/preload/index.ts                       (2.6 KB, 96 lines) — Electron Preload Script (Typed ContextBridge IPC API)
-[24] apps/desktop/src/renderer/env.d.ts                      (2.6 KB, 118 lines) — Renderer Ambient TypeScript Types & Window Declarations
+[23] apps/desktop/src/preload/index.ts                       (2.7 KB, 97 lines) — Electron Preload Script (Typed ContextBridge IPC API)
+[24] apps/desktop/src/renderer/env.d.ts                      (2.8 KB, 129 lines) — Renderer Ambient TypeScript Types & Window Declarations
 [25] apps/desktop/src/renderer/main.tsx                      (0.4 KB, 14 lines) — Renderer React DOM Root Entrypoint
-[26] apps/desktop/src/renderer/App.tsx                       (63.9 KB, 1871 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
+[26] apps/desktop/src/renderer/App.tsx                       (64.0 KB, 1874 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
 [27] apps/desktop/src/renderer/context/AuthContext.tsx       (12.1 KB, 402 lines) — Authentication Context: Local Session, OTP Reset, Google OAuth
 [28] apps/desktop/src/renderer/lib/shop-signaling.ts         (18.0 KB, 652 lines) — WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
 [29] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
@@ -102,7 +102,7 @@ mellod/printap/
 [36] apps/desktop/src/renderer/components/Analytics.tsx      (14.3 KB, 430 lines) — Financial Metrics, Print Volume Charts, Revenue Summary
 [37] apps/desktop/src/renderer/components/CounterQr.tsx      (21.7 KB, 634 lines) — Customer QR Code Stand Generator & Print Sheet
 [38] apps/desktop/src/renderer/components/Tokens.tsx         (9.6 KB, 260 lines) — Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
-[39] apps/desktop/src/renderer/components/Profile.tsx        (8.4 KB, 246 lines) — Shop Information, Operating Hours & Geolocation Configuration
+[39] apps/desktop/src/renderer/components/Profile.tsx        (11.6 KB, 324 lines) — Shop Information, Operating Hours & Geolocation Configuration
 [40] apps/desktop/src/renderer/components/Login.tsx          (18.2 KB, 549 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
 [41] apps/desktop/src/renderer/components/UpdateScreen.tsx   (9.5 KB, 266 lines) — Software Auto-Updater Modal (Download Progress & Restart)
 [42] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
@@ -2311,7 +2311,7 @@ PURPOSE: Desktop Electron App Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
   "name": "@printap/desktop",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "description": "Printap — Privacy-First Xerox & Print Shop Agent",
   "author": "Mellod",
   "repository": {
@@ -2358,6 +2358,11 @@ PURPOSE: Electron-Vite Build & Alias Configuration
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
+
+const pkg = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8")
+);
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://pjwystvflmigolgtlpow.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -2391,6 +2396,8 @@ export default defineConfig({
       },
     },
     define: {
+      "__APP_VERSION__": JSON.stringify(pkg.version),
+      "import.meta.env.PACKAGE_VERSION": JSON.stringify(pkg.version),
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
       "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(SUPABASE_ANON_KEY),
       "process.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
@@ -2417,11 +2424,16 @@ directories:
 files:
   - out/**/*
   - package.json
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/icon.ico
+    to: icon.ico
 asar: true
 asarUnpack:
   - "**/node_modules/pdf-to-printer/**/*"
 win:
-  icon: build/icon.ico
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch:
@@ -2533,12 +2545,22 @@ if (!gotTheLock) {
 }
 
 function createWindow(): void {
-  const devIcon = path.join(__dirname, "../../resources/icon.png");
-  const prodIcon = path.join(process.resourcesPath, "icon.png");
-  const windowIcon = existsSync(devIcon)
-    ? devIcon
-    : existsSync(prodIcon)
-    ? prodIcon
+  const prodIco = path.join(process.resourcesPath, "icon.ico");
+  const prodPng = path.join(process.resourcesPath, "icon.png");
+  const devResIco = path.join(__dirname, "../../resources/icon.ico");
+  const devBuildIco = path.join(__dirname, "../../build/icon.ico");
+  const devPng = path.join(__dirname, "../../resources/icon.png");
+
+  const windowIcon = existsSync(prodIco)
+    ? prodIco
+    : existsSync(devResIco)
+    ? devResIco
+    : existsSync(devBuildIco)
+    ? devBuildIco
+    : existsSync(prodPng)
+    ? prodPng
+    : existsSync(devPng)
+    ? devPng
     : undefined;
 
   mainWindow = new BrowserWindow({
@@ -2613,6 +2635,9 @@ function performShutdownCleanup(): void {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === "win32") {
+    app.setAppUserModelId("in.mellod.printap");
+  }
   await sweepOrphanedTempFiles();
   createWindow();
 
@@ -2697,21 +2722,33 @@ ipcMain.on("start-download-update", () => {
   autoUpdater.downloadUpdate();
 });
 
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
+});
+
 ipcMain.handle("check-for-updates", async () => {
   if (!app.isPackaged) {
     mainWindow?.webContents.send("updater-event", { stage: "not-available" });
-    return { success: true, isDev: true };
+    return { success: true, isDev: true, isLatest: true, currentVersion: app.getVersion() };
   }
   try {
     mainWindow?.webContents.send("updater-event", { stage: "checking" });
     const result = await autoUpdater.checkForUpdates();
-    return { success: true, result };
+    const updateAvailable =
+      Boolean(result?.updateInfo?.version) &&
+      result.updateInfo.version !== app.getVersion();
+    return {
+      success: true,
+      isLatest: !updateAvailable,
+      currentVersion: app.getVersion(),
+      latestVersion: result?.updateInfo?.version || app.getVersion(),
+    };
   } catch (err: any) {
     mainWindow?.webContents.send("updater-event", {
       stage: "error",
       error: err?.message || String(err),
     });
-    return { success: false, error: err?.message || String(err) };
+    return { success: false, error: err?.message || String(err), currentVersion: app.getVersion() };
   }
 });
 
@@ -3762,6 +3799,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     };
   },
 
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   startDownloadUpdate: () => ipcRenderer.send("start-download-update"),
   restartApp: () => ipcRenderer.send("restart-app"),
@@ -3798,6 +3836,8 @@ declare module "*.webp" {
   const content: string;
   export default content;
 }
+
+declare const __APP_VERSION__: string;
 
 /** Type declaration for the API exposed by preload via contextBridge. */
 
@@ -3881,7 +3921,16 @@ interface ElectronAPI {
   onUpdaterEvent: (
     callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
   ) => () => void;
-  checkForUpdates: () => Promise<{ success: boolean; isDev?: boolean; result?: any; error?: string }>;
+  getAppVersion?: () => Promise<string>;
+  checkForUpdates: () => Promise<{
+    success: boolean;
+    isDev?: boolean;
+    isLatest?: boolean;
+    currentVersion?: string;
+    latestVersion?: string;
+    result?: any;
+    error?: string;
+  }>;
   startDownloadUpdate: () => void;
   restartApp: () => void;
 }
@@ -5538,7 +5587,10 @@ function ShopAdminShell(): React.ReactElement {
 
           {currentPage === "profile" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
-              <Profile onNavigateToQr={() => handleSelectPage("qr")} />
+              <Profile
+                onNavigateToQr={() => handleSelectPage("qr")}
+                isTerminalOnline={isShopOnline}
+              />
             </div>
           )}
         </main>
@@ -12174,13 +12226,62 @@ import { IconCopy, IconCheck, IconQr, IconShield } from "./Icons";
 
 interface ProfileProps {
   onNavigateToQr?: () => void;
+  isTerminalOnline?: boolean;
 }
 
-export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) => {
+export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr, isTerminalOnline = false }) => {
   const { shop } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<string>(() => {
+    if (typeof __APP_VERSION__ !== "undefined") {
+      return __APP_VERSION__;
+    }
+    return "0.3.20";
+  });
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI
+        .getAppVersion()
+        .then((ver) => {
+          if (isMounted && ver) {
+            setAppVersion(ver);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!window.electronAPI?.onUpdaterEvent) return;
+    const unsubscribe = window.electronAPI.onUpdaterEvent((event) => {
+      if (event.stage === "checking") {
+        setIsCheckingUpdate(true);
+      } else if (event.stage === "not-available") {
+        setIsCheckingUpdate(false);
+        setUpdateMessage(`✓ Printap v${appVersion} is up to date`);
+      } else if (event.stage === "available") {
+        setIsCheckingUpdate(false);
+        setUpdateMessage("Update available! Downloading mandatory update...");
+      } else if (event.stage === "downloading") {
+        setUpdateMessage(`Downloading update... ${Math.round(event.progress || 0)}%`);
+      } else if (event.stage === "downloaded") {
+        setUpdateMessage("Update downloaded. Restarting application to apply...");
+      } else if (event.stage === "error") {
+        setIsCheckingUpdate(false);
+        setUpdateMessage("Update check failed — please check connection");
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [appVersion]);
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -12229,11 +12330,26 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
             <span
               className="profile-field-value"
               style={{
-                color: "var(--accent-emerald)",
+                color: isTerminalOnline ? "var(--accent-emerald)" : "var(--text-muted)",
                 fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
-              {shop?.status ? shop.status.charAt(0).toUpperCase() + shop.status.slice(1) : "Active"} • Ready for incoming prints
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: isTerminalOnline ? "var(--accent-emerald)" : "#a1a1aa",
+                  boxShadow: isTerminalOnline ? "0 0 6px rgba(16, 185, 129, 0.4)" : "none",
+                  display: "inline-block",
+                }}
+              />
+              {isTerminalOnline
+                ? "Terminal Online — Ready for incoming prints"
+                : "Terminal Offline — Counter paused (Toggle in menu)"}
             </span>
           </div>
 
@@ -12334,7 +12450,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
         <div className="card-body">
           <div className="profile-field">
             <span className="profile-field-label">Installed Version</span>
-            <span className="profile-field-value">v0.3.15</span>
+            <span className="profile-field-value">v{appVersion}</span>
           </div>
 
           <div className="profile-field">
@@ -12342,7 +12458,11 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
             <span
               className="profile-field-value"
               style={{
-                color: updateMessage?.includes("failed") ? "var(--accent-rose, #f43f5e)" : "var(--accent-emerald)",
+                color: updateMessage?.includes("failed")
+                  ? "var(--accent-rose, #f43f5e)"
+                  : updateMessage?.includes("available")
+                  ? "var(--accent-indigo, #6366f1)"
+                  : "var(--accent-emerald)",
                 fontWeight: 600,
               }}
             >
@@ -12362,13 +12482,23 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
                   if (window.electronAPI?.checkForUpdates) {
                     const res = await window.electronAPI.checkForUpdates();
                     if (res?.isDev) {
-                      setUpdateMessage("Running in development mode");
+                      setUpdateMessage(`Printap v${appVersion} is up to date (Development mode)`);
+                    } else if (res?.isLatest) {
+                      setUpdateMessage(`✓ Printap v${res.currentVersion || appVersion} is up to date`);
+                    } else if (res?.latestVersion && res.latestVersion !== appVersion) {
+                      setUpdateMessage(`Update available: v${res.latestVersion}. Downloading compulsory update...`);
+                    } else if (res?.success === false) {
+                      setUpdateMessage(res.error ? `Check failed: ${res.error}` : "Check failed — verify internet connection");
+                    } else {
+                      setUpdateMessage(`✓ Printap v${appVersion} is up to date`);
                     }
+                  } else {
+                    setUpdateMessage(`✓ Printap v${appVersion} is up to date`);
                   }
                 } catch {
                   setUpdateMessage("Check failed — verify internet connection");
                 } finally {
-                  setTimeout(() => setIsCheckingUpdate(false), 2000);
+                  setTimeout(() => setIsCheckingUpdate(false), 1200);
                 }
               }}
             >

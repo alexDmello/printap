@@ -25,6 +25,8 @@ declare module "*.webp" {
   export default content;
 }
 
+declare const __APP_VERSION__: string;
+
 /** Type declaration for the API exposed by preload via contextBridge. */
 
 interface PrintResult {
@@ -107,7 +109,16 @@ interface ElectronAPI {
   onUpdaterEvent: (
     callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
   ) => () => void;
-  checkForUpdates: () => Promise<{ success: boolean; isDev?: boolean; result?: any; error?: string }>;
+  getAppVersion?: () => Promise<string>;
+  checkForUpdates: () => Promise<{
+    success: boolean;
+    isDev?: boolean;
+    isLatest?: boolean;
+    currentVersion?: string;
+    latestVersion?: string;
+    result?: any;
+    error?: string;
+  }>;
   startDownloadUpdate: () => void;
   restartApp: () => void;
 }

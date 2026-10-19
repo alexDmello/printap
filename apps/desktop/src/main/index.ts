@@ -92,12 +92,22 @@ if (!gotTheLock) {
 }
 
 function createWindow(): void {
-  const devIcon = path.join(__dirname, "../../resources/icon.png");
-  const prodIcon = path.join(process.resourcesPath, "icon.png");
-  const windowIcon = existsSync(devIcon)
-    ? devIcon
-    : existsSync(prodIcon)
-    ? prodIcon
+  const prodIco = path.join(process.resourcesPath, "icon.ico");
+  const prodPng = path.join(process.resourcesPath, "icon.png");
+  const devResIco = path.join(__dirname, "../../resources/icon.ico");
+  const devBuildIco = path.join(__dirname, "../../build/icon.ico");
+  const devPng = path.join(__dirname, "../../resources/icon.png");
+
+  const windowIcon = existsSync(prodIco)
+    ? prodIco
+    : existsSync(devResIco)
+    ? devResIco
+    : existsSync(devBuildIco)
+    ? devBuildIco
+    : existsSync(prodPng)
+    ? prodPng
+    : existsSync(devPng)
+    ? devPng
     : undefined;
 
   mainWindow = new BrowserWindow({
@@ -172,6 +182,9 @@ function performShutdownCleanup(): void {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === "win32") {
+    app.setAppUserModelId("in.mellod.printap");
+  }
   await sweepOrphanedTempFiles();
   createWindow();
 
@@ -256,21 +269,33 @@ ipcMain.on("start-download-update", () => {
   autoUpdater.downloadUpdate();
 });
 
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
+});
+
 ipcMain.handle("check-for-updates", async () => {
   if (!app.isPackaged) {
     mainWindow?.webContents.send("updater-event", { stage: "not-available" });
-    return { success: true, isDev: true };
+    return { success: true, isDev: true, isLatest: true, currentVersion: app.getVersion() };
   }
   try {
     mainWindow?.webContents.send("updater-event", { stage: "checking" });
     const result = await autoUpdater.checkForUpdates();
-    return { success: true, result };
+    const updateAvailable =
+      Boolean(result?.updateInfo?.version) &&
+      result.updateInfo.version !== app.getVersion();
+    return {
+      success: true,
+      isLatest: !updateAvailable,
+      currentVersion: app.getVersion(),
+      latestVersion: result?.updateInfo?.version || app.getVersion(),
+    };
   } catch (err: any) {
     mainWindow?.webContents.send("updater-event", {
       stage: "error",
       error: err?.message || String(err),
     });
-    return { success: false, error: err?.message || String(err) };
+    return { success: false, error: err?.message || String(err), currentVersion: app.getVersion() };
   }
 });
 

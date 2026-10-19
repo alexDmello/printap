@@ -8,7 +8,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) => {
-  const { shop, shopId } = useAuth();
+  const { shop } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, key: string) => {
@@ -81,53 +81,13 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
         </div>
       </div>
 
-      {/* Terminal Credentials & Web URLs */}
+      {/* Customer Web URL */}
       <div className="card" style={{ marginBottom: 22 }}>
         <div className="card-header">
-          <div className="card-title">Terminal & Customer Print URL</div>
+          <div className="card-title">Customer Print URL</div>
           <span className="tech-tag">Direct P2P</span>
         </div>
         <div className="card-body">
-          <div style={{ marginBottom: 18 }}>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Shop ID (Terminal UUID)
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                readOnly
-                value={shopId || ""}
-                className="login-input"
-                style={{ flex: 1 }}
-              />
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => shopId && copyToClipboard(shopId, "uuid")}
-              >
-                {copiedKey === "uuid" ? (
-                  <>
-                    <IconCheck size={14} color="var(--accent-emerald)" />
-                    <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <IconCopy size={14} />
-                    <span>Copy ID</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
           <div>
             <label
               style={{

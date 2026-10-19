@@ -28,8 +28,26 @@ jobs:
       - name: Build Desktop App
         run: npm -w apps/desktop run build
 
-      - name: Package & Publish Release
+      - name: Package Desktop App (NSIS)
+        run: npx electron-builder --project apps/desktop --win --publish never
+
+      - name: Clean up duplicate releases
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --project apps/desktop --win -p always --config.publish.releaseType=release
+        run: node scripts/cleanup_releases.cjs
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.blockmap
+            apps/desktop/dist/latest.yml
+          tag_name: ${{ github.ref_name }}
+          name: Printap v${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

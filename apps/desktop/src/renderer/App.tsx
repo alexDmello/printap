@@ -1691,18 +1691,21 @@ export default function App(): React.ReactElement {
 
         if (data.stage === "not-available") {
           // Terminal is on the latest release; proceed to load the app
+          if (checkTimeout) clearTimeout(checkTimeout);
           setStartupCheckDone(true);
         } else if (data.stage === "error") {
           // Network error or offline during initial check; proceed so offline counter is not blocked
+          if (checkTimeout) clearTimeout(checkTimeout);
           console.warn("[App] Updater error on startup check:", data.error);
           setStartupCheckDone(true);
         } else if (data.stage === "available") {
-          // Mandatory update available; prevent loading the app until updated
+          // Mandatory update available; cancel safety timer and intercept app loading
+          if (checkTimeout) clearTimeout(checkTimeout);
           setStartupCheckDone(false);
         }
       });
 
-      // Safety timeout: if after 4 seconds no event resolved (e.g. slow network), proceed to app
+      // Safety timeout: if after 4.5 seconds no event resolved (e.g. slow network), proceed to app
       checkTimeout = setTimeout(() => {
         setStartupCheckDone((done) => {
           if (!done) {
@@ -1810,6 +1813,39 @@ export default function App(): React.ReactElement {
     );
   }
 
+  // Mandatory update screen: if an update is found on startup, intercept BEFORE loading the app
+  if (!startupCheckDone && isMandatoryUpdateActive) {
+    return (
+      <div
+        className="login-container"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          width: "100vw",
+          backgroundColor: "#F0EBED",
+          userSelect: "none",
+        }}
+      >
+        <UpdateScreen
+          stage={updateState.stage as any}
+          progress={updateState.progress}
+          error={updateState.error}
+          version={updateState.version}
+          isCompulsory={true}
+          onStartDownload={() => window.electronAPI.startDownloadUpdate()}
+          onRestart={() => window.electronAPI.restartApp()}
+          onDismiss={() => {
+            setUpdateState({ stage: null });
+            setStartupCheckDone(true);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <AuthProvider>
@@ -1826,7 +1862,6 @@ export default function App(): React.ReactElement {
           onRestart={() => window.electronAPI.restartApp()}
           onDismiss={() => {
             setUpdateState({ stage: null });
-            setStartupCheckDone(true);
           }}
         />
       )}

@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-19T11:10:55.426Z
+Generated: 2026-10-19T11:22:06.677Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ mellod/printap/
 3. TABLE OF CONTENTS OF INCLUDED FILES
 ───────────────────────────────────────────────────────────────────────────────
 [01] package.json                                            (0.7 KB, 24 lines) — Monorepo Root Package Configuration
-[02] .github/workflows/release.yml                           (0.7 KB, 36 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
+[02] .github/workflows/release.yml                           (1.2 KB, 54 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
 [03] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
 [04] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
 [05] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
@@ -83,13 +83,13 @@ mellod/printap/
 [17] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
 [18] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
 [19] apps/desktop/electron.vite.config.ts                    (0.8 KB, 29 lines) — Electron-Vite Build & Alias Configuration
-[20] apps/desktop/electron-builder.yml                       (0.6 KB, 34 lines) — Electron-Builder Windows Packaging Configuration
+[20] apps/desktop/electron-builder.yml                       (0.6 KB, 30 lines) — Electron-Builder Windows Packaging Configuration
 [21] apps/desktop/src/main/index.ts                          (28.9 KB, 976 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
 [22] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
 [23] apps/desktop/src/preload/index.ts                       (2.6 KB, 96 lines) — Electron Preload Script (Typed ContextBridge IPC API)
 [24] apps/desktop/src/renderer/env.d.ts                      (2.6 KB, 118 lines) — Renderer Ambient TypeScript Types & Window Declarations
 [25] apps/desktop/src/renderer/main.tsx                      (0.4 KB, 14 lines) — Renderer React DOM Root Entrypoint
-[26] apps/desktop/src/renderer/App.tsx                       (62.8 KB, 1836 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
+[26] apps/desktop/src/renderer/App.tsx                       (63.9 KB, 1871 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
 [27] apps/desktop/src/renderer/context/AuthContext.tsx       (12.1 KB, 402 lines) — Authentication Context: Local Session, OTP Reset, Google OAuth
 [28] apps/desktop/src/renderer/lib/shop-signaling.ts         (18.0 KB, 652 lines) — WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
 [29] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
@@ -178,11 +178,29 @@ jobs:
       - name: Build Desktop App
         run: npm -w apps/desktop run build
 
-      - name: Package & Publish Release
+      - name: Package Desktop App (NSIS)
+        run: npx electron-builder --project apps/desktop --win --publish never
+
+      - name: Clean up duplicate releases
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --project apps/desktop --win -p always --config.publish.releaseType=release
+        run: node scripts/cleanup_releases.cjs
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.blockmap
+            apps/desktop/dist/latest.yml
+          tag_name: ${{ github.ref_name }}
+          name: Printap v${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -2286,7 +2304,7 @@ PURPOSE: Desktop Electron App Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
   "name": "@printap/desktop",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "description": "Printap — Privacy-First Xerox & Print Shop Agent",
   "author": "Mellod",
   "repository": {
@@ -2386,17 +2404,13 @@ win:
     - target: nsis
       arch:
         - x64
-    - target: portable
-      arch:
-        - x64
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Printap
-portable:
-  artifactName: "Printap-Portable-${version}.${ext}"
+  artifactName: "Printap-Setup-${version}.${ext}"
 
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -5571,18 +5585,21 @@ export default function App(): React.ReactElement {
 
         if (data.stage === "not-available") {
           // Terminal is on the latest release; proceed to load the app
+          if (checkTimeout) clearTimeout(checkTimeout);
           setStartupCheckDone(true);
         } else if (data.stage === "error") {
           // Network error or offline during initial check; proceed so offline counter is not blocked
+          if (checkTimeout) clearTimeout(checkTimeout);
           console.warn("[App] Updater error on startup check:", data.error);
           setStartupCheckDone(true);
         } else if (data.stage === "available") {
-          // Mandatory update available; prevent loading the app until updated
+          // Mandatory update available; cancel safety timer and intercept app loading
+          if (checkTimeout) clearTimeout(checkTimeout);
           setStartupCheckDone(false);
         }
       });
 
-      // Safety timeout: if after 4 seconds no event resolved (e.g. slow network), proceed to app
+      // Safety timeout: if after 4.5 seconds no event resolved (e.g. slow network), proceed to app
       checkTimeout = setTimeout(() => {
         setStartupCheckDone((done) => {
           if (!done) {
@@ -5690,6 +5707,39 @@ export default function App(): React.ReactElement {
     );
   }
 
+  // Mandatory update screen: if an update is found on startup, intercept BEFORE loading the app
+  if (!startupCheckDone && isMandatoryUpdateActive) {
+    return (
+      <div
+        className="login-container"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          width: "100vw",
+          backgroundColor: "#F0EBED",
+          userSelect: "none",
+        }}
+      >
+        <UpdateScreen
+          stage={updateState.stage as any}
+          progress={updateState.progress}
+          error={updateState.error}
+          version={updateState.version}
+          isCompulsory={true}
+          onStartDownload={() => window.electronAPI.startDownloadUpdate()}
+          onRestart={() => window.electronAPI.restartApp()}
+          onDismiss={() => {
+            setUpdateState({ stage: null });
+            setStartupCheckDone(true);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <AuthProvider>
@@ -5706,7 +5756,6 @@ export default function App(): React.ReactElement {
           onRestart={() => window.electronAPI.restartApp()}
           onDismiss={() => {
             setUpdateState({ stage: null });
-            setStartupCheckDone(true);
           }}
         />
       )}

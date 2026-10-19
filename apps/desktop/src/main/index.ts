@@ -206,11 +206,29 @@ app.whenReady().then(async () => {
     });
   });
 
+  const runUpdateCheck = () => {
+    if (!app.isPackaged) {
+      console.log("[autoUpdater] Development mode: skipping remote GitHub check");
+      setTimeout(() => {
+        mainWindow?.webContents.send("updater-event", { stage: "not-available" });
+      }, 600);
+      return;
+    }
+
+    console.log("[autoUpdater] Checking for updates on GitHub...");
+    mainWindow?.webContents.send("updater-event", { stage: "checking" });
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn("[autoUpdater] Check error:", err?.message || err);
+      mainWindow?.webContents.send("updater-event", {
+        stage: "error",
+        error: err?.message || String(err),
+      });
+    });
+  };
+
   if (mainWindow) {
     mainWindow.webContents.once("did-finish-load", () => {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-        console.warn("[autoUpdater] Check error:", err?.message || err);
-      });
+      runUpdateCheck();
     });
   }
 
@@ -236,6 +254,24 @@ ipcMain.on("restart-app", () => {
 
 ipcMain.on("start-download-update", () => {
   autoUpdater.downloadUpdate();
+});
+
+ipcMain.handle("check-for-updates", async () => {
+  if (!app.isPackaged) {
+    mainWindow?.webContents.send("updater-event", { stage: "not-available" });
+    return { success: true, isDev: true };
+  }
+  try {
+    mainWindow?.webContents.send("updater-event", { stage: "checking" });
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, result };
+  } catch (err: any) {
+    mainWindow?.webContents.send("updater-event", {
+      stage: "error",
+      error: err?.message || String(err),
+    });
+    return { success: false, error: err?.message || String(err) };
+  }
 });
 
 ipcMain.handle("open-external", async (_event, url: string) => {

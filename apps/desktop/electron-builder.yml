@@ -5,6 +5,7 @@ publish:
   provider: github
   owner: alexDmello
   repo: printap
+  releaseType: release
 directories:
   output: dist
 files:

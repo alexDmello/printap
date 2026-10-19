@@ -10,6 +10,8 @@ interface ProfileProps {
 export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) => {
   const { shop } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -150,6 +152,59 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Software Updates & Release Channel */}
+      <div className="card" style={{ marginBottom: 22 }}>
+        <div className="card-header">
+          <div className="card-title">Terminal Software & Updates</div>
+          <span className="status-badge active">● Production Channel</span>
+        </div>
+        <div className="card-body">
+          <div className="profile-field">
+            <span className="profile-field-label">Installed Version</span>
+            <span className="profile-field-value">v0.3.15</span>
+          </div>
+
+          <div className="profile-field">
+            <span className="profile-field-label">Update Status</span>
+            <span
+              className="profile-field-value"
+              style={{
+                color: updateMessage?.includes("failed") ? "var(--accent-rose, #f43f5e)" : "var(--accent-emerald)",
+                fontWeight: 600,
+              }}
+            >
+              {isCheckingUpdate ? "Checking release server..." : updateMessage || "Automatic checks active on startup"}
+            </span>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              className="pill-btn"
+              disabled={isCheckingUpdate}
+              onClick={async () => {
+                setIsCheckingUpdate(true);
+                setUpdateMessage(null);
+                try {
+                  if (window.electronAPI?.checkForUpdates) {
+                    const res = await window.electronAPI.checkForUpdates();
+                    if (res?.isDev) {
+                      setUpdateMessage("Running in development mode");
+                    }
+                  }
+                } catch {
+                  setUpdateMessage("Check failed — verify internet connection");
+                } finally {
+                  setTimeout(() => setIsCheckingUpdate(false), 2000);
+                }
+              }}
+            >
+              <span>{isCheckingUpdate ? "Connecting to Release Server..." : "Check for Updates Now"}</span>
+            </button>
           </div>
         </div>
       </div>

@@ -1670,49 +1670,164 @@ export default function App(): React.ReactElement {
     stage: "checking" | "available" | "downloading" | "downloaded" | "error" | "not-available" | null;
     progress?: number;
     error?: string;
-  }>({ stage: null });
+    version?: string;
+  }>({ stage: "checking" });
+
+  const [startupCheckDone, setStartupCheckDone] = useState(false);
 
   useEffect(() => {
+    let checkTimeout: NodeJS.Timeout | null = null;
+
     if (window.electronAPI?.onUpdaterEvent) {
       const cleanup = window.electronAPI.onUpdaterEvent((data) => {
-        setUpdateState((prev) => {
-          // If error occurs during background check on startup (e.g. offline, private repo, 404),
-          // suppress it silently so the user is not blocked. Only show error if downloading was in progress.
-          if (data.stage === "error" && prev.stage !== "downloading" && prev.stage !== "available") {
-            console.warn("[updater] Background check skipped/failed:", data.error);
-            return prev;
-          }
-          return {
-            ...prev,
-            stage: data.stage as any,
-            progress: data.progress,
-            error: data.error,
-          };
-        });
+        console.log("[App] Updater event:", data.stage, data);
+        setUpdateState((prev) => ({
+          ...prev,
+          stage: data.stage as any,
+          progress: data.progress,
+          error: data.error,
+          version: (data.info as any)?.version || prev.version,
+        }));
+
+        if (data.stage === "not-available") {
+          // Terminal is on the latest release; proceed to load the app
+          setStartupCheckDone(true);
+        } else if (data.stage === "error") {
+          // Network error or offline during initial check; proceed so offline counter is not blocked
+          console.warn("[App] Updater error on startup check:", data.error);
+          setStartupCheckDone(true);
+        } else if (data.stage === "available") {
+          // Mandatory update available; prevent loading the app until updated
+          setStartupCheckDone(false);
+        }
       });
-      return cleanup;
+
+      // Safety timeout: if after 4 seconds no event resolved (e.g. slow network), proceed to app
+      checkTimeout = setTimeout(() => {
+        setStartupCheckDone((done) => {
+          if (!done) {
+            console.log("[App] Startup update check timed out; proceeding to app");
+            return true;
+          }
+          return done;
+        });
+      }, 4500);
+
+      return () => {
+        cleanup();
+        if (checkTimeout) clearTimeout(checkTimeout);
+      };
+    } else {
+      setStartupCheckDone(true);
     }
   }, []);
 
-  const shouldShowUpdater =
+  const isMandatoryUpdateActive =
     updateState.stage === "available" ||
     updateState.stage === "downloading" ||
     updateState.stage === "downloaded" ||
-    updateState.stage === "error";
+    (updateState.stage === "error" && !startupCheckDone);
+
+  // Initial startup screen: checking for updates before loading the counter terminal
+  if (!startupCheckDone && !isMandatoryUpdateActive) {
+    return (
+      <div
+        className="login-container"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          width: "100vw",
+          backgroundColor: "#F0EBED",
+          gap: 16,
+          userSelect: "none",
+        }}
+      >
+        <div
+          className="login-brand-icon"
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 14,
+            backgroundColor: "#16181D",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+          }}
+        >
+          <span style={{ fontSize: 24, color: "#fff", fontWeight: 700 }}>P</span>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#16181D",
+              fontFamily: "var(--font-sans)",
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
+            Printap
+          </h1>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-secondary)",
+              marginTop: 6,
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            Checking for updates...
+          </p>
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              border: "2.5px solid rgba(22, 24, 29, 0.15)",
+              borderTopColor: "#16181D",
+              borderRadius: "50%",
+              animation: "spin 0.75s linear infinite",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            marginTop: 4,
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          Verifying security & release status
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
       <AuthProvider>
         <ShopAdminShell />
       </AuthProvider>
-      {shouldShowUpdater && (
+      {isMandatoryUpdateActive && (
         <UpdateScreen
           stage={updateState.stage as any}
           progress={updateState.progress}
           error={updateState.error}
+          version={updateState.version}
+          isCompulsory={true}
           onStartDownload={() => window.electronAPI.startDownloadUpdate()}
           onRestart={() => window.electronAPI.restartApp()}
-          onDismiss={() => setUpdateState({ stage: null })}
+          onDismiss={() => {
+            setUpdateState({ stage: null });
+            setStartupCheckDone(true);
+          }}
         />
       )}
     </>

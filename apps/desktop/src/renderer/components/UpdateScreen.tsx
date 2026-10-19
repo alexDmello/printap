@@ -23,7 +23,17 @@ export const UpdateScreen: React.FC<UpdateScreenProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="confirm-dialog-card" style={{ minWidth: 380 }}>
+      <div
+        className="confirm-dialog-card"
+        style={{
+          maxWidth: stage === "error" ? 640 : 420,
+          width: stage === "error" ? "min(640px, 92vw)" : "min(420px, 92vw)",
+          maxHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+        }}
+      >
         {/* State 1: Update Available */}
         {stage === "available" && (
           <>
@@ -91,14 +101,42 @@ export const UpdateScreen: React.FC<UpdateScreenProps> = ({
         {/* State 4: Error */}
         {stage === "error" && (
           <>
-            <div className="confirm-dialog-title" style={{ color: "var(--accent-rose)" }}>Update Failed</div>
-            <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
-              There was an error while trying to download the update:
-              <div style={{ marginTop: 8, padding: 8, background: "rgba(239, 68, 68, 0.1)", borderRadius: 6, fontSize: 11, color: "var(--accent-rose)", fontFamily: "monospace", wordBreak: "break-all" }}>
+            <div className="confirm-dialog-title" style={{ color: "var(--accent-rose)", flexShrink: 0 }}>
+              Update Failed
+            </div>
+            <div
+              className="confirm-dialog-body"
+              style={{
+                marginBottom: 18,
+                flex: "1 1 auto",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div style={{ marginBottom: 8, flexShrink: 0 }}>
+                There was an error while trying to download the update:
+              </div>
+              <div
+                style={{
+                  padding: "10px 12px",
+                  background: "rgba(239, 68, 68, 0.08)",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                  color: "var(--accent-rose)",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  wordBreak: "break-all",
+                  whiteSpace: "pre-wrap",
+                  overflowY: "auto",
+                  maxHeight: "220px",
+                }}
+              >
                 {error || "Unknown network error"}
               </div>
             </div>
-            <div className="confirm-dialog-actions">
+            <div className="confirm-dialog-actions" style={{ flexShrink: 0, marginTop: "auto" }}>
               <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
                 Close
               </button>

@@ -97,7 +97,38 @@ export const Tokens: React.FC = React.memo(() => {
       <div className="page-header">
         <h1 className="page-title">
           <span>Token Top-up</span>
-          <span className="status-badge active">Tokens: {currentBalance}</span>
+          <span
+            className="status-badge"
+            style={{
+              backgroundColor:
+                currentBalance === 0
+                  ? "rgba(220, 38, 38, 0.12)"
+                  : currentBalance <= 5
+                  ? "rgba(239, 68, 68, 0.12)"
+                  : currentBalance <= 15
+                  ? "rgba(245, 158, 11, 0.12)"
+                  : "rgba(16, 185, 129, 0.12)",
+              color:
+                currentBalance === 0
+                  ? "#dc2626"
+                  : currentBalance <= 5
+                  ? "#ef4444"
+                  : currentBalance <= 15
+                  ? "#d97706"
+                  : "#10b981",
+              borderColor:
+                currentBalance === 0
+                  ? "rgba(220, 38, 38, 0.3)"
+                  : currentBalance <= 5
+                  ? "rgba(239, 68, 68, 0.3)"
+                  : currentBalance <= 15
+                  ? "rgba(245, 158, 11, 0.3)"
+                  : "rgba(16, 185, 129, 0.3)",
+              fontWeight: 700,
+            }}
+          >
+            Tokens: {currentBalance}
+          </span>
         </h1>
         <p className="page-subtitle">
           Purchase tokens to keep your shop online. 1 Token = 1 successful print session. (₹1 per Token)

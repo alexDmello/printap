@@ -6,7 +6,7 @@ import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ErrorBoundary fallbackTitle="Terminal Agent Exception">
+    <ErrorBoundary fallbackTitle="Printap Exception">
       <App />
     </ErrorBoundary>
   </React.StrictMode>

@@ -39,7 +39,7 @@ export const UpdateScreen: React.FC<UpdateScreenProps> = ({
           <>
             <div className="confirm-dialog-title">Software Update Available</div>
             <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
-              A new version of the Printap Terminal Agent is available. Would you like to download and install it now to get the latest features and security improvements?
+              A new version of Printap is available. Would you like to download and install it now to get the latest features and security improvements?
             </div>
             <div className="confirm-dialog-actions">
               <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>

@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-17T13:58:37.975Z
+Generated: 2026-10-19T10:50:21.238Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -65,56 +65,58 @@ mellod/printap/
 3. TABLE OF CONTENTS OF INCLUDED FILES
 ───────────────────────────────────────────────────────────────────────────────
 [01] package.json                                            (0.7 KB, 24 lines) — Monorepo Root Package Configuration
-[02] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
-[03] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
-[04] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
-[05] supabase/migrations/004_shop_online_status.sql          (1.7 KB, 46 lines) — SQL Migration: Shop Online/Offline Presence Sync
-[06] supabase/migrations/008_analytics_and_archival_system.sql (9.9 KB, 286 lines) — SQL Migration: Revenue Ledger & Archival System
-[07] supabase/migrations/009_shop_owner_auth_and_location.sql (4.0 KB, 82 lines) — SQL Migration: Shop Owner Auth & Location Profiles
-[08] supabase/migrations/013_shop_tokens.sql                 (4.1 KB, 140 lines) — SQL Migration: Token Ledger & Subscription Balance
-[09] supabase/migrations/014_token_escrow_and_refunds.sql    (4.4 KB, 135 lines) — SQL Migration: Atomic Token Escrow & Automatic Refunds
-[10] supabase/migrations/016_platform_admins.sql             (1.0 KB, 28 lines) — SQL Migration: Platform Admin Permissions & RLS
-[11] supabase/migrations/017_security_hardening_and_fixes.sql (12.0 KB, 375 lines) — SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
-[12] packages/shared/package.json                            (0.3 KB, 15 lines) — Shared Package Definition
-[13] packages/shared/src/index.ts                            (3.0 KB, 141 lines) — Shared Package Main Exports
-[14] packages/shared/src/supabase.ts                         (2.0 KB, 67 lines) — Shared Supabase Client, Domain Sanitizer, Types
-[15] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
-[16] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
-[17] apps/desktop/electron.vite.config.ts                    (0.8 KB, 29 lines) — Electron-Vite Build & Alias Configuration
-[18] apps/desktop/electron-builder.yml                       (0.6 KB, 33 lines) — Electron-Builder Windows Packaging Configuration
-[19] apps/desktop/src/main/index.ts                          (27.5 KB, 934 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
-[20] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
-[21] apps/desktop/src/preload/index.ts                       (2.5 KB, 94 lines) — Electron Preload Script (Typed ContextBridge IPC API)
-[22] apps/desktop/src/renderer/env.d.ts                      (2.4 KB, 116 lines) — Renderer Ambient TypeScript Types & Window Declarations
-[23] apps/desktop/src/renderer/main.tsx                      (0.4 KB, 14 lines) — Renderer React DOM Root Entrypoint
-[24] apps/desktop/src/renderer/App.tsx                       (58.9 KB, 1710 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
-[25] apps/desktop/src/renderer/context/AuthContext.tsx       (12.1 KB, 402 lines) — Authentication Context: Local Session, OTP Reset, Google OAuth
-[26] apps/desktop/src/renderer/lib/shop-signaling.ts         (18.0 KB, 652 lines) — WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
-[27] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
-[28] apps/desktop/src/renderer/lib/fifo-dispatcher.ts        (15.7 KB, 557 lines) — FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
-[29] apps/desktop/src/renderer/components/Sidebar.tsx        (9.8 KB, 297 lines) — Navigation Sidebar & Live Online/Offline Toggle
-[30] apps/desktop/src/renderer/components/LiveDashboard.tsx  (26.5 KB, 617 lines) — Live Monitor: Active Print Progress, Live Queue, Handover Ledger
-[31] apps/desktop/src/renderer/components/PrintHistory.tsx   (21.1 KB, 562 lines) — Print History & Activity Ledger with CSV Export
-[32] apps/desktop/src/renderer/components/PrintersControl.tsx (25.3 KB, 784 lines) — Hardware Printer Mapping & Capability Assignment
-[33] apps/desktop/src/renderer/components/ServicesRates.tsx  (32.9 KB, 909 lines) — Shop Services, Rate Card & Document Pricing Matrix
-[34] apps/desktop/src/renderer/components/Analytics.tsx      (14.3 KB, 430 lines) — Financial Metrics, Print Volume Charts, Revenue Summary
-[35] apps/desktop/src/renderer/components/CounterQr.tsx      (21.7 KB, 634 lines) — Customer QR Code Stand Generator & Print Sheet
-[36] apps/desktop/src/renderer/components/Tokens.tsx         (8.6 KB, 229 lines) — Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
-[37] apps/desktop/src/renderer/components/Profile.tsx        (7.5 KB, 231 lines) — Shop Information, Operating Hours & Geolocation Configuration
-[38] apps/desktop/src/renderer/components/Login.tsx          (21.2 KB, 632 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
-[39] apps/desktop/src/renderer/components/UpdateScreen.tsx   (4.3 KB, 146 lines) — Software Auto-Updater Modal (Download Progress & Restart)
-[40] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
-[41] apps/desktop/src/renderer/components/ErrorBoundary.tsx  (4.5 KB, 163 lines) — Global React Exception Boundary
-[42] apps/desktop/src/renderer/components/Icons.tsx          (9.9 KB, 411 lines) — SVG Icon Set
-[43] apps/desktop/src/renderer/styles.css                    (53.0 KB, 2515 lines) — High-Contrast Structural Design System Stylesheet
-[44] apps/web/src/lib/customer-signaling.ts                  (13.3 KB, 509 lines) — Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
+[02] .github/workflows/release.yml                           (0.7 KB, 36 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
+[03] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
+[04] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
+[05] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
+[06] supabase/migrations/004_shop_online_status.sql          (1.7 KB, 46 lines) — SQL Migration: Shop Online/Offline Presence Sync
+[07] supabase/migrations/008_analytics_and_archival_system.sql (9.9 KB, 286 lines) — SQL Migration: Revenue Ledger & Archival System
+[08] supabase/migrations/009_shop_owner_auth_and_location.sql (4.0 KB, 82 lines) — SQL Migration: Shop Owner Auth & Location Profiles
+[09] supabase/migrations/013_shop_tokens.sql                 (4.1 KB, 140 lines) — SQL Migration: Token Ledger & Subscription Balance
+[10] supabase/migrations/014_token_escrow_and_refunds.sql    (4.4 KB, 135 lines) — SQL Migration: Atomic Token Escrow & Automatic Refunds
+[11] supabase/migrations/016_platform_admins.sql             (1.0 KB, 28 lines) — SQL Migration: Platform Admin Permissions & RLS
+[12] supabase/migrations/017_security_hardening_and_fixes.sql (12.0 KB, 375 lines) — SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
+[13] supabase/migrations/018_enterprise_lockdown.sql         (6.8 KB, 202 lines) — SQL Migration: Enterprise Security Lockdown & RPC Hardening
+[14] packages/shared/package.json                            (0.3 KB, 15 lines) — Shared Package Definition
+[15] packages/shared/src/index.ts                            (3.0 KB, 141 lines) — Shared Package Main Exports
+[16] packages/shared/src/supabase.ts                         (2.0 KB, 67 lines) — Shared Supabase Client, Domain Sanitizer, Types
+[17] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
+[18] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
+[19] apps/desktop/electron.vite.config.ts                    (0.8 KB, 29 lines) — Electron-Vite Build & Alias Configuration
+[20] apps/desktop/electron-builder.yml                       (0.6 KB, 33 lines) — Electron-Builder Windows Packaging Configuration
+[21] apps/desktop/src/main/index.ts                          (27.7 KB, 940 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
+[22] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
+[23] apps/desktop/src/preload/index.ts                       (2.5 KB, 95 lines) — Electron Preload Script (Typed ContextBridge IPC API)
+[24] apps/desktop/src/renderer/env.d.ts                      (2.5 KB, 117 lines) — Renderer Ambient TypeScript Types & Window Declarations
+[25] apps/desktop/src/renderer/main.tsx                      (0.4 KB, 14 lines) — Renderer React DOM Root Entrypoint
+[26] apps/desktop/src/renderer/App.tsx                       (59.5 KB, 1721 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
+[27] apps/desktop/src/renderer/context/AuthContext.tsx       (12.1 KB, 402 lines) — Authentication Context: Local Session, OTP Reset, Google OAuth
+[28] apps/desktop/src/renderer/lib/shop-signaling.ts         (18.0 KB, 652 lines) — WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
+[29] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
+[30] apps/desktop/src/renderer/lib/fifo-dispatcher.ts        (15.7 KB, 557 lines) — FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
+[31] apps/desktop/src/renderer/components/Sidebar.tsx        (10.3 KB, 318 lines) — Navigation Sidebar & Live Online/Offline Toggle
+[32] apps/desktop/src/renderer/components/LiveDashboard.tsx  (26.5 KB, 617 lines) — Live Monitor: Active Print Progress, Live Queue, Handover Ledger
+[33] apps/desktop/src/renderer/components/PrintHistory.tsx   (21.1 KB, 562 lines) — Print History & Activity Ledger with CSV Export
+[34] apps/desktop/src/renderer/components/PrintersControl.tsx (25.3 KB, 784 lines) — Hardware Printer Mapping & Capability Assignment
+[35] apps/desktop/src/renderer/components/ServicesRates.tsx  (32.9 KB, 909 lines) — Shop Services, Rate Card & Document Pricing Matrix
+[36] apps/desktop/src/renderer/components/Analytics.tsx      (14.3 KB, 430 lines) — Financial Metrics, Print Volume Charts, Revenue Summary
+[37] apps/desktop/src/renderer/components/CounterQr.tsx      (21.7 KB, 634 lines) — Customer QR Code Stand Generator & Print Sheet
+[38] apps/desktop/src/renderer/components/Tokens.tsx         (9.6 KB, 260 lines) — Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
+[39] apps/desktop/src/renderer/components/Profile.tsx        (6.2 KB, 191 lines) — Shop Information, Operating Hours & Geolocation Configuration
+[40] apps/desktop/src/renderer/components/Login.tsx          (21.2 KB, 632 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
+[41] apps/desktop/src/renderer/components/UpdateScreen.tsx   (5.4 KB, 150 lines) — Software Auto-Updater Modal (Download Progress & Restart)
+[42] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
+[43] apps/desktop/src/renderer/components/ErrorBoundary.tsx  (4.5 KB, 163 lines) — Global React Exception Boundary
+[44] apps/desktop/src/renderer/components/Icons.tsx          (9.9 KB, 411 lines) — SVG Icon Set
+[45] apps/desktop/src/renderer/styles.css                    (53.0 KB, 2517 lines) — High-Contrast Structural Design System Stylesheet
+[46] apps/web/src/lib/customer-signaling.ts                  (13.3 KB, 509 lines) — Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
 
 ═══════════════════════════════════════════════════════════════════════════════
   SOURCE CODE LISTINGS
 ═══════════════════════════════════════════════════════════════════════════════
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [1/44]: package.json
+FILE [1/46]: package.json
 PURPOSE: Monorepo Root Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
@@ -143,7 +145,48 @@ PURPOSE: Monorepo Root Package Configuration
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [2/44]: supabase/schema.sql
+FILE [2/46]: .github/workflows/release.yml
+PURPOSE: GitHub Actions Windows Desktop Release & Auto-Updater Workflow
+───────────────────────────────────────────────────────────────────────────────
+name: Release Desktop Agent
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Desktop App
+        run: npm -w apps/desktop run build
+
+      - name: Package & Publish Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --project apps/desktop --win -p always
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [3/46]: supabase/schema.sql
 PURPOSE: Core Supabase SQL Schema (Tables, RLS, Functions)
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -290,7 +333,7 @@ COMMENT ON COLUMN public.printer_assignments.role IS 'bw = black & white, color 
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [3/44]: supabase/migrations/002_print_orders_and_queue.sql
+FILE [4/46]: supabase/migrations/002_print_orders_and_queue.sql
 PURPOSE: SQL Migration: Print Orders Table & Queue System
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -441,7 +484,7 @@ CREATE TRIGGER update_print_orders_updated_at
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [4/44]: supabase/migrations/003_shop_services_and_pricing.sql
+FILE [5/46]: supabase/migrations/003_shop_services_and_pricing.sql
 PURPOSE: SQL Migration: Shop Services & Tier Pricing
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -468,7 +511,7 @@ CREATE POLICY "shops_update_anon"
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [5/44]: supabase/migrations/004_shop_online_status.sql
+FILE [6/46]: supabase/migrations/004_shop_online_status.sql
 PURPOSE: SQL Migration: Shop Online/Offline Presence Sync
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -519,7 +562,7 @@ COMMENT ON FUNCTION public.cleanup_stale_online_shops IS 'Sweeps shops marked is
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [6/44]: supabase/migrations/008_analytics_and_archival_system.sql
+FILE [7/46]: supabase/migrations/008_analytics_and_archival_system.sql
 PURPOSE: SQL Migration: Revenue Ledger & Archival System
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -810,7 +853,7 @@ $$;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [7/44]: supabase/migrations/009_shop_owner_auth_and_location.sql
+FILE [8/46]: supabase/migrations/009_shop_owner_auth_and_location.sql
 PURPOSE: SQL Migration: Shop Owner Auth & Location Profiles
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -897,7 +940,7 @@ COMMENT ON TABLE public.email_otps            IS 'Stores SHA-256 hashed 6-digit 
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [8/44]: supabase/migrations/013_shop_tokens.sql
+FILE [9/46]: supabase/migrations/013_shop_tokens.sql
 PURPOSE: SQL Migration: Token Ledger & Subscription Balance
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1042,7 +1085,7 @@ $$;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [9/44]: supabase/migrations/014_token_escrow_and_refunds.sql
+FILE [10/46]: supabase/migrations/014_token_escrow_and_refunds.sql
 PURPOSE: SQL Migration: Atomic Token Escrow & Automatic Refunds
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1182,7 +1225,7 @@ $$;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [10/44]: supabase/migrations/016_platform_admins.sql
+FILE [11/46]: supabase/migrations/016_platform_admins.sql
 PURPOSE: SQL Migration: Platform Admin Permissions & RLS
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1215,7 +1258,7 @@ CREATE POLICY "platform_admins_all_service_role"
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [11/44]: supabase/migrations/017_security_hardening_and_fixes.sql
+FILE [12/46]: supabase/migrations/017_security_hardening_and_fixes.sql
 PURPOSE: SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1595,7 +1638,214 @@ COMMIT;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [12/44]: packages/shared/package.json
+FILE [13/46]: supabase/migrations/018_enterprise_lockdown.sql
+PURPOSE: SQL Migration: Enterprise Security Lockdown & RPC Hardening
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: 018_enterprise_lockdown.sql
+-- Purpose:
+--   1. Drop legacy deduct_shop_token (superseded by reserve_shop_token)
+--   2. Harden cleanup_stale_online_shops with explicit search_path
+--   3. Restrict sync_aggregate_analytics and purge_archived_month_data
+--      strictly to service_role or platform_admins
+--   4. Provide controlled RPC for pruning removed printer_assignments
+-- ============================================================
+
+BEGIN;
+
+-- 1. Drop legacy deduct_shop_token (superseded by reserve_shop_token)
+DROP FUNCTION IF EXISTS public.deduct_shop_token(UUID, TEXT);
+
+-- 2. Harden cleanup_stale_online_shops
+CREATE OR REPLACE FUNCTION public.cleanup_stale_online_shops(stale_seconds INT DEFAULT 90)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  affected_count integer;
+BEGIN
+  UPDATE public.shops
+  SET is_online = false
+  WHERE is_online = true
+    AND last_seen_at < (now() - (stale_seconds || ' seconds')::interval);
+  GET DIAGNOSTICS affected_count = ROW_COUNT;
+  RETURN affected_count;
+END;
+$$;
+
+-- 3. Restrict sync_aggregate_analytics to service_role or platform_admins
+CREATE OR REPLACE FUNCTION public.sync_aggregate_analytics(p_cutoff_timestamp TIMESTAMPTZ DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cutoff TIMESTAMPTZ := COALESCE(p_cutoff_timestamp, now());
+  v_orders_synced INT := 0;
+  v_events_synced INT := 0;
+BEGIN
+  IF auth.role() <> 'service_role' AND NOT EXISTS (
+    SELECT 1 FROM public.platform_admins WHERE id = auth.uid()
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'unauthorized_role');
+  END IF;
+
+  INSERT INTO public.shop_daily_analytics (
+    shop_id, analytics_date, total_orders, total_jobs,
+    gross_revenue, upi_revenue, cash_revenue,
+    platform_fees, gst_amount, net_earnings, updated_at
+  )
+  SELECT
+    o.shop_id,
+    DATE(o.created_at) AS analytics_date,
+    COUNT(o.id) AS total_orders,
+    COUNT(o.id) AS total_jobs,
+    COALESCE(SUM(o.total_amount), 0.00) AS gross_revenue,
+    COALESCE(SUM(CASE WHEN o.payment_method = 'upi' THEN o.total_amount ELSE 0 END), 0.00) AS upi_revenue,
+    COALESCE(SUM(CASE WHEN o.payment_method = 'cash' THEN o.total_amount ELSE 0 END), 0.00) AS cash_revenue,
+    COALESCE(SUM(COALESCE(s.platform_fee, 0.82)), 0.00) AS platform_fees,
+    COALESCE(SUM(COALESCE(s.gst_amount, 0.18)), 0.00) AS gst_amount,
+    COALESCE(SUM(o.total_amount) - SUM(COALESCE(s.total_charge, 1.00)), 0.00) AS net_earnings,
+    now()
+  FROM public.print_orders o
+  LEFT JOIN public.shops s ON s.id = o.shop_id
+  WHERE o.created_at <= v_cutoff
+    AND o.payment_status = 'confirmed'
+  GROUP BY o.shop_id, DATE(o.created_at)
+  ON CONFLICT (shop_id, analytics_date) DO UPDATE SET
+    total_orders  = EXCLUDED.total_orders,
+    total_jobs    = GREATEST(public.shop_daily_analytics.total_jobs, EXCLUDED.total_jobs),
+    gross_revenue = EXCLUDED.gross_revenue,
+    upi_revenue   = EXCLUDED.upi_revenue,
+    cash_revenue  = EXCLUDED.cash_revenue,
+    platform_fees = EXCLUDED.platform_fees,
+    gst_amount    = EXCLUDED.gst_amount,
+    net_earnings  = EXCLUDED.net_earnings,
+    updated_at    = now();
+
+  GET DIAGNOSTICS v_orders_synced = ROW_COUNT;
+
+  INSERT INTO public.shop_daily_analytics (
+    shop_id, analytics_date, total_jobs, platform_fees, gst_amount, updated_at
+  )
+  SELECT
+    e.shop_id,
+    DATE(e.created_at) AS analytics_date,
+    COUNT(e.id) AS total_jobs,
+    COALESCE(SUM(e.fee_amount * 0.82), 0.00) AS platform_fees,
+    COALESCE(SUM(e.fee_amount * 0.18), 0.00) AS gst_amount,
+    now()
+  FROM public.print_events e
+  WHERE e.created_at <= v_cutoff
+  GROUP BY e.shop_id, DATE(e.created_at)
+  ON CONFLICT (shop_id, analytics_date) DO UPDATE SET
+    total_jobs    = GREATEST(public.shop_daily_analytics.total_jobs, EXCLUDED.total_jobs),
+    platform_fees = GREATEST(public.shop_daily_analytics.platform_fees, EXCLUDED.platform_fees),
+    gst_amount    = GREATEST(public.shop_daily_analytics.gst_amount, EXCLUDED.gst_amount),
+    updated_at    = now();
+
+  GET DIAGNOSTICS v_events_synced = ROW_COUNT;
+
+  INSERT INTO public.platform_daily_analytics (
+    analytics_date, active_shops_count, total_orders, total_jobs,
+    total_volume_inr, total_platform_fees_inr, total_gst_inr, updated_at
+  )
+  SELECT
+    analytics_date,
+    COUNT(DISTINCT shop_id) AS active_shops_count,
+    SUM(total_orders) AS total_orders,
+    SUM(total_jobs) AS total_jobs,
+    SUM(gross_revenue) AS total_volume_inr,
+    SUM(platform_fees) AS total_platform_fees_inr,
+    SUM(gst_amount) AS total_gst_inr,
+    now()
+  FROM public.shop_daily_analytics
+  WHERE analytics_date <= DATE(v_cutoff)
+  GROUP BY analytics_date
+  ON CONFLICT (analytics_date) DO UPDATE SET
+    active_shops_count      = EXCLUDED.active_shops_count,
+    total_orders            = EXCLUDED.total_orders,
+    total_jobs              = EXCLUDED.total_jobs,
+    total_volume_inr        = EXCLUDED.total_volume_inr,
+    total_platform_fees_inr = EXCLUDED.total_platform_fees_inr,
+    total_gst_inr           = EXCLUDED.total_gst_inr,
+    updated_at              = now();
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'orders_synced', v_orders_synced,
+    'events_synced', v_events_synced,
+    'cutoff', v_cutoff
+  );
+END;
+$$;
+
+-- 4. Restrict purge_archived_month_data strictly to service_role or platform_admins
+CREATE OR REPLACE FUNCTION public.purge_archived_month_data(
+  p_cutoff_timestamp TIMESTAMPTZ,
+  p_month_label TEXT
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_orders_purged INT := 0;
+  v_events_purged INT := 0;
+  v_total_amount NUMERIC(12, 2) := 0.00;
+BEGIN
+  IF auth.role() <> 'service_role' AND NOT EXISTS (
+    SELECT 1 FROM public.platform_admins WHERE id = auth.uid()
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'unauthorized_role');
+  END IF;
+
+  PERFORM public.sync_aggregate_analytics(p_cutoff_timestamp);
+
+  SELECT COALESCE(SUM(total_amount), 0.00), COUNT(*)
+  INTO v_total_amount, v_orders_purged
+  FROM public.print_orders
+  WHERE created_at < p_cutoff_timestamp;
+
+  SELECT COUNT(*)
+  INTO v_events_purged
+  FROM public.print_events
+  WHERE created_at < p_cutoff_timestamp;
+
+  DELETE FROM public.print_orders
+  WHERE created_at < p_cutoff_timestamp;
+
+  DELETE FROM public.print_events
+  WHERE created_at < p_cutoff_timestamp;
+
+  INSERT INTO public.archive_audit_log (
+    month_identifier, cutoff_timestamp, orders_purged, events_purged,
+    total_amount_inr, exported_by, status
+  ) VALUES (
+    p_month_label, p_cutoff_timestamp, v_orders_purged, v_events_purged,
+    v_total_amount, 'electron_admin', 'completed'
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'month', p_month_label,
+    'cutoff', p_cutoff_timestamp,
+    'orders_purged', v_orders_purged,
+    'events_purged', v_events_purged,
+    'total_amount_purged', v_total_amount
+  );
+END;
+$$;
+
+COMMIT;
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [14/46]: packages/shared/package.json
 PURPOSE: Shared Package Definition
 ───────────────────────────────────────────────────────────────────────────────
 {
@@ -1615,7 +1865,7 @@ PURPOSE: Shared Package Definition
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [13/44]: packages/shared/src/index.ts
+FILE [15/46]: packages/shared/src/index.ts
 PURPOSE: Shared Package Main Exports
 ───────────────────────────────────────────────────────────────────────────────
 export { getSupabase } from "./supabase";
@@ -1761,7 +2011,7 @@ export type {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [14/44]: packages/shared/src/supabase.ts
+FILE [16/46]: packages/shared/src/supabase.ts
 PURPOSE: Shared Supabase Client, Domain Sanitizer, Types
 ───────────────────────────────────────────────────────────────────────────────
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -1833,7 +2083,7 @@ export function getSupabase(): SupabaseClient {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [15/44]: packages/shared/src/signaling.ts
+FILE [17/46]: packages/shared/src/signaling.ts
 PURPOSE: Shared Signaling Constants, Message Types, Payloads
 ───────────────────────────────────────────────────────────────────────────────
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -2031,12 +2281,12 @@ export async function waitForIceGathering(
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [16/44]: apps/desktop/package.json
+FILE [18/46]: apps/desktop/package.json
 PURPOSE: Desktop Electron App Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
   "name": "@printap/desktop",
-  "version": "0.3.10",
+  "version": "0.3.14",
   "description": "Printap — Privacy-First Xerox & Print Shop Agent",
   "author": "Mellod",
   "repository": {
@@ -2077,7 +2327,7 @@ PURPOSE: Desktop Electron App Package Configuration
 }
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [17/44]: apps/desktop/electron.vite.config.ts
+FILE [19/46]: apps/desktop/electron.vite.config.ts
 PURPOSE: Electron-Vite Build & Alias Configuration
 ───────────────────────────────────────────────────────────────────────────────
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
@@ -2111,7 +2361,7 @@ export default defineConfig({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [18/44]: apps/desktop/electron-builder.yml
+FILE [20/46]: apps/desktop/electron-builder.yml
 PURPOSE: Electron-Builder Windows Packaging Configuration
 ───────────────────────────────────────────────────────────────────────────────
 appId: in.mellod.printap
@@ -2149,7 +2399,7 @@ portable:
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [19/44]: apps/desktop/src/main/index.ts
+FILE [21/46]: apps/desktop/src/main/index.ts
 PURPOSE: Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
 ───────────────────────────────────────────────────────────────────────────────
 import { app, BrowserWindow, ipcMain, shell } from "electron";
@@ -2259,7 +2509,7 @@ function createWindow(): void {
     height: 750,
     minWidth: 920,
     minHeight: 580,
-    title: "Printap — Shop Agent",
+    title: "Printap",
     icon: windowIcon,
     backgroundColor: "#F0EBED",
     webPreferences: {
@@ -2329,7 +2579,7 @@ app.whenReady().then(async () => {
   await sweepOrphanedTempFiles();
   createWindow();
 
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false; // <--- Changed to false to prevent silent background downloads
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on("checking-for-update", () => {
@@ -2362,7 +2612,9 @@ app.whenReady().then(async () => {
 
   if (mainWindow) {
     mainWindow.webContents.once("did-finish-load", () => {
-      autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.warn("[autoUpdater] Check error:", err?.message || err);
+      });
     });
   }
 
@@ -2384,6 +2636,10 @@ app.on("window-all-closed", () => {
 
 ipcMain.on("restart-app", () => {
   autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.on("start-download-update", () => {
+  autoUpdater.downloadUpdate();
 });
 
 ipcMain.handle("open-external", async (_event, url: string) => {
@@ -3088,7 +3344,7 @@ function sleep(ms: number): Promise<void> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [20/44]: apps/desktop/src/main/printer-discovery.ts
+FILE [22/46]: apps/desktop/src/main/printer-discovery.ts
 PURPOSE: Windows PowerShell Hardware Printer Discovery Engine
 ───────────────────────────────────────────────────────────────────────────────
 import { execFile } from "child_process";
@@ -3339,7 +3595,7 @@ export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [21/44]: apps/desktop/src/preload/index.ts
+FILE [23/46]: apps/desktop/src/preload/index.ts
 PURPOSE: Electron Preload Script (Typed ContextBridge IPC API)
 ───────────────────────────────────────────────────────────────────────────────
 import { contextBridge, ipcRenderer } from "electron";
@@ -3433,12 +3689,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     };
   },
 
+  startDownloadUpdate: () => ipcRenderer.send("start-download-update"),
   restartApp: () => ipcRenderer.send("restart-app"),
 });
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [22/44]: apps/desktop/src/renderer/env.d.ts
+FILE [24/46]: apps/desktop/src/renderer/env.d.ts
 PURPOSE: Renderer Ambient TypeScript Types & Window Declarations
 ───────────────────────────────────────────────────────────────────────────────
 /// <reference types="vite/client" />
@@ -3550,6 +3807,7 @@ interface ElectronAPI {
   onUpdaterEvent: (
     callback: (data: { stage: string; progress?: number; error?: string; info?: Record<string, unknown> }) => void
   ) => () => void;
+  startDownloadUpdate: () => void;
   restartApp: () => void;
 }
 
@@ -3559,7 +3817,7 @@ interface Window {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [23/44]: apps/desktop/src/renderer/main.tsx
+FILE [25/46]: apps/desktop/src/renderer/main.tsx
 PURPOSE: Renderer React DOM Root Entrypoint
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -3570,7 +3828,7 @@ import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ErrorBoundary fallbackTitle="Terminal Agent Exception">
+    <ErrorBoundary fallbackTitle="Printap Exception">
       <App />
     </ErrorBoundary>
   </React.StrictMode>
@@ -3578,7 +3836,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [24/44]: apps/desktop/src/renderer/App.tsx
+FILE [26/46]: apps/desktop/src/renderer/App.tsx
 PURPOSE: Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -5057,7 +5315,7 @@ function ShopAdminShell(): React.ReactElement {
             </button>
 
             <div className="window-drag-title">
-              <span style={{ fontWeight: 700, color: "#09090b" }}>Printap Agent</span>
+              <span style={{ fontWeight: 700, color: "#09090b" }}>Printap</span>
               <span style={{ color: "var(--text-faint)" }}>•</span>
               <span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
                 {currentPage === "live"
@@ -5258,20 +5516,30 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     if (window.electronAPI?.onUpdaterEvent) {
       const cleanup = window.electronAPI.onUpdaterEvent((data) => {
-        setUpdateState((prev) => ({
-          ...prev,
-          stage: data.stage as any,
-          progress: data.progress,
-          error: data.error,
-        }));
+        setUpdateState((prev) => {
+          // If error occurs during background check on startup (e.g. offline, private repo, 404),
+          // suppress it silently so the user is not blocked. Only show error if downloading was in progress.
+          if (data.stage === "error" && prev.stage !== "downloading" && prev.stage !== "available") {
+            console.warn("[updater] Background check skipped/failed:", data.error);
+            return prev;
+          }
+          return {
+            ...prev,
+            stage: data.stage as any,
+            progress: data.progress,
+            error: data.error,
+          };
+        });
       });
       return cleanup;
     }
   }, []);
 
   const shouldShowUpdater =
+    updateState.stage === "available" ||
     updateState.stage === "downloading" ||
-    updateState.stage === "downloaded";
+    updateState.stage === "downloaded" ||
+    updateState.stage === "error";
 
   return (
     <>
@@ -5283,6 +5551,7 @@ export default function App(): React.ReactElement {
           stage={updateState.stage as any}
           progress={updateState.progress}
           error={updateState.error}
+          onStartDownload={() => window.electronAPI.startDownloadUpdate()}
           onRestart={() => window.electronAPI.restartApp()}
           onDismiss={() => setUpdateState({ stage: null })}
         />
@@ -5293,7 +5562,7 @@ export default function App(): React.ReactElement {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [25/44]: apps/desktop/src/renderer/context/AuthContext.tsx
+FILE [27/46]: apps/desktop/src/renderer/context/AuthContext.tsx
 PURPOSE: Authentication Context: Local Session, OTP Reset, Google OAuth
 ───────────────────────────────────────────────────────────────────────────────
 import React, {
@@ -5700,7 +5969,7 @@ export function useAuth(): AuthContextType {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [26/44]: apps/desktop/src/renderer/lib/shop-signaling.ts
+FILE [28/46]: apps/desktop/src/renderer/lib/shop-signaling.ts
 PURPOSE: WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
 ───────────────────────────────────────────────────────────────────────────────
 import {
@@ -6357,7 +6626,7 @@ export async function broadcastTokenAssigned(
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [27/44]: apps/desktop/src/renderer/lib/shop-presence.ts
+FILE [29/46]: apps/desktop/src/renderer/lib/shop-presence.ts
 PURPOSE: Supabase Realtime Shop Presence & Heartbeat Engine
 ───────────────────────────────────────────────────────────────────────────────
 import {
@@ -6554,7 +6823,7 @@ export async function stopPresence(): Promise<void> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [28/44]: apps/desktop/src/renderer/lib/fifo-dispatcher.ts
+FILE [30/46]: apps/desktop/src/renderer/lib/fifo-dispatcher.ts
 PURPOSE: FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
 ───────────────────────────────────────────────────────────────────────────────
 import type { PrintSettings } from "@printap/shared";
@@ -7116,7 +7385,7 @@ export class FifoPrintDispatcher {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [29/44]: apps/desktop/src/renderer/components/Sidebar.tsx
+FILE [31/46]: apps/desktop/src/renderer/components/Sidebar.tsx
 PURPOSE: Navigation Sidebar & Live Online/Offline Toggle
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -7236,14 +7505,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
             </div>
-            <div className="sidebar-status-beacon">
-              <span className={`beacon-dot ${isTogglingOnline ? "connecting" : isOnline ? "online" : "offline"}`} />
-              <span>
-                {isTogglingOnline
-                  ? (isOnline ? "Switching Offline..." : "Connecting Shop...")
-                  : (isOnline ? "Terminal Online" : "Terminal Offline")}
-              </span>
-            </div>
           </div>
 
           {/* Online / Offline Presence Toggle */}
@@ -7299,47 +7560,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Token Balance Card */}
-          {tokenBalance !== undefined && tokenBalance !== null && (
-            <div
-              className={`sidebar-token-card ${
-                tokenBalance === 0
-                  ? "exhausted"
-                  : tokenAlert
-                  ? tokenAlert.balance <= 5
-                    ? "critical"
-                    : "warning"
-                  : "good"
-              }`}
-            >
-              <div className="sidebar-token-header">
-                <span className="sidebar-token-title">Token Balance</span>
-                <span className="sidebar-token-count">{tokenBalance} left</span>
-              </div>
-              <div className="sidebar-token-bar-container">
-                <div
-                  className="sidebar-token-bar-fill"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, (tokenBalance / 20) * 100))}%`, // Visual scale up to 20 for the bar
-                  }}
-                />
-              </div>
-              {tokenBalance === 0 ? (
-                <div className="sidebar-token-alert-container">
-                  <div className="sidebar-token-alert">
-                    ⛔ Tokens exhausted. Top up to print.
-                  </div>
-                  <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage('tokens')}>Top Up</button>
+          {tokenBalance !== undefined && tokenBalance !== null && (() => {
+            const tokenStatus =
+              tokenBalance === 0
+                ? "exhausted"
+                : tokenBalance <= 5
+                ? "critical"
+                : tokenBalance <= 15
+                ? "warning"
+                : "good";
+
+            const tokenColor =
+              tokenStatus === "good"
+                ? "#10b981"
+                : tokenStatus === "warning"
+                ? "#f59e0b"
+                : tokenStatus === "critical"
+                ? "#ef4444"
+                : "#dc2626";
+
+            return (
+              <div className={`sidebar-token-card ${tokenStatus}`}>
+                <div className="sidebar-token-header">
+                  <span className="sidebar-token-title">Token Balance</span>
+                  <span
+                    className="sidebar-token-count"
+                    style={{ color: tokenColor, fontWeight: 700 }}
+                  >
+                    {tokenBalance} left
+                  </span>
                 </div>
-              ) : tokenAlert ? (
-                <div className="sidebar-token-alert-container">
-                  <div className="sidebar-token-alert">
-                    {tokenAlert.balance <= 5 ? "🔴 Critical low balance!" : "🟡 Low balance — top up"}
-                  </div>
-                  <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage('tokens')}>Top Up</button>
+                <div className="sidebar-token-bar-container">
+                  <div
+                    className="sidebar-token-bar-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (tokenBalance / 20) * 100))}%`,
+                      backgroundColor: tokenColor,
+                    }}
+                  />
                 </div>
-              ) : null}
-            </div>
-          )}
+                {tokenBalance === 0 ? (
+                  <div className="sidebar-token-alert-container">
+                    <div className="sidebar-token-alert">
+                      ⛔ Tokens exhausted. Top up to print.
+                    </div>
+                    <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage("tokens")}>
+                      Top Up
+                    </button>
+                  </div>
+                ) : tokenBalance <= 5 ? (
+                  <div className="sidebar-token-alert-container">
+                    <div className="sidebar-token-alert">
+                      🔴 Critical low balance!
+                    </div>
+                    <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage("tokens")}>
+                      Top Up
+                    </button>
+                  </div>
+                ) : tokenBalance <= 15 ? (
+                  <div className="sidebar-token-alert-container">
+                    <div className="sidebar-token-alert">
+                      🟡 Low balance — top up
+                    </div>
+                    <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage("tokens")}>
+                      Top Up
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Clean Nav List */}
@@ -7418,7 +7708,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [30/44]: apps/desktop/src/renderer/components/LiveDashboard.tsx
+FILE [32/46]: apps/desktop/src/renderer/components/LiveDashboard.tsx
 PURPOSE: Live Monitor: Active Print Progress, Live Queue, Handover Ledger
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState } from "react";
@@ -8040,7 +8330,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [31/44]: apps/desktop/src/renderer/components/PrintHistory.tsx
+FILE [33/46]: apps/desktop/src/renderer/components/PrintHistory.tsx
 PURPOSE: Print History & Activity Ledger with CSV Export
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -8607,7 +8897,7 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [32/44]: apps/desktop/src/renderer/components/PrintersControl.tsx
+FILE [34/46]: apps/desktop/src/renderer/components/PrintersControl.tsx
 PURPOSE: Hardware Printer Mapping & Capability Assignment
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useCallback, useMemo } from "react";
@@ -9396,7 +9686,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = React.memo(({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [33/44]: apps/desktop/src/renderer/components/ServicesRates.tsx
+FILE [35/46]: apps/desktop/src/renderer/components/ServicesRates.tsx
 PURPOSE: Shop Services, Rate Card & Document Pricing Matrix
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
@@ -10310,7 +10600,7 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [34/44]: apps/desktop/src/renderer/components/Analytics.tsx
+FILE [36/46]: apps/desktop/src/renderer/components/Analytics.tsx
 PURPOSE: Financial Metrics, Print Volume Charts, Revenue Summary
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -10745,7 +11035,7 @@ export const Analytics: React.FC = React.memo(() => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [35/44]: apps/desktop/src/renderer/components/CounterQr.tsx
+FILE [37/46]: apps/desktop/src/renderer/components/CounterQr.tsx
 PURPOSE: Customer QR Code Stand Generator & Print Sheet
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useRef } from "react";
@@ -11384,7 +11674,7 @@ export const CounterQr: React.FC = React.memo(() => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [36/44]: apps/desktop/src/renderer/components/Tokens.tsx
+FILE [38/46]: apps/desktop/src/renderer/components/Tokens.tsx
 PURPOSE: Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
@@ -11486,7 +11776,38 @@ export const Tokens: React.FC = React.memo(() => {
       <div className="page-header">
         <h1 className="page-title">
           <span>Token Top-up</span>
-          <span className="status-badge active">Tokens: {currentBalance}</span>
+          <span
+            className="status-badge"
+            style={{
+              backgroundColor:
+                currentBalance === 0
+                  ? "rgba(220, 38, 38, 0.12)"
+                  : currentBalance <= 5
+                  ? "rgba(239, 68, 68, 0.12)"
+                  : currentBalance <= 15
+                  ? "rgba(245, 158, 11, 0.12)"
+                  : "rgba(16, 185, 129, 0.12)",
+              color:
+                currentBalance === 0
+                  ? "#dc2626"
+                  : currentBalance <= 5
+                  ? "#ef4444"
+                  : currentBalance <= 15
+                  ? "#d97706"
+                  : "#10b981",
+              borderColor:
+                currentBalance === 0
+                  ? "rgba(220, 38, 38, 0.3)"
+                  : currentBalance <= 5
+                  ? "rgba(239, 68, 68, 0.3)"
+                  : currentBalance <= 15
+                  ? "rgba(245, 158, 11, 0.3)"
+                  : "rgba(16, 185, 129, 0.3)",
+              fontWeight: 700,
+            }}
+          >
+            Tokens: {currentBalance}
+          </span>
         </h1>
         <p className="page-subtitle">
           Purchase tokens to keep your shop online. 1 Token = 1 successful print session. (₹1 per Token)
@@ -11618,7 +11939,7 @@ export const Tokens: React.FC = React.memo(() => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [37/44]: apps/desktop/src/renderer/components/Profile.tsx
+FILE [39/46]: apps/desktop/src/renderer/components/Profile.tsx
 PURPOSE: Shop Information, Operating Hours & Geolocation Configuration
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState } from "react";
@@ -11631,7 +11952,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) => {
-  const { shop, shopId } = useAuth();
+  const { shop } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, key: string) => {
@@ -11704,53 +12025,13 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
         </div>
       </div>
 
-      {/* Terminal Credentials & Web URLs */}
+      {/* Customer Web URL */}
       <div className="card" style={{ marginBottom: 22 }}>
         <div className="card-header">
-          <div className="card-title">Terminal & Customer Print URL</div>
+          <div className="card-title">Customer Print URL</div>
           <span className="tech-tag">Direct P2P</span>
         </div>
         <div className="card-body">
-          <div style={{ marginBottom: 18 }}>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Shop ID (Terminal UUID)
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                readOnly
-                value={shopId || ""}
-                className="login-input"
-                style={{ flex: 1 }}
-              />
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => shopId && copyToClipboard(shopId, "uuid")}
-              >
-                {copiedKey === "uuid" ? (
-                  <>
-                    <IconCheck size={14} color="var(--accent-emerald)" />
-                    <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <IconCopy size={14} />
-                    <span>Copy ID</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
           <div>
             <label
               style={{
@@ -11854,7 +12135,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr }) =
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [38/44]: apps/desktop/src/renderer/components/Login.tsx
+FILE [40/46]: apps/desktop/src/renderer/components/Login.tsx
 PURPOSE: Shopkeeper Counter Terminal Authentication & Password Reset
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
@@ -12491,158 +12772,162 @@ export const Login: React.FC = () => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [39/44]: apps/desktop/src/renderer/components/UpdateScreen.tsx
+FILE [41/46]: apps/desktop/src/renderer/components/UpdateScreen.tsx
 PURPOSE: Software Auto-Updater Modal (Download Progress & Restart)
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
 
+export type UpdateStage = "available" | "downloading" | "downloaded" | "error" | null;
+
 interface UpdateScreenProps {
-  stage: "checking" | "available" | "downloading" | "downloaded" | "error" | "not-available";
+  stage: UpdateStage;
   progress?: number;
   error?: string;
+  onStartDownload: () => void;
   onRestart: () => void;
   onDismiss: () => void;
 }
 
-export function UpdateScreen({ stage, progress, error, onRestart, onDismiss }: UpdateScreenProps) {
-  // Silent checks should not block the app
-  if (stage === "checking" || stage === "not-available") {
-    return null;
-  }
+export const UpdateScreen: React.FC<UpdateScreenProps> = ({
+  stage,
+  progress = 0,
+  error,
+  onStartDownload,
+  onRestart,
+  onDismiss,
+}) => {
+  if (!stage) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(22, 24, 29, 0.72)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10000,
-        padding: 24,
-      }}
-    >
+    <div className="modal-overlay">
       <div
-        className="fade-in"
+        className="confirm-dialog-card"
         style={{
-          backgroundColor: "#FFFFFF",
-          border: "1px solid var(--border-active, #16181D)",
-          borderRadius: "var(--radius-lg, 2px)",
-          padding: "36px 32px",
-          maxWidth: 440,
-          width: "100%",
-          textAlign: "center",
-          boxShadow: "var(--shadow-glass-modal, 0 20px 48px rgba(22, 24, 29, 0.16))",
+          maxWidth: stage === "error" ? 640 : 420,
+          width: stage === "error" ? "min(640px, 92vw)" : "min(420px, 92vw)",
+          maxHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
         }}
       >
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            backgroundColor: "var(--color-structure, #16181D)",
-            color: "#FFFFFF",
-            borderRadius: "var(--radius-sm, 1px)",
-            margin: "0 auto 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg style={{ width: 24, height: 24 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-            />
-          </svg>
-        </div>
+        {/* State 1: Update Available */}
+        {stage === "available" && (
+          <>
+            <div className="confirm-dialog-title">Software Update Available</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
+              A new version of Printap is available. Would you like to download and install it now to get the latest features and security improvements?
+            </div>
+            <div className="confirm-dialog-actions">
+              <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
+                Remind Me Later
+              </button>
+              <button type="button" className="btn-dialog-confirm" onClick={onStartDownload}>
+                Download Update
+              </button>
+            </div>
+          </>
+        )}
 
-        <h2
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            fontFamily: "var(--font-sans)",
-            color: "var(--text-primary, #16181D)",
-            marginBottom: 8,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {stage === "available" && "Software Update Available"}
-          {stage === "downloading" && "Downloading Package..."}
-          {stage === "downloaded" && "Update Ready to Install"}
-          {stage === "error" && "Update Verification"}
-        </h2>
-
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-secondary, #424750)",
-            lineHeight: 1.5,
-            marginBottom: 24,
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          {stage === "available" && "A new version of the counter terminal is available and preparing to download."}
-          {stage === "downloading" && "Downloading release assets in the background. Please keep the app open."}
-          {stage === "downloaded" && "The update has been securely verified and downloaded. Restart now to apply."}
-          {stage === "error" && (error || "Unable to retrieve update package.")}
-        </p>
-
+        {/* State 2: Downloading */}
         {stage === "downloading" && (
-          <div
-            style={{
-              width: "100%",
-              height: 6,
-              backgroundColor: "rgba(209, 200, 204, 0.5)",
-              borderRadius: 1,
-              overflow: "hidden",
-              marginBottom: 16,
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: `${Math.round(progress || 0)}%`,
-                backgroundColor: "var(--color-structure, #16181D)",
-                transition: "width 0.3s ease",
-              }}
-            />
-          </div>
+          <>
+            <div className="confirm-dialog-title">Downloading Update...</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+                Please wait while the update downloads in the background.
+              </div>
+              
+              <div style={{ width: "100%", height: 8, background: "rgba(0,0,0,0.06)", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+                <div 
+                  style={{ 
+                    height: "100%", 
+                    width: `${Math.min(100, Math.max(0, progress))}%`, 
+                    background: "var(--accent-emerald)",
+                    transition: "width 0.2s ease-out"
+                  }} 
+                />
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
+                {Math.round(progress)}%
+              </div>
+            </div>
+          </>
         )}
 
+        {/* State 3: Downloaded & Ready */}
         {stage === "downloaded" && (
-          <button
-            type="button"
-            onClick={onRestart}
-            className="btn-primary"
-            style={{ width: "100%", padding: "11px 18px", fontSize: 13 }}
-          >
-            Restart & Install Update
-          </button>
+          <>
+            <div className="confirm-dialog-title" style={{ color: "var(--accent-emerald)" }}>Update Ready to Install</div>
+            <div className="confirm-dialog-body" style={{ marginBottom: 20 }}>
+              The update has been successfully downloaded. The terminal needs to restart to apply the changes. 
+              <br/><br/>
+              <strong>Note:</strong> Ensure no active print jobs are running before restarting.
+            </div>
+            <div className="confirm-dialog-actions">
+              <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
+                Install Later
+              </button>
+              <button type="button" className="btn-dialog-confirm" style={{ background: "var(--accent-emerald)", borderColor: "var(--accent-emerald)" }} onClick={onRestart}>
+                Restart & Install
+              </button>
+            </div>
+          </>
         )}
 
+        {/* State 4: Error */}
         {stage === "error" && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="btn-secondary"
-            style={{ width: "100%", padding: "10px 18px", fontSize: 13 }}
-          >
-            Continue to Counter Terminal
-          </button>
+          <>
+            <div className="confirm-dialog-title" style={{ color: "var(--accent-rose)", flexShrink: 0 }}>
+              Update Failed
+            </div>
+            <div
+              className="confirm-dialog-body"
+              style={{
+                marginBottom: 18,
+                flex: "1 1 auto",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div style={{ marginBottom: 8, flexShrink: 0 }}>
+                There was an error while trying to download the update:
+              </div>
+              <div
+                style={{
+                  padding: "10px 12px",
+                  background: "rgba(239, 68, 68, 0.08)",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                  color: "var(--accent-rose)",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  wordBreak: "break-all",
+                  whiteSpace: "pre-wrap",
+                  overflowY: "auto",
+                  maxHeight: "220px",
+                }}
+              >
+                {error || "Unknown network error"}
+              </div>
+            </div>
+            <div className="confirm-dialog-actions" style={{ flexShrink: 0, marginTop: "auto" }}>
+              <button type="button" className="btn-dialog-cancel" onClick={onDismiss}>
+                Close
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
   );
-}
+};
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [40/44]: apps/desktop/src/renderer/components/UnsavedChangesModal.tsx
+FILE [42/46]: apps/desktop/src/renderer/components/UnsavedChangesModal.tsx
 PURPOSE: Modal Guard for Unsaved Changes Across Forms
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -12717,7 +13002,7 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [41/44]: apps/desktop/src/renderer/components/ErrorBoundary.tsx
+FILE [43/46]: apps/desktop/src/renderer/components/ErrorBoundary.tsx
 PURPOSE: Global React Exception Boundary
 ───────────────────────────────────────────────────────────────────────────────
 import React, { Component, ErrorInfo, ReactNode } from "react";
@@ -12811,7 +13096,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 letterSpacing: "-0.02em",
               }}
             >
-              {this.props.fallbackTitle || "Terminal Rendering Exception"}
+              {this.props.fallbackTitle || "Printap Exception"}
             </h1>
 
             <p
@@ -12835,7 +13120,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   backgroundColor: "#F9FAFB",
                   border: "1px solid var(--border-subtle, #D1C8CC)",
                   padding: 12,
-                  borderRadius: 2,
+                  borderRadius: "var(--radius-sm, 6px)",
                   color: "#991B1B",
                   overflowX: "auto",
                   maxHeight: 120,
@@ -12885,7 +13170,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [42/44]: apps/desktop/src/renderer/components/Icons.tsx
+FILE [44/46]: apps/desktop/src/renderer/components/Icons.tsx
 PURPOSE: SVG Icon Set
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -13301,7 +13586,7 @@ export const IconChevronLeft: React.FC<IconProps> = ({ size = 16, className = ""
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [43/44]: apps/desktop/src/renderer/styles.css
+FILE [45/46]: apps/desktop/src/renderer/styles.css
 PURPOSE: High-Contrast Structural Design System Stylesheet
 ───────────────────────────────────────────────────────────────────────────────
 /* ═══════════════════════════════════════════════════════════════════
@@ -13355,13 +13640,14 @@ PURPOSE: High-Contrast Structural Design System Stylesheet
   --font-sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Geist Mono', 'Fira Code', monospace;
 
-  /* ─── Sharp Borders & Wireframe Geometry (Sharp edges, thin lines) ─── */
-  --radius-full: 2px;
-  --radius-2xl: 4px;
-  --radius-xl: 3px;
-  --radius-lg: 2px;
-  --radius-md: 2px;
-  --radius-sm: 1px;
+  /* ─── Modern Rounded Surfaces & Smooth Geometry ─── */
+  --radius-full: 9999px;
+  --radius-2xl: 18px;
+  --radius-xl: 14px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-xs: 5px;
 
   /* ─── Structural Wireframe Shadows ─── */
   --shadow-glass: 0 1px 3px rgba(22, 24, 29, 0.03), 0 0 0 1px var(--border-subtle);
@@ -13698,7 +13984,7 @@ body {
 .sidebar-online-card {
   margin-top: 0;
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: #FFFFFF;
   border: 1px solid var(--border-subtle);
   transition: all var(--transition);
@@ -14425,7 +14711,7 @@ body {
 .toggle-switch {
   width: 34px;
   height: 20px;
-  border-radius: var(--radius-sm);
+  border-radius: 9999px;
   background: #D1C8CC;
   border: 1px solid var(--border-subtle);
   position: relative;
@@ -14440,7 +14726,7 @@ body {
 .toggle-thumb {
   width: 16px;
   height: 16px;
-  border-radius: 1px;
+  border-radius: 50%;
   background: #FFFFFF;
   position: absolute;
   top: 1px;
@@ -14517,7 +14803,7 @@ body {
   width: 100%;
   max-width: 32px;
   background: var(--color-structure);
-  border-radius: 2px 2px 0 0;
+  border-radius: 6px 6px 0 0;
   min-height: 4px;
   transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1), background var(--transition);
   cursor: pointer;
@@ -14971,7 +15257,7 @@ body {
 
 .monitor-table-container::-webkit-scrollbar-thumb {
   background: rgba(22, 24, 29, 0.15);
-  border-radius: 2px;
+  border-radius: 9999px;
 }
 
 .monitor-table {
@@ -15087,7 +15373,7 @@ body {
   width: 100%;
   height: 4px;
   background: rgba(209, 200, 204, 0.4);
-  border-radius: 1px;
+  border-radius: 9999px;
   overflow: hidden;
   margin-top: 3px;
 }
@@ -15095,6 +15381,7 @@ body {
 .table-progress-fill {
   height: 100%;
   background: var(--color-structure);
+  border-radius: 9999px;
   transition: width 0.2s ease;
 }
 
@@ -15627,7 +15914,7 @@ body {
 .sidebar-token-card {
   margin-top: 14px;
   padding: 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: #FFFFFF;
   border: 1px solid var(--border-subtle);
   display: flex;
@@ -15673,14 +15960,14 @@ body {
 
 .sidebar-token-bar-container {
   height: 5px;
-  border-radius: 1px;
+  border-radius: 9999px;
   background: rgba(209, 200, 204, 0.4);
   overflow: hidden;
 }
 
 .sidebar-token-bar-fill {
   height: 100%;
-  border-radius: 1px;
+  border-radius: 9999px;
   background: var(--color-structure);
   transition: width 0.3s ease;
 }
@@ -15821,7 +16108,7 @@ body {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [44/44]: apps/web/src/lib/customer-signaling.ts
+FILE [46/46]: apps/web/src/lib/customer-signaling.ts
 PURPOSE: Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
 ───────────────────────────────────────────────────────────────────────────────
 import {

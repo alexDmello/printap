@@ -7,6 +7,7 @@ const OUTPUT_FILE = path.join(ROOT_DIR, "PRINTAP_CODEBASE_REVIEW.txt");
 const filesToInclude = [
   // ─── Project Config & Database ───
   { path: "package.json", desc: "Monorepo Root Package Configuration" },
+  { path: ".github/workflows/release.yml", desc: "GitHub Actions Windows Desktop Release & Auto-Updater Workflow" },
   { path: "supabase/schema.sql", desc: "Core Supabase SQL Schema (Tables, RLS, Functions)" },
   { path: "supabase/migrations/002_print_orders_and_queue.sql", desc: "SQL Migration: Print Orders Table & Queue System" },
   { path: "supabase/migrations/003_shop_services_and_pricing.sql", desc: "SQL Migration: Shop Services & Tier Pricing" },
@@ -17,6 +18,7 @@ const filesToInclude = [
   { path: "supabase/migrations/014_token_escrow_and_refunds.sql", desc: "SQL Migration: Atomic Token Escrow & Automatic Refunds" },
   { path: "supabase/migrations/016_platform_admins.sql", desc: "SQL Migration: Platform Admin Permissions & RLS" },
   { path: "supabase/migrations/017_security_hardening_and_fixes.sql", desc: "SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security" },
+  { path: "supabase/migrations/018_enterprise_lockdown.sql", desc: "SQL Migration: Enterprise Security Lockdown & RPC Hardening" },
 
   // ─── Shared Core Package ───
   { path: "packages/shared/package.json", desc: "Shared Package Definition" },

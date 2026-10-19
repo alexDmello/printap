@@ -1474,7 +1474,7 @@ function ShopAdminShell(): React.ReactElement {
             </button>
 
             <div className="window-drag-title">
-              <span style={{ fontWeight: 700, color: "#09090b" }}>Printap Agent</span>
+              <span style={{ fontWeight: 700, color: "#09090b" }}>Printap</span>
               <span style={{ color: "var(--text-faint)" }}>•</span>
               <span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
                 {currentPage === "live"

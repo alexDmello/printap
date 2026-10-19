@@ -89,7 +89,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 letterSpacing: "-0.02em",
               }}
             >
-              {this.props.fallbackTitle || "Terminal Rendering Exception"}
+              {this.props.fallbackTitle || "Printap Exception"}
             </h1>
 
             <p
@@ -113,7 +113,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   backgroundColor: "#F9FAFB",
                   border: "1px solid var(--border-subtle, #D1C8CC)",
                   padding: 12,
-                  borderRadius: 2,
+                  borderRadius: "var(--radius-sm, 6px)",
                   color: "#991B1B",
                   overflowX: "auto",
                   maxHeight: 120,

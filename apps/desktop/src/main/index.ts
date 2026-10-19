@@ -105,7 +105,7 @@ function createWindow(): void {
     height: 750,
     minWidth: 920,
     minHeight: 580,
-    title: "Printap — Shop Agent",
+    title: "Printap",
     icon: windowIcon,
     backgroundColor: "#F0EBED",
     webPreferences: {

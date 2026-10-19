@@ -115,14 +115,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
             </div>
-            <div className="sidebar-status-beacon">
-              <span className={`beacon-dot ${isTogglingOnline ? "connecting" : isOnline ? "online" : "offline"}`} />
-              <span>
-                {isTogglingOnline
-                  ? (isOnline ? "Switching Offline..." : "Connecting Shop...")
-                  : (isOnline ? "Terminal Online" : "Terminal Offline")}
-              </span>
-            </div>
           </div>
 
           {/* Online / Offline Presence Toggle */}
@@ -178,47 +170,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Token Balance Card */}
-          {tokenBalance !== undefined && tokenBalance !== null && (
-            <div
-              className={`sidebar-token-card ${
-                tokenBalance === 0
-                  ? "exhausted"
-                  : tokenAlert
-                  ? tokenAlert.balance <= 5
-                    ? "critical"
-                    : "warning"
-                  : "good"
-              }`}
-            >
-              <div className="sidebar-token-header">
-                <span className="sidebar-token-title">Token Balance</span>
-                <span className="sidebar-token-count">{tokenBalance} left</span>
-              </div>
-              <div className="sidebar-token-bar-container">
-                <div
-                  className="sidebar-token-bar-fill"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, (tokenBalance / 20) * 100))}%`, // Visual scale up to 20 for the bar
-                  }}
-                />
-              </div>
-              {tokenBalance === 0 ? (
-                <div className="sidebar-token-alert-container">
-                  <div className="sidebar-token-alert">
-                    ⛔ Tokens exhausted. Top up to print.
-                  </div>
-                  <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage('tokens')}>Top Up</button>
+          {tokenBalance !== undefined && tokenBalance !== null && (() => {
+            const tokenStatus =
+              tokenBalance === 0
+                ? "exhausted"
+                : tokenBalance <= 5
+                ? "critical"
+                : tokenBalance <= 15
+                ? "warning"
+                : "good";
+
+            const tokenColor =
+              tokenStatus === "good"
+                ? "#10b981"
+                : tokenStatus === "warning"
+                ? "#f59e0b"
+                : tokenStatus === "critical"
+                ? "#ef4444"
+                : "#dc2626";
+
+            return (
+              <div className={`sidebar-token-card ${tokenStatus}`}>
+                <div className="sidebar-token-header">
+                  <span className="sidebar-token-title">Token Balance</span>
+                  <span
+                    className="sidebar-token-count"
+                    style={{ color: tokenColor, fontWeight: 700 }}
+                  >
+                    {tokenBalance} left
+                  </span>
                 </div>
-              ) : tokenAlert ? (
-                <div className="sidebar-token-alert-container">
-                  <div className="sidebar-token-alert">
-                    {tokenAlert.balance <= 5 ? "🔴 Critical low balance!" : "🟡 Low balance — top up"}
-                  </div>
-                  <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage('tokens')}>Top Up</button>
+                <div className="sidebar-token-bar-container">
+                  <div
+                    className="sidebar-token-bar-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (tokenBalance / 20) * 100))}%`,
+                      backgroundColor: tokenColor,
+                    }}
+                  />
                 </div>
-              ) : null}
-            </div>
-          )}
+                {tokenBalance === 0 ? (
+                  <div className="sidebar-token-alert-container">
+                    <div className="sidebar-token-alert">
+                      ⛔ Tokens exhausted. Top up to print.
+                    </div>
+                    <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage("tokens")}>
+                      Top Up
+                    </button>
+                  </div>
+                ) : tokenBalance <= 5 ? (
+                  <div className="sidebar-token-alert-container">
+                    <div className="sidebar-token-alert">
+                      🔴 Critical low balance!
+                    </div>
+                    <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage("tokens")}>
+                      Top Up
+                    </button>
+                  </div>
+                ) : tokenBalance <= 15 ? (
+                  <div className="sidebar-token-alert-container">
+                    <div className="sidebar-token-alert">
+                      🟡 Low balance — top up
+                    </div>
+                    <button type="button" className="sidebar-topup-btn" onClick={() => onSelectPage("tokens")}>
+                      Top Up
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Clean Nav List */}

@@ -49,13 +49,14 @@
   --font-sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Geist Mono', 'Fira Code', monospace;
 
-  /* ─── Sharp Borders & Wireframe Geometry (Sharp edges, thin lines) ─── */
-  --radius-full: 2px;
-  --radius-2xl: 4px;
-  --radius-xl: 3px;
-  --radius-lg: 2px;
-  --radius-md: 2px;
-  --radius-sm: 1px;
+  /* ─── Modern Rounded Surfaces & Smooth Geometry ─── */
+  --radius-full: 9999px;
+  --radius-2xl: 18px;
+  --radius-xl: 14px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-xs: 5px;
 
   /* ─── Structural Wireframe Shadows ─── */
   --shadow-glass: 0 1px 3px rgba(22, 24, 29, 0.03), 0 0 0 1px var(--border-subtle);
@@ -392,7 +393,7 @@ body {
 .sidebar-online-card {
   margin-top: 0;
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: #FFFFFF;
   border: 1px solid var(--border-subtle);
   transition: all var(--transition);
@@ -1119,7 +1120,7 @@ body {
 .toggle-switch {
   width: 34px;
   height: 20px;
-  border-radius: var(--radius-sm);
+  border-radius: 9999px;
   background: #D1C8CC;
   border: 1px solid var(--border-subtle);
   position: relative;
@@ -1134,7 +1135,7 @@ body {
 .toggle-thumb {
   width: 16px;
   height: 16px;
-  border-radius: 1px;
+  border-radius: 50%;
   background: #FFFFFF;
   position: absolute;
   top: 1px;
@@ -1211,7 +1212,7 @@ body {
   width: 100%;
   max-width: 32px;
   background: var(--color-structure);
-  border-radius: 2px 2px 0 0;
+  border-radius: 6px 6px 0 0;
   min-height: 4px;
   transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1), background var(--transition);
   cursor: pointer;
@@ -1665,7 +1666,7 @@ body {
 
 .monitor-table-container::-webkit-scrollbar-thumb {
   background: rgba(22, 24, 29, 0.15);
-  border-radius: 2px;
+  border-radius: 9999px;
 }
 
 .monitor-table {
@@ -1781,7 +1782,7 @@ body {
   width: 100%;
   height: 4px;
   background: rgba(209, 200, 204, 0.4);
-  border-radius: 1px;
+  border-radius: 9999px;
   overflow: hidden;
   margin-top: 3px;
 }
@@ -1789,6 +1790,7 @@ body {
 .table-progress-fill {
   height: 100%;
   background: var(--color-structure);
+  border-radius: 9999px;
   transition: width 0.2s ease;
 }
 
@@ -2321,7 +2323,7 @@ body {
 .sidebar-token-card {
   margin-top: 14px;
   padding: 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: #FFFFFF;
   border: 1px solid var(--border-subtle);
   display: flex;
@@ -2367,14 +2369,14 @@ body {
 
 .sidebar-token-bar-container {
   height: 5px;
-  border-radius: 1px;
+  border-radius: 9999px;
   background: rgba(209, 200, 204, 0.4);
   overflow: hidden;
 }
 
 .sidebar-token-bar-fill {
   height: 100%;
-  border-radius: 1px;
+  border-radius: 9999px;
   background: var(--color-structure);
   transition: width 0.3s ease;
 }

@@ -953,8 +953,8 @@ export default function PrintClient({
 
       {/* ─── Main Content Area ─── */}
       <main
-        className={`w-full max-w-2xl mx-auto flex-1 flex flex-col px-4 sm:px-6 ${
-          hasBottomBar ? "py-4 sm:py-5 pb-24" : "py-1 sm:py-2 pb-1"
+        className={`w-full max-w-2xl mx-auto flex flex-col px-4 sm:px-6 ${
+          hasBottomBar ? "flex-1 py-4 sm:py-5 pb-24" : "py-2 sm:py-3"
         }`}
       >
         {/* STEP 1 — Upload */}
@@ -1112,8 +1112,8 @@ export default function PrintClient({
 
       {/* ─── Footer ─── */}
       <footer
-        className={`py-2 text-center text-zinc-400 text-[11px] font-medium space-y-1 select-none ${
-          hasBottomBar ? "mb-20 sm:mb-24" : "mb-1 mt-auto"
+        className={`py-3 text-center text-zinc-400 text-[11px] font-medium space-y-1 select-none ${
+          hasBottomBar ? "mb-20 sm:mb-24 mt-auto" : "my-2"
         }`}
       >
         <div className="flex items-center justify-center gap-3 text-zinc-500">

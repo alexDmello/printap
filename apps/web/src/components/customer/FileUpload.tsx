@@ -320,8 +320,8 @@ export default function FileUpload({
 
   return (
     <div className="animate-fade-in-up space-y-2.5">
-      {/* ─── 1. Top Borderless Rectangular / Video-Capable Ad Container ─── */}
-      <AdSlot variant="rectangle" compact className="mb-1" />
+      {/* ─── 1. Top Borderless Rectangular / Video-Capable Ad Container (Original Size) ─── */}
+      <AdSlot variant="rectangle" className="mb-1.5" />
 
       {/* ─── 2. Compact Upload Container Below Ad ─── */}
       <div className="glass rounded-2xl p-3.5 sm:p-4 glow-sm">

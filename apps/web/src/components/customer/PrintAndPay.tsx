@@ -53,8 +53,8 @@ export default function PrintAndPay({
 
   return (
     <div className="space-y-2 animate-fade-in-up">
-      {/* ─── 1. Top Borderless Rectangular / Video-Capable Ad Container ─── */}
-      <AdSlot variant="rectangle" compact className="mb-0.5" />
+      {/* ─── 1. Top Borderless Rectangular / Video-Capable Ad Container (Original Size) ─── */}
+      <AdSlot variant="rectangle" className="mb-1" />
 
       {/* ─── 2. Ultra-Compact Master Card (Token + QR + Payment - Zero Scroll) ─── */}
       <div className="glass rounded-2xl shadow-sm bg-white/95 overflow-hidden transition-all p-3 sm:p-4">

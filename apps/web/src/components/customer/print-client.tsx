@@ -88,6 +88,13 @@ export default function PrintClient({
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Automatically scroll to the top of the page on every step change
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [step]);
+
   // Initialize finishing services from shop custom services if available
   const initialFinishing = useMemo<FinishingService[]>(() => {
     if (services !== undefined) {

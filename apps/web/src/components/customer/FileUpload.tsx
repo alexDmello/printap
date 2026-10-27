@@ -464,33 +464,12 @@ export default function FileUpload({
         </div>
       )}
 
-      {/* ─── 3. Streamlined Inline Trust & Compliance (Zero Scroll Required) ─── */}
-      <div className="pt-1.5 pb-2 text-center text-[10px] text-zinc-500 leading-normal">
-        <div className="inline-flex items-center gap-1.5 text-emerald-800 font-semibold mb-0.5">
+      {/* ─── Zero Cloud Storage Trust Line ─── */}
+      <div className="pt-0.5 text-center text-[10px] text-zinc-500">
+        <div className="inline-flex items-center gap-1 text-emerald-800 font-semibold">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Zero cloud storage · Encrypted direct P2P stream</span>
+          <span>Zero cloud storage · Direct P2P transfer to printer</span>
         </div>
-        <p className="text-zinc-400">
-          By uploading, you agree to our{" "}
-          <a
-            href="/terms#acceptable-use"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-zinc-600 underline underline-offset-1 hover:text-zinc-900"
-          >
-            Terms
-          </a>{" "}
-          &amp;{" "}
-          <a
-            href="/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-zinc-600 underline underline-offset-1 hover:text-zinc-900"
-          >
-            Privacy Policy
-          </a>
-          .
-        </p>
       </div>
     </div>
   );

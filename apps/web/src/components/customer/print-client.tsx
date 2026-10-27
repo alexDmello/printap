@@ -879,19 +879,12 @@ export default function PrintClient({
       {/* ─── Sticky Modern Top Bar ─── */}
       <header className="sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-zinc-200/80 shadow-xs">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
-          {/* Brand & Shop Location: Only Logo and Shop Name, NO Printap text */}
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <img
-              src="/logo.png"
-              alt={shopName}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover shadow-xs border border-black/10 flex-shrink-0"
-            />
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-              <span className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 truncate">
-                {shopName}
-              </span>
-            </div>
+          {/* Shop Location & Live Online Status (No Logo) */}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+            <span className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 truncate">
+              {shopName}
+            </span>
           </div>
 
           {/* Right Status / Step Pill */}
@@ -960,8 +953,8 @@ export default function PrintClient({
 
       {/* ─── Main Content Area ─── */}
       <main
-        className={`w-full max-w-2xl mx-auto flex-1 flex flex-col px-4 sm:px-6 py-6 ${
-          hasBottomBar ? "pb-24" : "pb-4"
+        className={`w-full max-w-2xl mx-auto flex-1 flex flex-col px-4 sm:px-6 ${
+          hasBottomBar ? "py-4 sm:py-5 pb-24" : "py-1 sm:py-2 pb-1"
         }`}
       >
         {/* STEP 1 — Upload */}
@@ -1119,8 +1112,8 @@ export default function PrintClient({
 
       {/* ─── Footer ─── */}
       <footer
-        className={`py-6 text-center text-zinc-400 text-[11px] font-medium space-y-2 select-none ${
-          hasBottomBar ? "mb-20 sm:mb-24" : "mb-2"
+        className={`py-2 text-center text-zinc-400 text-[11px] font-medium space-y-1 select-none ${
+          hasBottomBar ? "mb-20 sm:mb-24" : "mb-1 mt-auto"
         }`}
       >
         <div className="flex items-center justify-center gap-3 text-zinc-500">

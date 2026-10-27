@@ -104,8 +104,6 @@ function DownloadContent() {
         <div className="bg-white rounded-3xl p-8 sm:p-10 border border-zinc-200 shadow-lg space-y-8 text-center">
           {/* Header & Status */}
           <div className="space-y-3">
-            <img src="/P.png" alt="Printap" className="w-14 h-14 rounded-2xl mx-auto shadow-xs" />
-
             <div className="inline-block px-3 py-1 bg-zinc-100 text-zinc-900 text-xs font-bold rounded-full tracking-wide border border-zinc-200">
               SHOP SETUP COMPLETED ✓
             </div>

@@ -714,16 +714,13 @@ function OnboardContent() {
       <div className="max-w-6xl mx-auto space-y-7 relative z-10">
         {/* Brand Bar & Authenticated Account Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-3xl p-4 sm:px-6 border border-zinc-200 shadow-2xs">
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <img src="/P.png" alt="Printap Logo" className="w-9 h-9 rounded-xl shadow-xs" />
-            <div>
-              <span className="text-xl font-black tracking-tight text-zinc-950">
-                Printap
-              </span>
-              <span className="text-[10px] text-zinc-400 block font-bold -mt-0.5 tracking-wider uppercase">
-                Shop Registration
-              </span>
-            </div>
+          <Link href="/" className="inline-flex flex-col group">
+            <span className="text-xl font-black tracking-tight text-zinc-950">
+              Printap
+            </span>
+            <span className="text-[10px] text-zinc-400 block font-bold -mt-0.5 tracking-wider uppercase">
+              Shop Registration
+            </span>
           </Link>
 
           {/* Verified Google Account Capsule */}

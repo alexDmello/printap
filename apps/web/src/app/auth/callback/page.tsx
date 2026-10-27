@@ -115,7 +115,6 @@ function CallbackHandler() {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="flex flex-col items-center gap-4 animate-fade-in-up max-w-sm w-full text-center">
-        <img src="/P.png" alt="Printap" className="w-12 h-12 rounded-2xl shadow-xs" />
         <div className="space-y-2">
           {errorMsg ? (
             <>

@@ -116,14 +116,6 @@ export default function ShopOffline({
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Brand Header */}
-        <div className="inline-flex items-center gap-2 mb-6">
-          <img
-            src="/logo.png"
-            alt={shopName}
-            className="w-7 h-7 rounded-lg object-cover shadow-xs border border-black/10"
-          />
-        </div>
 
         {/* Animated Terminal Offline Printer Icon */}
         <div className="relative w-20 h-20 mx-auto mb-6 flex items-center justify-center">

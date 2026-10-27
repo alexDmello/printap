@@ -236,16 +236,6 @@ export default function PrintAndPay({
                 </div>
               </div>
             </div>
-
-            {/* Subtle Footer Legal Link */}
-            <div className="pt-1.5 border-t border-zinc-100 text-center">
-              <p className="text-[9px] text-zinc-400">
-                Direct counter settlement to {shopName} ·{" "}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-700">Terms</a>
-                {" "}·{" "}
-                <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-700">Refund Policy</a>
-              </p>
-            </div>
           </div>
         )}
       </div>

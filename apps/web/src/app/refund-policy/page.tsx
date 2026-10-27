@@ -15,20 +15,13 @@ export default function RefundPolicyPage() {
       {/* ─── NAVIGATION BAR ─── */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-zinc-200/90 transition-all">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <img
-              src="/P.png"
-              alt="Printap Logo"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-xs group-hover:scale-105 transition-transform"
-            />
-            <div className="flex flex-col">
-              <span className="text-lg sm:text-xl font-black tracking-tight text-zinc-950 leading-none">
-                Printap
-              </span>
-              <span className="text-[10px] text-zinc-400 font-bold tracking-wider uppercase mt-0.5">
-                by Mellod
-              </span>
-            </div>
+          <Link href="/" className="flex flex-col group">
+            <span className="text-lg sm:text-xl font-black tracking-tight text-zinc-950 leading-none">
+              Printap
+            </span>
+            <span className="text-[10px] text-zinc-400 font-bold tracking-wider uppercase mt-0.5">
+              by Mellod
+            </span>
           </Link>
           <Link
             href="/"

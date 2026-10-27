@@ -6,6 +6,7 @@ import type {
   ShopRateCard,
   FinishingService,
 } from "@printap/shared";
+import AdSlot from "@/components/ads/AdSlot";
 
 interface PagePreviewProps {
   documents: UploadedDocument[];
@@ -337,18 +338,13 @@ export default function PagePreview({
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      {/* ── Header ── */}
-      <div className="glass rounded-2xl p-5 glow-sm">
-        <div>
-          <h2 className="text-sm font-bold text-zinc-900">Printed Sheet Preview</h2>
-          <p className="text-[11px] text-zinc-500 mt-0.5">
-            Exact visual simulation of how your document will physically emerge from the printer
-          </p>
-        </div>
+      {/* ── Long & Slim Banner Ad Container ── */}
+      <AdSlot variant="slim-banner" className="mb-2" />
 
-        {/* Multi-Document / Images Switcher Tabs */}
-        {tabs.length > 1 && (
-          <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-100 overflow-x-auto pb-1 scrollbar-thin">
+      {/* Multi-Document / Images Switcher Tabs */}
+      {tabs.length > 1 && (
+        <div className="glass rounded-2xl p-3 glow-sm mb-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -381,8 +377,8 @@ export default function PagePreview({
               </button>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Authentic Paper Canvas Viewport ── */}
       <div className="glass rounded-2xl p-5 sm:p-6 glow-sm text-center">

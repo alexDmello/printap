@@ -11,6 +11,7 @@ import type {
   FinishingService,
   ShopRateCard,
 } from "@printap/shared";
+import AdSlot from "@/components/ads/AdSlot";
 
 // ─── Premium Micro-Components ───
 
@@ -347,21 +348,8 @@ export default function PrintSettingsPanel({
 
   return (
     <div className="space-y-5 pb-6 animate-fade-in-up">
-      {/* ── Premium Header ── */}
-      <div className="flex items-center justify-between px-2 mb-2">
-        <div className="flex flex-col">
-          <h2 className="text-xl font-extrabold text-zinc-900 tracking-tight">Print Settings</h2>
-          <span className="text-[13px] font-medium text-zinc-500 mt-0.5">
-            Customize how your {documents.length === 1 ? "file" : "files"} will be printed
-          </span>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200/60">
-            {documents.length} {documents.length === 1 ? "file" : "files"}
-          </span>
-          <span className="text-[11px] text-zinc-400 font-medium">Click card to expand</span>
-        </div>
-      </div>
+      {/* Long & Slim Banner Ad Container */}
+      <AdSlot variant="slim-banner" className="mb-2" />
 
       {/* ─────────────────────────────────────────────────────────────
           1. CONTAINERS FOR EACH NON-IMAGE DOCUMENT (PDF, etc.)

@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import type { UploadedDocument, DocumentType, PrintSettings } from "@printap/shared";
 import { DEFAULT_PRINT_SETTINGS } from "@printap/shared";
+import AdSlot from "@/components/ads/AdSlot";
 
 const ACCEPTED_EXTENSIONS =
   ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.jpg,.jpeg,.png,.webp,.gif,.bmp,.svg,.tiff,image/*,text/*,application/*";
@@ -455,6 +456,8 @@ export default function FileUpload({
         </div>
       )}
 
+      {/* Rectangular / Video-Capable Ad Container */}
+      <AdSlot variant="rectangle" className="my-3" />
 
       {/* Privacy badge */}
       <div className="rounded-xl px-4 py-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200">

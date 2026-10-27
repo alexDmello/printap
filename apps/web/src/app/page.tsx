@@ -655,7 +655,7 @@ export default function Home() {
             <span>Simple document printing for counters</span>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 flex-wrap justify-center">
             <Link href="/onboard" className="hover:text-zinc-950 transition-colors">
               Open Shop
             </Link>
@@ -665,6 +665,19 @@ export default function Home() {
             <a href="#faq" className="hover:text-zinc-950 transition-colors">
               Questions
             </a>
+            <span className="text-zinc-200">|</span>
+            <Link href="/terms" className="hover:text-zinc-950 transition-colors">
+              Terms
+            </Link>
+            <Link href="/privacy" className="hover:text-zinc-950 transition-colors">
+              Privacy
+            </Link>
+            <Link href="/refund-policy" className="hover:text-zinc-950 transition-colors">
+              Refund Policy
+            </Link>
+            <Link href="/contact" className="hover:text-zinc-950 transition-colors">
+              Contact
+            </Link>
           </div>
 
           <div>

@@ -474,6 +474,29 @@ export default function FileUpload({
           </p>
         </div>
       </div>
+
+      {/* Compliance / Acceptable Use Notice */}
+      <p className="text-[10px] text-zinc-400 text-center leading-relaxed">
+        By uploading documents, you agree to our{" "}
+        <a
+          href="/terms#acceptable-use"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-600 underline underline-offset-1 hover:text-zinc-900"
+        >
+          Acceptable Use Policy
+        </a>{" "}
+        &amp;{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-600 underline underline-offset-1 hover:text-zinc-900"
+        >
+          Privacy Policy
+        </a>
+        .
+      </p>
     </div>
   );
 }

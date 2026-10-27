@@ -178,6 +178,44 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
     };
   }, [filteredOrders]);
 
+  const handleExportCsv = useCallback(() => {
+    if (filteredOrders.length === 0) return;
+    const headers = [
+      "Order Date & Time",
+      "Token Code",
+      "Session ID",
+      "Files",
+      "Payment Method",
+      "Payment Status",
+      "Amount (INR)",
+      "Order Status",
+    ];
+    const rows = filteredOrders.map((o) => [
+      `"${new Date(o.created_at).toLocaleString()}"`,
+      `"${o.token_code || "-"}"`,
+      `"${o.session_id}"`,
+      o.file_count || 1,
+      `"${o.payment_method || "cash"}"`,
+      `"${o.payment_status}"`,
+      Number(o.total_amount).toFixed(2),
+      `"${o.status}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `printap-orders-${dateFilter}-${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [filteredOrders, dateFilter]);
+
   return (
     <div className="content fade-in" style={{ paddingBottom: 40 }}>
       {/* Page Header */}
@@ -192,25 +230,48 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchOrders}
-          disabled={isLoading}
-          className="btn-secondary"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 14px",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-          title="Refresh orders from database"
-        >
-          <IconRefresh size={15} className={isLoading ? "spin" : ""} />
-          <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={filteredOrders.length === 0}
+            className="btn-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: filteredOrders.length > 0 ? "pointer" : "not-allowed",
+              opacity: filteredOrders.length > 0 ? 1 : 0.5,
+            }}
+            title="Export filtered records to CSV"
+          >
+            <IconFileText size={15} />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={fetchOrders}
+            disabled={isLoading}
+            className="btn-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            title="Refresh orders from database"
+          >
+            <IconRefresh size={15} className={isLoading ? "spin" : ""} />
+            <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Stat Cards */}

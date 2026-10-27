@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
+      pageRange?: string;
     }
   ) => ipcRenderer.invoke("print-pdf", buffer, sessionId, options),
 

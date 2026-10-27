@@ -6,6 +6,7 @@ import {
   calculateDocumentPrice,
   calculateFinishingCost,
   calculateOrderTotal,
+  parsePageRangeCount,
   isValidEmail,
   isValidSubdomainLabel,
   isReservedSubdomain,
@@ -325,6 +326,7 @@ describe("7. Pricing Engine & Rates Verification", () => {
 
     const doc = {
       id: "doc-1",
+      type: "pdf" as const,
       file: {} as File,
       pageCount: 10,
       settings,
@@ -349,6 +351,7 @@ describe("7. Pricing Engine & Rates Verification", () => {
 
     const doc = {
       id: "doc-2",
+      type: "pdf" as const,
       file: {} as File,
       pageCount: 10,
       settings,
@@ -373,6 +376,7 @@ describe("7. Pricing Engine & Rates Verification", () => {
 
     const doc = {
       id: "doc-3",
+      type: "pdf" as const,
       file: {} as File,
       pageCount: 8,
       settings,
@@ -399,6 +403,7 @@ describe("7. Pricing Engine & Rates Verification", () => {
 
     const doc = {
       id: "doc-4",
+      type: "pdf" as const,
       file: {} as File,
       pageCount: 5,
       settings,
@@ -428,6 +433,94 @@ describe("7. Pricing Engine & Rates Verification", () => {
     // Lamination: per_sheet -> 10.0 * 5 sheets * 2 copies = 100.0
     const laminationCost = calculateFinishingCost(doc, [finishingServices[1]]);
     assert.strictEqual(laminationCost, 100.0);
+  });
+
+  it("should accurately calculate color double-sided duplex sheets and price without blocking duplex", () => {
+    const settings: PrintSettings = {
+      copies: 1,
+      colorMode: "color",
+      duplex: "double",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+    };
+
+    const doc = {
+      id: "doc-color-duplex",
+      type: "pdf" as const,
+      file: {} as File,
+      pageCount: 10,
+      settings,
+    };
+
+    // 10 color pages in duplex should be 5 physical sheets
+    const sheets = calculateSheets(10, settings);
+    assert.strictEqual(sheets, 5);
+
+    // 5 sheets * 10.0 (color rate) * 1 copy = 50.0
+    const price = calculateDocumentPrice(doc, rateCard);
+    assert.strictEqual(price, 50.0);
+  });
+
+  it("should accurately parse page range and calculate sheets", () => {
+    assert.strictEqual(parsePageRangeCount("1-5, 8, 10-12", 20), 9); // 1,2,3,4,5,8,10,11,12 -> 9 pages
+    assert.strictEqual(parsePageRangeCount("1-5", 5), 5);
+    assert.strictEqual(parsePageRangeCount("3", 10), 1);
+    assert.strictEqual(parsePageRangeCount("", 15), 15);
+
+    const settings: PrintSettings = {
+      copies: 1,
+      colorMode: "bw",
+      duplex: "single",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+      pageRange: "1-4", // 4 pages out of 20
+    };
+
+    const sheets = calculateSheets(20, settings);
+    assert.strictEqual(sheets, 4);
+  });
+
+  it("should accurately price image batch with mixed color modes and copies", () => {
+    const docs = [
+      {
+        id: "img-1",
+        type: "image" as const,
+        file: {} as File,
+        pageCount: 1,
+        settings: {
+          copies: 1,
+          colorMode: "bw" as const,
+          duplex: "single" as const,
+          pagesPerSheet: 2 as const,
+          pageFit: "fit" as const,
+          orientation: "portrait" as const,
+        },
+      },
+      {
+        id: "img-2",
+        type: "image" as const,
+        file: {} as File,
+        pageCount: 1,
+        settings: {
+          copies: 2,
+          colorMode: "color" as const, // Mixed color mode in batch
+          duplex: "single" as const,
+          pagesPerSheet: 2 as const,
+          pageFit: "fit" as const,
+          orientation: "portrait" as const,
+        },
+      },
+    ];
+
+    // 2 images with 2-in-1 = 1 logical page = 1 sheet per copy. Max copies = 2 -> totalSheets = 2.
+    // Batch contains a color image, so color rate (10.0) applies -> 2 sheets * 10.0 = 20.0
+    const totalSheets = calculateOrderSheets(docs);
+    assert.strictEqual(totalSheets, 2);
+
+    const total = calculateOrderTotal(docs, rateCard, []);
+    assert.strictEqual(total, 20.0);
   });
 });
 

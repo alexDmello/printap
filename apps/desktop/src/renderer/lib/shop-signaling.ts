@@ -27,6 +27,12 @@ const earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
 const earlyCandidateTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sessionInactivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+const offerTimestamps = new Map<string, number[]>();
+const OFFER_RATE_LIMIT_WINDOW_MS = 10_000;
+const MAX_OFFERS_PER_WINDOW = 3;
+let shopReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let shopReconnectAttempts = 0;
+
 let activeSignalingShopId: string | null = null;
 
 function resetSessionTimeout(sessionId: string, timeoutMs = 90_000): void {
@@ -103,100 +109,164 @@ export function startShopSignaling(
       : callbacksOrHandler;
 
   activeSignalingShopId = shopId;
-  const channel = joinSignalingChannel(shopId, true);
+  shopReconnectAttempts = 0;
+  if (shopReconnectTimer) {
+    clearTimeout(shopReconnectTimer);
+    shopReconnectTimer = null;
+  }
 
-  channel.on(
-    "broadcast",
-    { event: "webrtc-offer" },
-    async ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, data } = payload as unknown as SignalPayload;
-      if (!sessionId || !data) return;
-      console.log(`[shop] Received offer for session ${sessionId}`);
-      callbacks.onSessionStart?.(sessionId);
-      await handleOffer(
-        channel,
-        sessionId,
-        data as RTCSessionDescriptionInit,
-        callbacks
-      );
-    }
-  );
+  function setupChannel(): RealtimeChannel {
+    const channel = joinSignalingChannel(shopId, true);
 
-  channel.on(
-    "broadcast",
-    { event: "webrtc-ice" },
-    async ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, data } = payload as unknown as SignalPayload;
-      const candidateInit = data as RTCIceCandidateInit;
-      if (!sessionId || !candidateInit || !candidateInit.candidate) return;
-      const session = sessions.get(sessionId);
+    channel.on(
+      "broadcast",
+      { event: "webrtc-offer" },
+      async ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, data } = payload as unknown as SignalPayload;
+        if (!sessionId || !data) return;
 
-      if (!session || !session.pc.remoteDescription) {
-        if (!earlyCandidates.has(sessionId)) {
-          earlyCandidates.set(sessionId, []);
-        }
-        const queue = earlyCandidates.get(sessionId)!;
-        if (queue.length < 50) {
-          queue.push(candidateInit);
-        }
-        if (!earlyCandidateTimers.has(sessionId)) {
-          earlyCandidateTimers.set(
-            sessionId,
-            setTimeout(() => {
-              earlyCandidates.delete(sessionId);
-              earlyCandidateTimers.delete(sessionId);
-            }, 60_000)
-          );
-        }
-        return;
-      }
-
-      try {
-        await session.pc.addIceCandidate(new RTCIceCandidate(candidateInit));
-      } catch (err) {
-        console.error(`[shop] Failed to add ICE candidate:`, err);
-      }
-    }
-  );
-
-  channel.on(
-    "broadcast",
-    { event: "request-token" },
-    ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, hasColor, totalAmount, fileCount } =
-        payload as unknown as SignalPayload;
-      if (!sessionId) return;
-      callbacks.onRequestToken?.(
-        sessionId,
-        Boolean(hasColor),
-        totalAmount,
-        fileCount
-      );
-    }
-  );
-
-  channel.on(
-    "broadcast",
-    { event: "order-status" },
-    ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, status, errorDetail } =
-        payload as unknown as SignalPayload;
-      if (!sessionId) return;
-      if (status === "cancelled" || status === "error") {
-        callbacks.onSessionError?.(
-          sessionId,
-          errorDetail || `Customer order was ${status}`
+        // Rate limit incoming offers per sessionId (prevent DoS)
+        const now = Date.now();
+        const recentOffers = (offerTimestamps.get(sessionId) || []).filter(
+          (t) => now - t < OFFER_RATE_LIMIT_WINDOW_MS
         );
-        cleanup(sessionId);
-      }
-    }
-  );
+        if (recentOffers.length >= MAX_OFFERS_PER_WINDOW) {
+          console.warn(
+            `[shop] Rate-limited offer for session ${sessionId} (${recentOffers.length} offers in ${OFFER_RATE_LIMIT_WINDOW_MS}ms)`
+          );
+          return;
+        }
+        recentOffers.push(now);
+        offerTimestamps.set(sessionId, recentOffers);
 
+        console.log(`[shop] Received offer for session ${sessionId}`);
+        callbacks.onSessionStart?.(sessionId);
+        await handleOffer(
+          channel,
+          sessionId,
+          data as RTCSessionDescriptionInit,
+          callbacks
+        );
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: "webrtc-ice" },
+      async ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, data } = payload as unknown as SignalPayload;
+        const candidateInit = data as RTCIceCandidateInit;
+        if (!sessionId || !candidateInit || !candidateInit.candidate) return;
+        const session = sessions.get(sessionId);
+
+        if (!session || !session.pc.remoteDescription) {
+          if (!earlyCandidates.has(sessionId)) {
+            earlyCandidates.set(sessionId, []);
+          }
+          const queue = earlyCandidates.get(sessionId)!;
+          if (queue.length < 50) {
+            queue.push(candidateInit);
+          }
+          if (!earlyCandidateTimers.has(sessionId)) {
+            earlyCandidateTimers.set(
+              sessionId,
+              setTimeout(() => {
+                earlyCandidates.delete(sessionId);
+                earlyCandidateTimers.delete(sessionId);
+              }, 60_000)
+            );
+          }
+          return;
+        }
+
+        try {
+          await session.pc.addIceCandidate(new RTCIceCandidate(candidateInit));
+        } catch (err) {
+          console.error(`[shop] Failed to add ICE candidate:`, err);
+        }
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: "request-token" },
+      ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, hasColor, totalAmount, fileCount } =
+          payload as unknown as SignalPayload;
+        if (!sessionId) return;
+        callbacks.onRequestToken?.(
+          sessionId,
+          Boolean(hasColor),
+          totalAmount,
+          fileCount
+        );
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: "order-status" },
+      ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, status, errorDetail } =
+          payload as unknown as SignalPayload;
+        if (!sessionId) return;
+        if (status === "cancelled" || status === "error") {
+          callbacks.onSessionError?.(
+            sessionId,
+            errorDetail || `Customer order was ${status}`
+          );
+          cleanup(sessionId);
+        }
+      }
+    );
+
+    // Channel lifecycle reconnection handling
+    channel.subscribe((status) => {
+      console.log(`[shop] Signaling subscription status: ${status}`);
+      if (status === "SUBSCRIBED") {
+        shopReconnectAttempts = 0;
+      } else if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        if (activeSignalingShopId === shopId) {
+          const backoffMs = Math.min(
+            1000 * Math.pow(1.5, shopReconnectAttempts),
+            10_000
+          );
+          shopReconnectAttempts++;
+          console.log(
+            `[shop] Channel dropped (${status}). Reconnecting in ${Math.round(
+              backoffMs
+            )}ms (attempt ${shopReconnectAttempts})...`
+          );
+          if (shopReconnectTimer) clearTimeout(shopReconnectTimer);
+          shopReconnectTimer = setTimeout(() => {
+            if (activeSignalingShopId === shopId) {
+              setupChannel();
+            }
+          }, backoffMs);
+        }
+      }
+    });
+
+    return channel;
+  }
+
+  const initialChannel = setupChannel();
   console.log(`[shop] Signaling started for shop ${shopId}`);
-  return channel;
+  return initialChannel;
 }
 
 export function stopShopSignaling(channel: RealtimeChannel | null): void {
+  if (shopReconnectTimer) {
+    clearTimeout(shopReconnectTimer);
+    shopReconnectTimer = null;
+  }
+  shopReconnectAttempts = 0;
+  offerTimestamps.clear();
+
   if (activeSignalingShopId) {
     leaveSignalingChannel(activeSignalingShopId).catch(() => {});
     activeSignalingShopId = null;
@@ -588,6 +658,8 @@ function setupDataChannelReceiver(
 }
 
 function cleanup(sessionId: string): void {
+  offerTimestamps.delete(sessionId);
+
   const earlyTimer = earlyCandidateTimers.get(sessionId);
   if (earlyTimer) {
     clearTimeout(earlyTimer);

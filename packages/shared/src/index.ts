@@ -45,6 +45,7 @@ export {
   calculateDocumentPrice,
   calculateFinishingCost,
   calculateOrderTotal,
+  parsePageRangeCount,
   type ColorMode,
   type DuplexMode,
   type PagesPerSheet,

@@ -330,11 +330,11 @@ export default function PrintSettingsPanel({
   const imageBatchSheetsPerCopy = useMemo(() => {
     if (imageDocs.length === 0) return 0;
     const logicalPages = Math.ceil(imageDocs.length / imageBatchGrid);
-    const isDouble = imageBatchSettings?.colorMode !== "color" && imageBatchSettings?.duplex === "double";
+    const isDouble = imageBatchSettings?.duplex === "double";
     return isDouble
       ? Math.ceil(logicalPages / 2)
       : logicalPages;
-  }, [imageDocs.length, imageBatchGrid, imageBatchSettings?.duplex, imageBatchSettings?.colorMode]);
+  }, [imageDocs.length, imageBatchGrid, imageBatchSettings?.duplex]);
 
   // Live Sheet Preview for Images
   const [imagePreviewSheet, setImagePreviewSheet] = useState(0);
@@ -405,12 +405,8 @@ export default function PrintSettingsPanel({
                     </span>
                     <span>•</span>
                     <span>{doc.settings.copies} {doc.settings.copies === 1 ? "copy" : "copies"}</span>
-                    {doc.settings.colorMode !== "color" && (
-                      <>
-                        <span>•</span>
-                        <span>{doc.settings.duplex === "double" ? "2-Sided" : "1-Sided"}</span>
-                      </>
-                    )}
+                    <span>•</span>
+                    <span>{doc.settings.duplex === "double" ? "2-Sided" : "1-Sided"}</span>
                     {doc.settings.pagesPerSheet === 1 && (
                       <>
                         <span>•</span>
@@ -466,7 +462,7 @@ export default function PrintSettingsPanel({
                         onDocumentsChange(
                           documents.map((d) =>
                             d.id === doc.id
-                              ? { ...d, settings: { ...d.settings, colorMode: "color", duplex: "single" } }
+                              ? { ...d, settings: { ...d.settings, colorMode: "color" } }
                               : d
                           )
                         );
@@ -477,15 +473,25 @@ export default function PrintSettingsPanel({
                   />
                 </CompactRow>
 
-                {doc.settings.colorMode !== "color" && (
-                  <CompactRow label="Sides">
-                    <CompactToggle
-                      options={[
-                        { value: "single", label: "1-Sided" },
-                        { value: "double", label: "2-Sided" },
-                      ]}
-                      value={doc.settings.duplex}
-                      onChange={(v) => updateDocSetting(doc.id, "duplex", v as DuplexMode)}
+                <CompactRow label="Sides">
+                  <CompactToggle
+                    options={[
+                      { value: "single", label: "1-Sided" },
+                      { value: "double", label: "2-Sided" },
+                    ]}
+                    value={doc.settings.duplex}
+                    onChange={(v) => updateDocSetting(doc.id, "duplex", v as DuplexMode)}
+                  />
+                </CompactRow>
+
+                {doc.pageCount > 1 && (
+                  <CompactRow label="Page Range">
+                    <input
+                      type="text"
+                      className="text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white font-mono text-zinc-800 placeholder-zinc-400 focus:outline-none focus:border-indigo-500 w-32"
+                      placeholder={`1-${doc.pageCount} (All)`}
+                      value={doc.settings.pageRange || ""}
+                      onChange={(e) => updateDocSetting(doc.id, "pageRange", e.target.value)}
                     />
                   </CompactRow>
                 )}
@@ -789,7 +795,7 @@ export default function PrintSettingsPanel({
                         onDocumentsChange(
                           documents.map((d) =>
                             d.type === "image"
-                              ? { ...d, settings: { ...d.settings, colorMode: "color", duplex: "single" } }
+                              ? { ...d, settings: { ...d.settings, colorMode: "color" } }
                               : d
                           )
                         );
@@ -807,18 +813,16 @@ export default function PrintSettingsPanel({
                   />
                 </CompactRow>
 
-                {imageBatchSettings.colorMode !== "color" && (
-                  <CompactRow label="Sides">
-                    <CompactToggle
-                      options={[
-                        { value: "single", label: "1-Sided" },
-                        { value: "double", label: "2-Sided" },
-                      ]}
-                      value={imageBatchSettings.duplex}
-                      onChange={(v) => updateAllImagesSettings("duplex", v as DuplexMode)}
-                    />
-                  </CompactRow>
-                )}
+                <CompactRow label="Sides">
+                  <CompactToggle
+                    options={[
+                      { value: "single", label: "1-Sided" },
+                      { value: "double", label: "2-Sided" },
+                    ]}
+                    value={imageBatchSettings.duplex}
+                    onChange={(v) => updateAllImagesSettings("duplex", v as DuplexMode)}
+                  />
+                </CompactRow>
 
                 <CompactRow label="Orientation">
                   <CompactToggle

@@ -29,10 +29,12 @@ async function main() {
       tagCount[r.tag_name] = (tagCount[r.tag_name] || 0) + 1;
     }
 
+    const brokenTags = (process.env.BROKEN_RELEASE_TAGS || "").split(",").map((t) => t.trim()).filter(Boolean);
+
     for (const r of releases) {
-      // If tag is v0.3.15 (known broken duplicate) or has no latest.yml and duplicate exists
+      // If tag is in configured broken list or has no latest.yml and duplicate exists
       const isDuplicate = tagCount[r.tag_name] > 1;
-      const isKnownBroken = r.tag_name === "v0.3.15";
+      const isKnownBroken = brokenTags.includes(r.tag_name);
       const hasLatestYml = r.assets?.some((a) => a.name === "latest.yml");
 
       if (isKnownBroken || (isDuplicate && !hasLatestYml)) {

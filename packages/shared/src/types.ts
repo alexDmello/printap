@@ -20,6 +20,7 @@ export interface PrintSettings {
   pagesPerSheet: PagesPerSheet;
   pageFit: PageFit;
   orientation: Orientation;
+  pageRange?: string;
 }
 
 export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
@@ -184,12 +185,47 @@ export interface PrintOrder {
 // ─── Price Calculation Helpers ───
 
 /**
+ * Parses a page range string (e.g. "1-5, 8, 10-12") and counts unique valid pages.
+ * Falls back to totalPages if pageRange is invalid or empty.
+ */
+export function parsePageRangeCount(pageRange?: string, totalPages?: number): number {
+  if (!pageRange || !pageRange.trim()) {
+    return totalPages ?? 1;
+  }
+  const clean = pageRange.replace(/\s+/g, "");
+  const parts = clean.split(",");
+  const pageSet = new Set<number>();
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.includes("-")) {
+      const [startStr, endStr] = part.split("-");
+      const start = parseInt(startStr, 10);
+      const end = parseInt(endStr, 10);
+      if (!isNaN(start) && !isNaN(end) && start <= end) {
+        for (let p = Math.max(1, start); p <= (totalPages ? Math.min(totalPages, end) : end); p++) {
+          pageSet.add(p);
+        }
+      }
+    } else {
+      const p = parseInt(part, 10);
+      if (!isNaN(p) && p >= 1 && (!totalPages || p <= totalPages)) {
+        pageSet.add(p);
+      }
+    }
+  }
+  return pageSet.size > 0 ? pageSet.size : (totalPages ?? 1);
+}
+
+/**
  * Calculates the number of physical sheets for a document
- * based on its settings (duplex, pages per sheet, page count).
+ * based on its settings (duplex, pages per sheet, page count, page range).
  */
 export function calculateSheets(pageCount: number, settings: PrintSettings): number {
-  const logicalPages = Math.ceil(pageCount / settings.pagesPerSheet);
-  const isDouble = settings.colorMode !== "color" && settings.duplex === "double";
+  const effectivePages = settings.pageRange
+    ? parsePageRangeCount(settings.pageRange, pageCount)
+    : pageCount;
+  const logicalPages = Math.ceil(effectivePages / settings.pagesPerSheet);
+  const isDouble = settings.duplex === "double";
   const sheets = isDouble
     ? Math.ceil(logicalPages / 2)
     : logicalPages;
@@ -249,11 +285,12 @@ export function calculateOrderSheets(documents: UploadedDocument[]): number {
     const firstImg = images[0];
     const grid = firstImg.settings.pagesPerSheet || 1;
     const logicalPages = Math.ceil(images.length / grid);
-    const isDouble = firstImg.settings.colorMode !== "color" && firstImg.settings.duplex === "double";
+    const isDouble = firstImg.settings.duplex === "double";
     const sheetsPerCopy = isDouble
       ? Math.ceil(logicalPages / 2)
       : logicalPages;
-    totalSheets += sheetsPerCopy * firstImg.settings.copies;
+    const batchCopies = Math.max(1, ...images.map((img) => img.settings.copies || 1));
+    totalSheets += sheetsPerCopy * batchCopies;
   }
 
   return totalSheets;
@@ -283,13 +320,16 @@ export function calculateOrderTotal(
     const firstImg = images[0];
     const grid = firstImg.settings.pagesPerSheet || 1;
     const logicalPages = Math.ceil(images.length / grid);
-    const isDouble = firstImg.settings.colorMode !== "color" && firstImg.settings.duplex === "double";
+    const isDouble = firstImg.settings.duplex === "double";
     const sheetsPerCopy = isDouble
       ? Math.ceil(logicalPages / 2)
       : logicalPages;
-    const totalSheets = sheetsPerCopy * firstImg.settings.copies;
+    const batchCopies = Math.max(1, ...images.map((img) => img.settings.copies || 1));
+    const totalSheets = sheetsPerCopy * batchCopies;
 
-    const pricePerPage = firstImg.settings.colorMode === "color"
+    // Check if any image in the batch requires color printing
+    const isColorBatch = images.some((img) => img.settings.colorMode === "color");
+    const pricePerPage = isColorBatch
       ? rateCard.priceColorPerPage
       : rateCard.priceBwPerPage;
 
@@ -299,7 +339,7 @@ export function calculateOrderTotal(
       if (service.chargeUnit === "per_sheet") {
         total += service.price * totalSheets;
       } else {
-        total += service.price * firstImg.settings.copies;
+        total += service.price * batchCopies;
       }
     }
   }

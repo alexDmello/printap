@@ -5,26 +5,43 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const OUTPUT_FILE = path.join(ROOT_DIR, "PRINTAP_CODEBASE_REVIEW.txt");
 
 const filesToInclude = [
-  // ─── Project Config & Database ───
+  // ─── Project Config, CI & Build Automation ───
   { path: "package.json", desc: "Monorepo Root Package Configuration" },
   { path: ".github/workflows/release.yml", desc: "GitHub Actions Windows Desktop Release & Auto-Updater Workflow" },
+  { path: "scripts/cleanup_releases.cjs", desc: "GitHub Release Tag Deduplication & Artifact Cleanup Script" },
+  { path: "scripts/build_full_codebase_txt.cjs", desc: "Codebase Specification & Full Source Code Review Generator" },
+
+  // ─── Database Schema, Migrations & Edge Functions ───
   { path: "supabase/schema.sql", desc: "Core Supabase SQL Schema (Tables, RLS, Functions)" },
+  { path: "supabase/migrations/20260929_add_slug_and_admin.sql", desc: "SQL Migration: Shop Subdomain Routing Slug & Admin Roles" },
   { path: "supabase/migrations/002_print_orders_and_queue.sql", desc: "SQL Migration: Print Orders Table & Queue System" },
   { path: "supabase/migrations/003_shop_services_and_pricing.sql", desc: "SQL Migration: Shop Services & Tier Pricing" },
   { path: "supabase/migrations/004_shop_online_status.sql", desc: "SQL Migration: Shop Online/Offline Presence Sync" },
+  { path: "supabase/migrations/005_printer_number.sql", desc: "SQL Migration: Printer Identifier Numbering for Hardware Queues" },
+  { path: "supabase/migrations/006_platform_fee_and_gst.sql", desc: "SQL Migration: Platform Fee & 18% GST Settings Matrix" },
+  { path: "supabase/migrations/007_fix_print_events_rls_and_orders.sql", desc: "SQL Migration: Print Events RLS Policies & Orders Linking" },
   { path: "supabase/migrations/008_analytics_and_archival_system.sql", desc: "SQL Migration: Revenue Ledger & Archival System" },
   { path: "supabase/migrations/009_shop_owner_auth_and_location.sql", desc: "SQL Migration: Shop Owner Auth & Location Profiles" },
+  { path: "supabase/migrations/010_column_level_security_and_safe_views.sql", desc: "SQL Migration: Column-Level Security & Safe Views" },
+  { path: "supabase/migrations/011_fix_shops_and_onboarding_rls.sql", desc: "SQL Migration: Shop Onboarding RLS Policy Hardening" },
+  { path: "supabase/migrations/012_admin_offboard_and_delete_shop.sql", desc: "SQL Migration: Secure Shop Offboarding & Cascading Deletion RPC" },
   { path: "supabase/migrations/013_shop_tokens.sql", desc: "SQL Migration: Token Ledger & Subscription Balance" },
   { path: "supabase/migrations/014_token_escrow_and_refunds.sql", desc: "SQL Migration: Atomic Token Escrow & Automatic Refunds" },
+  { path: "supabase/migrations/015_drop_insecure_token_policy.sql", desc: "SQL Migration: Drop Insecure Anon Token Mutation Policy" },
   { path: "supabase/migrations/016_platform_admins.sql", desc: "SQL Migration: Platform Admin Permissions & RLS" },
   { path: "supabase/migrations/017_security_hardening_and_fixes.sql", desc: "SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security" },
   { path: "supabase/migrations/018_enterprise_lockdown.sql", desc: "SQL Migration: Enterprise Security Lockdown & RPC Hardening" },
+  { path: "supabase/functions/cleanup-stale-presence/index.ts", desc: "Supabase Edge Function: Cron Worker for Stale Presence Cleanup" },
 
   // ─── Shared Core Package ───
   { path: "packages/shared/package.json", desc: "Shared Package Definition" },
   { path: "packages/shared/src/index.ts", desc: "Shared Package Main Exports" },
+  { path: "packages/shared/src/types.ts", desc: "Shared Domain Models, Order Types, Calculation Helpers & Signatures" },
   { path: "packages/shared/src/supabase.ts", desc: "Shared Supabase Client, Domain Sanitizer, Types" },
   { path: "packages/shared/src/signaling.ts", desc: "Shared Signaling Constants, Message Types, Payloads" },
+  { path: "packages/shared/src/presence.ts", desc: "Shared Presence Channel Constants & Online State Dispatcher" },
+  { path: "packages/shared/src/domains.ts", desc: "Subdomain Routing Rules, Slug Sanitization & Multi-Tenant Resolvers" },
+  { path: "packages/shared/src/validation.ts", desc: "Email & Form Input Sanitization and Validation Utilities" },
 
   // ─── Desktop App (Shop Terminal & Hardware Agent) ───
   { path: "apps/desktop/package.json", desc: "Desktop Electron App Package Configuration" },
@@ -33,6 +50,7 @@ const filesToInclude = [
   { path: "apps/desktop/src/main/index.ts", desc: "Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup" },
   { path: "apps/desktop/src/main/printer-discovery.ts", desc: "Windows PowerShell Hardware Printer Discovery Engine" },
   { path: "apps/desktop/src/preload/index.ts", desc: "Electron Preload Script (Typed ContextBridge IPC API)" },
+  { path: "apps/desktop/src/renderer/index.html", desc: "Desktop Renderer HTML Document Template" },
   { path: "apps/desktop/src/renderer/env.d.ts", desc: "Renderer Ambient TypeScript Types & Window Declarations" },
   { path: "apps/desktop/src/renderer/main.tsx", desc: "Renderer React DOM Root Entrypoint" },
   { path: "apps/desktop/src/renderer/App.tsx", desc: "Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator" },
@@ -57,7 +75,10 @@ const filesToInclude = [
   { path: "apps/desktop/src/renderer/styles.css", desc: "High-Contrast Structural Design System Stylesheet" },
 
   // ─── Customer Web Reference (WebRTC Client) ───
-  { path: "apps/web/src/lib/customer-signaling.ts", desc: "Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener" }
+  { path: "apps/web/src/lib/customer-signaling.ts", desc: "Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener" },
+
+  // ─── Platform Verification & Quality Assurance Suite ───
+  { path: "tests/platform-verification.test.ts", desc: "Platform Verification Test Suite (SHA-256, Spooler Mapping, Pricing, Queue Sweeper, Subdomains)" }
 ];
 
 let output = "";
@@ -122,9 +143,12 @@ mellod/printap/
 │   └── web/                 # Customer-facing Next.js PWA (WebRTC Sender, QR scan destination)
 ├── packages/
 │   └── shared/              # Shared types, Supabase client factory, signaling contracts
-└── supabase/
-    ├── schema.sql           # Base database schema (Tables, RLS, Functions)
-    └── migrations/          # Incremental database migrations (Tokens, Escrow, Pricing)
+├── supabase/
+│   ├── schema.sql           # Base database schema (Tables, RLS, Functions)
+│   ├── migrations/          # Incremental database migrations (Tokens, Escrow, Pricing)
+│   └── functions/           # Supabase edge functions (stale presence cleanup)
+├── scripts/                 # CI release cleanup & codebase review generation scripts
+└── tests/                   # End-to-end platform verification test suite
 
 ───────────────────────────────────────────────────────────────────────────────
 3. TABLE OF CONTENTS OF INCLUDED FILES

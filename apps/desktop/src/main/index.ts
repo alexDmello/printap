@@ -64,10 +64,13 @@ async function sweepOrphanedTempFiles(): Promise<void> {
       const fullPath = path.join(TEMP_DIR, entry);
       try {
         await srm(fullPath, { standard: "dod" as any });
-      } catch {
+      } catch (srmErr) {
+        console.warn(`[main] DoD srm failed for temp file ${fullPath}, falling back to fs.unlink:`, srmErr);
         try {
           await fs.unlink(fullPath);
-        } catch {}
+        } catch (unlinkErr) {
+          console.error(`[main] CRITICAL: Failed to delete temp file ${fullPath}:`, unlinkErr);
+        }
       }
     }
   } catch (err) {
@@ -283,7 +286,7 @@ ipcMain.handle("check-for-updates", async () => {
     const result = await autoUpdater.checkForUpdates();
     const updateAvailable =
       Boolean(result?.updateInfo?.version) &&
-      result.updateInfo.version !== app.getVersion();
+      result?.updateInfo?.version !== app.getVersion();
     return {
       success: true,
       isLatest: !updateAvailable,
@@ -832,10 +835,13 @@ async function secureDeleteFile(filePath: string): Promise<void> {
   if (!existsSync(filePath)) return;
   try {
     await srm(filePath, { standard: "dod" as any });
-  } catch {
+  } catch (srmErr) {
+    console.warn(`[main] DoD srm failed for ${filePath}, falling back to fs.unlink:`, srmErr);
     try {
       await fs.unlink(filePath);
-    } catch {}
+    } catch (unlinkErr) {
+      console.error(`[main] CRITICAL: Failed to delete temp file ${filePath}:`, unlinkErr);
+    }
   }
 }
 
@@ -854,6 +860,7 @@ ipcMain.handle(
       duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
+      pageRange?: string;
     }
   ) => {
     const safeSessionId = sanitizeIdentifier(sessionId);
@@ -926,6 +933,10 @@ ipcMain.handle(
 
       if (options?.orientation) {
         printOptions.orientation = options.orientation;
+      }
+
+      if (options?.pageRange) {
+        (printOptions as any).pages = options.pageRange;
       }
 
       await ptp.print(filePath, printOptions);

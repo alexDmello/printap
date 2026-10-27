@@ -27,8 +27,8 @@ jobs:
 
       - name: Build Desktop App
         env:
-          VITE_SUPABASE_URL: "https://pjwystvflmigolgtlpow.supabase.co"
-          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips"
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://pjwystvflmigolgtlpow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm -w apps/desktop run build
 
       - name: Package Desktop App (NSIS)

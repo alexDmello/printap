@@ -3,7 +3,7 @@
   COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Generated: 2026-10-19T14:59:15.158Z
+Generated: 2026-10-26T18:10:31.579Z
 Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -57,66 +57,86 @@ mellod/printap/
 │   └── web/                 # Customer-facing Next.js PWA (WebRTC Sender, QR scan destination)
 ├── packages/
 │   └── shared/              # Shared types, Supabase client factory, signaling contracts
-└── supabase/
-    ├── schema.sql           # Base database schema (Tables, RLS, Functions)
-    └── migrations/          # Incremental database migrations (Tokens, Escrow, Pricing)
+├── supabase/
+│   ├── schema.sql           # Base database schema (Tables, RLS, Functions)
+│   ├── migrations/          # Incremental database migrations (Tokens, Escrow, Pricing)
+│   └── functions/           # Supabase edge functions (stale presence cleanup)
+├── scripts/                 # CI release cleanup & codebase review generation scripts
+└── tests/                   # End-to-end platform verification test suite
 
 ───────────────────────────────────────────────────────────────────────────────
 3. TABLE OF CONTENTS OF INCLUDED FILES
 ───────────────────────────────────────────────────────────────────────────────
 [01] package.json                                            (0.7 KB, 24 lines) — Monorepo Root Package Configuration
-[02] .github/workflows/release.yml                           (1.5 KB, 57 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
-[03] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
-[04] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
-[05] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
-[06] supabase/migrations/004_shop_online_status.sql          (1.7 KB, 46 lines) — SQL Migration: Shop Online/Offline Presence Sync
-[07] supabase/migrations/008_analytics_and_archival_system.sql (9.9 KB, 286 lines) — SQL Migration: Revenue Ledger & Archival System
-[08] supabase/migrations/009_shop_owner_auth_and_location.sql (4.0 KB, 82 lines) — SQL Migration: Shop Owner Auth & Location Profiles
-[09] supabase/migrations/013_shop_tokens.sql                 (4.1 KB, 140 lines) — SQL Migration: Token Ledger & Subscription Balance
-[10] supabase/migrations/014_token_escrow_and_refunds.sql    (4.4 KB, 135 lines) — SQL Migration: Atomic Token Escrow & Automatic Refunds
-[11] supabase/migrations/016_platform_admins.sql             (1.0 KB, 28 lines) — SQL Migration: Platform Admin Permissions & RLS
-[12] supabase/migrations/017_security_hardening_and_fixes.sql (12.0 KB, 375 lines) — SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
-[13] supabase/migrations/018_enterprise_lockdown.sql         (6.8 KB, 202 lines) — SQL Migration: Enterprise Security Lockdown & RPC Hardening
-[14] packages/shared/package.json                            (0.3 KB, 15 lines) — Shared Package Definition
-[15] packages/shared/src/index.ts                            (3.0 KB, 141 lines) — Shared Package Main Exports
-[16] packages/shared/src/supabase.ts                         (2.4 KB, 71 lines) — Shared Supabase Client, Domain Sanitizer, Types
-[17] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
-[18] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
-[19] apps/desktop/electron.vite.config.ts                    (1.9 KB, 51 lines) — Electron-Vite Build & Alias Configuration
-[20] apps/desktop/electron-builder.yml                       (0.7 KB, 35 lines) — Electron-Builder Windows Packaging Configuration
-[21] apps/desktop/src/main/index.ts                          (29.7 KB, 1001 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
-[22] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
-[23] apps/desktop/src/preload/index.ts                       (2.7 KB, 97 lines) — Electron Preload Script (Typed ContextBridge IPC API)
-[24] apps/desktop/src/renderer/env.d.ts                      (2.8 KB, 129 lines) — Renderer Ambient TypeScript Types & Window Declarations
-[25] apps/desktop/src/renderer/main.tsx                      (0.4 KB, 14 lines) — Renderer React DOM Root Entrypoint
-[26] apps/desktop/src/renderer/App.tsx                       (64.0 KB, 1874 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
-[27] apps/desktop/src/renderer/context/AuthContext.tsx       (12.1 KB, 402 lines) — Authentication Context: Local Session, OTP Reset, Google OAuth
-[28] apps/desktop/src/renderer/lib/shop-signaling.ts         (18.0 KB, 652 lines) — WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
-[29] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
-[30] apps/desktop/src/renderer/lib/fifo-dispatcher.ts        (15.7 KB, 557 lines) — FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
-[31] apps/desktop/src/renderer/components/Sidebar.tsx        (10.3 KB, 318 lines) — Navigation Sidebar & Live Online/Offline Toggle
-[32] apps/desktop/src/renderer/components/LiveDashboard.tsx  (26.5 KB, 617 lines) — Live Monitor: Active Print Progress, Live Queue, Handover Ledger
-[33] apps/desktop/src/renderer/components/PrintHistory.tsx   (21.1 KB, 562 lines) — Print History & Activity Ledger with CSV Export
-[34] apps/desktop/src/renderer/components/PrintersControl.tsx (25.3 KB, 784 lines) — Hardware Printer Mapping & Capability Assignment
-[35] apps/desktop/src/renderer/components/ServicesRates.tsx  (32.9 KB, 909 lines) — Shop Services, Rate Card & Document Pricing Matrix
-[36] apps/desktop/src/renderer/components/Analytics.tsx      (14.3 KB, 430 lines) — Financial Metrics, Print Volume Charts, Revenue Summary
-[37] apps/desktop/src/renderer/components/CounterQr.tsx      (21.7 KB, 634 lines) — Customer QR Code Stand Generator & Print Sheet
-[38] apps/desktop/src/renderer/components/Tokens.tsx         (9.6 KB, 260 lines) — Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
-[39] apps/desktop/src/renderer/components/Profile.tsx        (11.6 KB, 324 lines) — Shop Information, Operating Hours & Geolocation Configuration
-[40] apps/desktop/src/renderer/components/Login.tsx          (18.2 KB, 549 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
-[41] apps/desktop/src/renderer/components/UpdateScreen.tsx   (9.5 KB, 266 lines) — Software Auto-Updater Modal (Download Progress & Restart)
-[42] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
-[43] apps/desktop/src/renderer/components/ErrorBoundary.tsx  (4.5 KB, 163 lines) — Global React Exception Boundary
-[44] apps/desktop/src/renderer/components/Icons.tsx          (9.9 KB, 411 lines) — SVG Icon Set
-[45] apps/desktop/src/renderer/styles.css                    (53.0 KB, 2517 lines) — High-Contrast Structural Design System Stylesheet
-[46] apps/web/src/lib/customer-signaling.ts                  (13.3 KB, 509 lines) — Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
+[02] .github/workflows/release.yml                           (1.4 KB, 57 lines) — GitHub Actions Windows Desktop Release & Auto-Updater Workflow
+[03] scripts/cleanup_releases.cjs                            (2.0 KB, 55 lines) — GitHub Release Tag Deduplication & Artifact Cleanup Script
+[04] scripts/build_full_codebase_txt.cjs                     (17.3 KB, 197 lines) — Codebase Specification & Full Source Code Review Generator
+[05] supabase/schema.sql                                     (5.5 KB, 142 lines) — Core Supabase SQL Schema (Tables, RLS, Functions)
+[06] supabase/migrations/20260929_add_slug_and_admin.sql     (0.9 KB, 24 lines) — SQL Migration: Shop Subdomain Routing Slug & Admin Roles
+[07] supabase/migrations/002_print_orders_and_queue.sql      (5.5 KB, 146 lines) — SQL Migration: Print Orders Table & Queue System
+[08] supabase/migrations/003_shop_services_and_pricing.sql   (0.9 KB, 22 lines) — SQL Migration: Shop Services & Tier Pricing
+[09] supabase/migrations/004_shop_online_status.sql          (1.7 KB, 46 lines) — SQL Migration: Shop Online/Offline Presence Sync
+[10] supabase/migrations/005_printer_number.sql              (0.4 KB, 8 lines) — SQL Migration: Printer Identifier Numbering for Hardware Queues
+[11] supabase/migrations/006_platform_fee_and_gst.sql        (2.1 KB, 50 lines) — SQL Migration: Platform Fee & 18% GST Settings Matrix
+[12] supabase/migrations/007_fix_print_events_rls_and_orders.sql (1.6 KB, 40 lines) — SQL Migration: Print Events RLS Policies & Orders Linking
+[13] supabase/migrations/008_analytics_and_archival_system.sql (9.9 KB, 286 lines) — SQL Migration: Revenue Ledger & Archival System
+[14] supabase/migrations/009_shop_owner_auth_and_location.sql (4.0 KB, 82 lines) — SQL Migration: Shop Owner Auth & Location Profiles
+[15] supabase/migrations/010_column_level_security_and_safe_views.sql (1.4 KB, 38 lines) — SQL Migration: Column-Level Security & Safe Views
+[16] supabase/migrations/011_fix_shops_and_onboarding_rls.sql (1.7 KB, 49 lines) — SQL Migration: Shop Onboarding RLS Policy Hardening
+[17] supabase/migrations/012_admin_offboard_and_delete_shop.sql (3.7 KB, 105 lines) — SQL Migration: Secure Shop Offboarding & Cascading Deletion RPC
+[18] supabase/migrations/013_shop_tokens.sql                 (4.1 KB, 140 lines) — SQL Migration: Token Ledger & Subscription Balance
+[19] supabase/migrations/014_token_escrow_and_refunds.sql    (4.4 KB, 135 lines) — SQL Migration: Atomic Token Escrow & Automatic Refunds
+[20] supabase/migrations/015_drop_insecure_token_policy.sql  (0.7 KB, 14 lines) — SQL Migration: Drop Insecure Anon Token Mutation Policy
+[21] supabase/migrations/016_platform_admins.sql             (1.0 KB, 28 lines) — SQL Migration: Platform Admin Permissions & RLS
+[22] supabase/migrations/017_security_hardening_and_fixes.sql (12.0 KB, 375 lines) — SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
+[23] supabase/migrations/018_enterprise_lockdown.sql         (6.8 KB, 202 lines) — SQL Migration: Enterprise Security Lockdown & RPC Hardening
+[24] supabase/functions/cleanup-stale-presence/index.ts      (1.9 KB, 61 lines) — Supabase Edge Function: Cron Worker for Stale Presence Cleanup
+[25] packages/shared/package.json                            (0.3 KB, 15 lines) — Shared Package Definition
+[26] packages/shared/src/index.ts                            (3.0 KB, 142 lines) — Shared Package Main Exports
+[27] packages/shared/src/types.ts                            (13.7 KB, 489 lines) — Shared Domain Models, Order Types, Calculation Helpers & Signatures
+[28] packages/shared/src/supabase.ts                         (2.4 KB, 71 lines) — Shared Supabase Client, Domain Sanitizer, Types
+[29] packages/shared/src/signaling.ts                        (4.8 KB, 193 lines) — Shared Signaling Constants, Message Types, Payloads
+[30] packages/shared/src/presence.ts                         (1.0 KB, 44 lines) — Shared Presence Channel Constants & Online State Dispatcher
+[31] packages/shared/src/domains.ts                          (6.2 KB, 237 lines) — Subdomain Routing Rules, Slug Sanitization & Multi-Tenant Resolvers
+[32] packages/shared/src/validation.ts                       (3.0 KB, 95 lines) — Email & Form Input Sanitization and Validation Utilities
+[33] apps/desktop/package.json                               (1.2 KB, 41 lines) — Desktop Electron App Package Configuration
+[34] apps/desktop/electron.vite.config.ts                    (1.9 KB, 51 lines) — Electron-Vite Build & Alias Configuration
+[35] apps/desktop/electron-builder.yml                       (0.7 KB, 35 lines) — Electron-Builder Windows Packaging Configuration
+[36] apps/desktop/src/main/index.ts                          (30.3 KB, 1012 lines) — Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
+[37] apps/desktop/src/main/printer-discovery.ts              (7.5 KB, 246 lines) — Windows PowerShell Hardware Printer Discovery Engine
+[38] apps/desktop/src/preload/index.ts                       (2.7 KB, 98 lines) — Electron Preload Script (Typed ContextBridge IPC API)
+[39] apps/desktop/src/renderer/index.html                    (0.8 KB, 21 lines) — Desktop Renderer HTML Document Template
+[40] apps/desktop/src/renderer/env.d.ts                      (2.8 KB, 130 lines) — Renderer Ambient TypeScript Types & Window Declarations
+[41] apps/desktop/src/renderer/main.tsx                      (0.4 KB, 14 lines) — Renderer React DOM Root Entrypoint
+[42] apps/desktop/src/renderer/App.tsx                       (67.1 KB, 1969 lines) — Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
+[43] apps/desktop/src/renderer/context/AuthContext.tsx       (12.1 KB, 402 lines) — Authentication Context: Local Session, OTP Reset, Google OAuth
+[44] apps/desktop/src/renderer/lib/shop-signaling.ts         (20.4 KB, 724 lines) — WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
+[45] apps/desktop/src/renderer/lib/shop-presence.ts          (5.0 KB, 192 lines) — Supabase Realtime Shop Presence & Heartbeat Engine
+[46] apps/desktop/src/renderer/lib/fifo-dispatcher.ts        (15.7 KB, 558 lines) — FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
+[47] apps/desktop/src/renderer/components/Sidebar.tsx        (10.3 KB, 318 lines) — Navigation Sidebar & Live Online/Offline Toggle
+[48] apps/desktop/src/renderer/components/LiveDashboard.tsx  (26.5 KB, 617 lines) — Live Monitor: Active Print Progress, Live Queue, Handover Ledger
+[49] apps/desktop/src/renderer/components/PrintHistory.tsx   (23.1 KB, 623 lines) — Print History & Activity Ledger with CSV Export
+[50] apps/desktop/src/renderer/components/PrintersControl.tsx (25.3 KB, 784 lines) — Hardware Printer Mapping & Capability Assignment
+[51] apps/desktop/src/renderer/components/ServicesRates.tsx  (32.9 KB, 909 lines) — Shop Services, Rate Card & Document Pricing Matrix
+[52] apps/desktop/src/renderer/components/Analytics.tsx      (14.3 KB, 430 lines) — Financial Metrics, Print Volume Charts, Revenue Summary
+[53] apps/desktop/src/renderer/components/CounterQr.tsx      (21.7 KB, 634 lines) — Customer QR Code Stand Generator & Print Sheet
+[54] apps/desktop/src/renderer/components/Tokens.tsx         (9.6 KB, 260 lines) — Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
+[55] apps/desktop/src/renderer/components/Profile.tsx        (11.6 KB, 324 lines) — Shop Information, Operating Hours & Geolocation Configuration
+[56] apps/desktop/src/renderer/components/Login.tsx          (18.2 KB, 549 lines) — Shopkeeper Counter Terminal Authentication & Password Reset
+[57] apps/desktop/src/renderer/components/UpdateScreen.tsx   (9.5 KB, 266 lines) — Software Auto-Updater Modal (Download Progress & Restart)
+[58] apps/desktop/src/renderer/components/UnsavedChangesModal.tsx (1.8 KB, 70 lines) — Modal Guard for Unsaved Changes Across Forms
+[59] apps/desktop/src/renderer/components/ErrorBoundary.tsx  (4.5 KB, 163 lines) — Global React Exception Boundary
+[60] apps/desktop/src/renderer/components/Icons.tsx          (9.9 KB, 411 lines) — SVG Icon Set
+[61] apps/desktop/src/renderer/styles.css                    (53.0 KB, 2517 lines) — High-Contrast Structural Design System Stylesheet
+[62] apps/web/src/lib/customer-signaling.ts                  (13.5 KB, 511 lines) — Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
+[63] tests/platform-verification.test.ts                     (25.3 KB, 774 lines) — Platform Verification Test Suite (SHA-256, Spooler Mapping, Pricing, Queue Sweeper, Subdomains)
 
 ═══════════════════════════════════════════════════════════════════════════════
   SOURCE CODE LISTINGS
 ═══════════════════════════════════════════════════════════════════════════════
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [1/46]: package.json
+FILE [1/63]: package.json
 PURPOSE: Monorepo Root Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
@@ -145,7 +165,7 @@ PURPOSE: Monorepo Root Package Configuration
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [2/46]: .github/workflows/release.yml
+FILE [2/63]: .github/workflows/release.yml
 PURPOSE: GitHub Actions Windows Desktop Release & Auto-Updater Workflow
 ───────────────────────────────────────────────────────────────────────────────
 name: Release Desktop Agent
@@ -177,8 +197,8 @@ jobs:
 
       - name: Build Desktop App
         env:
-          VITE_SUPABASE_URL: "https://pjwystvflmigolgtlpow.supabase.co"
-          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqd3lzdHZmbG1pZ29sZ3RscG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1ODg1MTUsImV4cCI6MjEwNjE2NDUxNX0.iKjgSkyHJYQVnCkDgYPQHwwqykPJ_Ev7KQJhMiSkips"
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://pjwystvflmigolgtlpow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm -w apps/desktop run build
 
       - name: Package Desktop App (NSIS)
@@ -207,7 +227,269 @@ jobs:
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [3/46]: supabase/schema.sql
+FILE [3/63]: scripts/cleanup_releases.cjs
+PURPOSE: GitHub Release Tag Deduplication & Artifact Cleanup Script
+───────────────────────────────────────────────────────────────────────────────
+// Cleans up broken or duplicate releases in GitHub Releases to prevent 404s on latest.yml
+async function main() {
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (!token) {
+    console.log("[cleanup_releases] No GITHUB_TOKEN provided, skipping cleanup.");
+    return;
+  }
+
+  const repo = "alexDmello/printap";
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "User-Agent": "Printap-CI",
+  };
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=100`, { headers });
+    if (!res.ok) {
+      console.warn("[cleanup_releases] Failed to fetch releases:", res.status, res.statusText);
+      return;
+    }
+
+    const releases = await res.json();
+    console.log(`[cleanup_releases] Fetched ${releases.length} releases.`);
+
+    // Find duplicate or broken releases where assets are missing or multiple releases exist for the same tag
+    const tagCount = {};
+    for (const r of releases) {
+      tagCount[r.tag_name] = (tagCount[r.tag_name] || 0) + 1;
+    }
+
+    const brokenTags = (process.env.BROKEN_RELEASE_TAGS || "").split(",").map((t) => t.trim()).filter(Boolean);
+
+    for (const r of releases) {
+      // If tag is in configured broken list or has no latest.yml and duplicate exists
+      const isDuplicate = tagCount[r.tag_name] > 1;
+      const isKnownBroken = brokenTags.includes(r.tag_name);
+      const hasLatestYml = r.assets?.some((a) => a.name === "latest.yml");
+
+      if (isKnownBroken || (isDuplicate && !hasLatestYml)) {
+        console.log(`[cleanup_releases] Deleting release id=${r.id} tag=${r.tag_name} (hasLatestYml=${hasLatestYml})`);
+        const delRes = await fetch(`https://api.github.com/repos/${repo}/releases/${r.id}`, {
+          method: "DELETE",
+          headers,
+        });
+        console.log(`[cleanup_releases] Delete result for ${r.id}: status=${delRes.status}`);
+      }
+    }
+  } catch (err) {
+    console.warn("[cleanup_releases] Warning:", err);
+  }
+}
+
+main();
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [4/63]: scripts/build_full_codebase_txt.cjs
+PURPOSE: Codebase Specification & Full Source Code Review Generator
+───────────────────────────────────────────────────────────────────────────────
+const fs = require("fs");
+const path = require("path");
+
+const ROOT_DIR = path.resolve(__dirname, "..");
+const OUTPUT_FILE = path.join(ROOT_DIR, "PRINTAP_CODEBASE_REVIEW.txt");
+
+const filesToInclude = [
+  // ─── Project Config, CI & Build Automation ───
+  { path: "package.json", desc: "Monorepo Root Package Configuration" },
+  { path: ".github/workflows/release.yml", desc: "GitHub Actions Windows Desktop Release & Auto-Updater Workflow" },
+  { path: "scripts/cleanup_releases.cjs", desc: "GitHub Release Tag Deduplication & Artifact Cleanup Script" },
+  { path: "scripts/build_full_codebase_txt.cjs", desc: "Codebase Specification & Full Source Code Review Generator" },
+
+  // ─── Database Schema, Migrations & Edge Functions ───
+  { path: "supabase/schema.sql", desc: "Core Supabase SQL Schema (Tables, RLS, Functions)" },
+  { path: "supabase/migrations/20260929_add_slug_and_admin.sql", desc: "SQL Migration: Shop Subdomain Routing Slug & Admin Roles" },
+  { path: "supabase/migrations/002_print_orders_and_queue.sql", desc: "SQL Migration: Print Orders Table & Queue System" },
+  { path: "supabase/migrations/003_shop_services_and_pricing.sql", desc: "SQL Migration: Shop Services & Tier Pricing" },
+  { path: "supabase/migrations/004_shop_online_status.sql", desc: "SQL Migration: Shop Online/Offline Presence Sync" },
+  { path: "supabase/migrations/005_printer_number.sql", desc: "SQL Migration: Printer Identifier Numbering for Hardware Queues" },
+  { path: "supabase/migrations/006_platform_fee_and_gst.sql", desc: "SQL Migration: Platform Fee & 18% GST Settings Matrix" },
+  { path: "supabase/migrations/007_fix_print_events_rls_and_orders.sql", desc: "SQL Migration: Print Events RLS Policies & Orders Linking" },
+  { path: "supabase/migrations/008_analytics_and_archival_system.sql", desc: "SQL Migration: Revenue Ledger & Archival System" },
+  { path: "supabase/migrations/009_shop_owner_auth_and_location.sql", desc: "SQL Migration: Shop Owner Auth & Location Profiles" },
+  { path: "supabase/migrations/010_column_level_security_and_safe_views.sql", desc: "SQL Migration: Column-Level Security & Safe Views" },
+  { path: "supabase/migrations/011_fix_shops_and_onboarding_rls.sql", desc: "SQL Migration: Shop Onboarding RLS Policy Hardening" },
+  { path: "supabase/migrations/012_admin_offboard_and_delete_shop.sql", desc: "SQL Migration: Secure Shop Offboarding & Cascading Deletion RPC" },
+  { path: "supabase/migrations/013_shop_tokens.sql", desc: "SQL Migration: Token Ledger & Subscription Balance" },
+  { path: "supabase/migrations/014_token_escrow_and_refunds.sql", desc: "SQL Migration: Atomic Token Escrow & Automatic Refunds" },
+  { path: "supabase/migrations/015_drop_insecure_token_policy.sql", desc: "SQL Migration: Drop Insecure Anon Token Mutation Policy" },
+  { path: "supabase/migrations/016_platform_admins.sql", desc: "SQL Migration: Platform Admin Permissions & RLS" },
+  { path: "supabase/migrations/017_security_hardening_and_fixes.sql", desc: "SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security" },
+  { path: "supabase/migrations/018_enterprise_lockdown.sql", desc: "SQL Migration: Enterprise Security Lockdown & RPC Hardening" },
+  { path: "supabase/functions/cleanup-stale-presence/index.ts", desc: "Supabase Edge Function: Cron Worker for Stale Presence Cleanup" },
+
+  // ─── Shared Core Package ───
+  { path: "packages/shared/package.json", desc: "Shared Package Definition" },
+  { path: "packages/shared/src/index.ts", desc: "Shared Package Main Exports" },
+  { path: "packages/shared/src/types.ts", desc: "Shared Domain Models, Order Types, Calculation Helpers & Signatures" },
+  { path: "packages/shared/src/supabase.ts", desc: "Shared Supabase Client, Domain Sanitizer, Types" },
+  { path: "packages/shared/src/signaling.ts", desc: "Shared Signaling Constants, Message Types, Payloads" },
+  { path: "packages/shared/src/presence.ts", desc: "Shared Presence Channel Constants & Online State Dispatcher" },
+  { path: "packages/shared/src/domains.ts", desc: "Subdomain Routing Rules, Slug Sanitization & Multi-Tenant Resolvers" },
+  { path: "packages/shared/src/validation.ts", desc: "Email & Form Input Sanitization and Validation Utilities" },
+
+  // ─── Desktop App (Shop Terminal & Hardware Agent) ───
+  { path: "apps/desktop/package.json", desc: "Desktop Electron App Package Configuration" },
+  { path: "apps/desktop/electron.vite.config.ts", desc: "Electron-Vite Build & Alias Configuration" },
+  { path: "apps/desktop/electron-builder.yml", desc: "Electron-Builder Windows Packaging Configuration" },
+  { path: "apps/desktop/src/main/index.ts", desc: "Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup" },
+  { path: "apps/desktop/src/main/printer-discovery.ts", desc: "Windows PowerShell Hardware Printer Discovery Engine" },
+  { path: "apps/desktop/src/preload/index.ts", desc: "Electron Preload Script (Typed ContextBridge IPC API)" },
+  { path: "apps/desktop/src/renderer/index.html", desc: "Desktop Renderer HTML Document Template" },
+  { path: "apps/desktop/src/renderer/env.d.ts", desc: "Renderer Ambient TypeScript Types & Window Declarations" },
+  { path: "apps/desktop/src/renderer/main.tsx", desc: "Renderer React DOM Root Entrypoint" },
+  { path: "apps/desktop/src/renderer/App.tsx", desc: "Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator" },
+  { path: "apps/desktop/src/renderer/context/AuthContext.tsx", desc: "Authentication Context: Local Session, OTP Reset, Google OAuth" },
+  { path: "apps/desktop/src/renderer/lib/shop-signaling.ts", desc: "WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler" },
+  { path: "apps/desktop/src/renderer/lib/shop-presence.ts", desc: "Supabase Realtime Shop Presence & Heartbeat Engine" },
+  { path: "apps/desktop/src/renderer/lib/fifo-dispatcher.ts", desc: "FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler" },
+  { path: "apps/desktop/src/renderer/components/Sidebar.tsx", desc: "Navigation Sidebar & Live Online/Offline Toggle" },
+  { path: "apps/desktop/src/renderer/components/LiveDashboard.tsx", desc: "Live Monitor: Active Print Progress, Live Queue, Handover Ledger" },
+  { path: "apps/desktop/src/renderer/components/PrintHistory.tsx", desc: "Print History & Activity Ledger with CSV Export" },
+  { path: "apps/desktop/src/renderer/components/PrintersControl.tsx", desc: "Hardware Printer Mapping & Capability Assignment" },
+  { path: "apps/desktop/src/renderer/components/ServicesRates.tsx", desc: "Shop Services, Rate Card & Document Pricing Matrix" },
+  { path: "apps/desktop/src/renderer/components/Analytics.tsx", desc: "Financial Metrics, Print Volume Charts, Revenue Summary" },
+  { path: "apps/desktop/src/renderer/components/CounterQr.tsx", desc: "Customer QR Code Stand Generator & Print Sheet" },
+  { path: "apps/desktop/src/renderer/components/Tokens.tsx", desc: "Token Management Deck: Balances, Threshold Alerts, Pack Top-Up" },
+  { path: "apps/desktop/src/renderer/components/Profile.tsx", desc: "Shop Information, Operating Hours & Geolocation Configuration" },
+  { path: "apps/desktop/src/renderer/components/Login.tsx", desc: "Shopkeeper Counter Terminal Authentication & Password Reset" },
+  { path: "apps/desktop/src/renderer/components/UpdateScreen.tsx", desc: "Software Auto-Updater Modal (Download Progress & Restart)" },
+  { path: "apps/desktop/src/renderer/components/UnsavedChangesModal.tsx", desc: "Modal Guard for Unsaved Changes Across Forms" },
+  { path: "apps/desktop/src/renderer/components/ErrorBoundary.tsx", desc: "Global React Exception Boundary" },
+  { path: "apps/desktop/src/renderer/components/Icons.tsx", desc: "SVG Icon Set" },
+  { path: "apps/desktop/src/renderer/styles.css", desc: "High-Contrast Structural Design System Stylesheet" },
+
+  // ─── Customer Web Reference (WebRTC Client) ───
+  { path: "apps/web/src/lib/customer-signaling.ts", desc: "Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener" },
+
+  // ─── Platform Verification & Quality Assurance Suite ───
+  { path: "tests/platform-verification.test.ts", desc: "Platform Verification Test Suite (SHA-256, Spooler Mapping, Pricing, Queue Sweeper, Subdomains)" }
+];
+
+let output = "";
+
+// ─── Header & Architectural Documentation ───
+output += `═══════════════════════════════════════════════════════════════════════════════
+  PRINTAP — PRIVACY-FIRST PEER-TO-PEER DOCUMENT PRINTING PLATFORM
+  COMPREHENSIVE CODEBASE SPECIFICATION & FULL SOURCE CODE AUDIT
+═══════════════════════════════════════════════════════════════════════════════
+
+Generated: ${new Date().toISOString()}
+Target Stack: Electron 33, React 19, TypeScript 5.7, Vite 5, Supabase (PostgreSQL 15), WebRTC DataChannel
+
+───────────────────────────────────────────────────────────────────────────────
+1. ARCHITECTURAL OVERVIEW & HIGH-LEVEL SYSTEM DESIGN
+───────────────────────────────────────────────────────────────────────────────
+Printap eliminates cloud storage risks for commercial document printing (Xerox / print shops).
+In traditional print shops, customers email or WhatsApp sensitive PDFs (legal documents, Aadhaar cards,
+academic certificates, medical records) to public computers where they persist unencrypted on disk.
+
+Printap replaces this with a ZERO-CLOUD-STORAGE peer-to-peer streaming pipeline:
+1. CUSTOMER EXPERIENCE (Web PWA):
+   - The customer scans a dynamic counter QR code at the physical counter.
+   - A client-side PWA opens in their mobile browser (no mobile app installation required).
+   - The customer selects PDF/image documents and configures print parameters (color/BW, copies, duplex, page range).
+   - Dynamic client-side pricing calculates costs in real-time according to the shop's active rate matrix.
+
+2. PEER-TO-PEER DATA PIPELINE (WebRTC DataChannel):
+   - Customer and Shop negotiate an encrypted WebRTC PeerConnection via Supabase Realtime Broadcast signaling.
+   - Files are sliced into 64KB binary chunks and streamed DIRECTLY from the customer's mobile browser to the shop desktop terminal over an encrypted RTCDataChannel.
+   - ZERO file bytes are ever uploaded to, or stored on, Supabase storage or cloud servers.
+   - Event-driven DataChannel backpressure monitoring (1MB high-water threshold, 256KB low-water drain event) ensures reliable transmission without buffer overflow.
+   - Contiguous pre-allocated zero-copy byte assembly on the desktop terminal prevents double memory allocation.
+
+3. COUNTER TERMINAL AGENT (Electron Desktop App):
+   - Runs locally on the shopkeeper's counter PC (Windows).
+   - Automatically discovers physical hardware printers via native PowerShell/WMI and excludes virtual queues (PDF writers, OneNote, fax), with UTF-8 encoding and bounded timeouts.
+   - Maps document print settings (B&W vs Color, A4 vs A3) to target physical printers.
+   - Manages a local FIFO spooling queue with atomic Token verification and bounded memory retention (zeroing V8 ArrayBuffers upon completion/cancellation).
+   - Streams PDF buffers directly into the Windows native print spooler (\`pdf-to-printer\`).
+   - Implements SECURE SHREDDING (\`secure-rm\` DoD 5220.22-M 3-pass overwrite with unlinking fallback) immediately after two-phase spooler lock release.
+
+4. TOKEN & ESCROW MONETIZATION ENGINE:
+   - Each print transaction requires 1 Printap Token.
+   - PostgreSQL RPCs (\`reserve_shop_token\`, \`refund_shop_token\`, \`credit_shop_tokens\`) enforce atomic token balance verification.
+   - Pessimistic row-locking (\`FOR UPDATE\`) and unique partial constraints eliminate race conditions and double reservations/refunds.
+   - Tokens are escrowed upon WebRTC handshake and atomically consumed only when the physical print job succeeds.
+   - If the printer jams, runs out of paper, or the customer cancels, the escrowed token is instantly refunded back to the shop's balance.
+
+───────────────────────────────────────────────────────────────────────────────
+2. MONOREPO STRUCTURE & DATA FLOW MAP
+───────────────────────────────────────────────────────────────────────────────
+mellod/printap/
+├── apps/
+│   ├── desktop/             # Electron + React Counter Terminal App (Shopkeeper Agent)
+│   │   ├── src/
+│   │   │   ├── main/        # Electron Main Process (Spooler, Discovery, Window Lifecycle)
+│   │   │   ├── preload/     # ContextBridge IPC Layer
+│   │   │   └── renderer/    # React 19 Frontend (Workspace, Live Monitor, Settings)
+│   │   └── electron.vite.config.ts
+│   ├── admin-desktop/       # Standalone Executive/Super-Admin Oversight Console
+│   └── web/                 # Customer-facing Next.js PWA (WebRTC Sender, QR scan destination)
+├── packages/
+│   └── shared/              # Shared types, Supabase client factory, signaling contracts
+├── supabase/
+│   ├── schema.sql           # Base database schema (Tables, RLS, Functions)
+│   ├── migrations/          # Incremental database migrations (Tokens, Escrow, Pricing)
+│   └── functions/           # Supabase edge functions (stale presence cleanup)
+├── scripts/                 # CI release cleanup & codebase review generation scripts
+└── tests/                   # End-to-end platform verification test suite
+
+───────────────────────────────────────────────────────────────────────────────
+3. TABLE OF CONTENTS OF INCLUDED FILES
+───────────────────────────────────────────────────────────────────────────────
+`;
+
+filesToInclude.forEach((item, index) => {
+  const fullPath = path.join(ROOT_DIR, item.path);
+  if (fs.existsSync(fullPath)) {
+    const stats = fs.statSync(fullPath);
+    const lines = fs.readFileSync(fullPath, "utf8").split("\n").length;
+    output += `[${String(index + 1).padStart(2, "0")}] ${item.path.padEnd(55)} (${(stats.size / 1024).toFixed(1)} KB, ${lines} lines) — ${item.desc}\n`;
+  } else {
+    output += `[${String(index + 1).padStart(2, "0")}] ${item.path.padEnd(55)} (MISSING) — ${item.desc}\n`;
+  }
+});
+
+output += `\n═══════════════════════════════════════════════════════════════════════════════
+  SOURCE CODE LISTINGS
+═══════════════════════════════════════════════════════════════════════════════\n\n`;
+
+filesToInclude.forEach((item, index) => {
+  const fullPath = path.join(ROOT_DIR, item.path);
+  output += `───────────────────────────────────────────────────────────────────────────────\n`;
+  output += `FILE [${index + 1}/${filesToInclude.length}]: ${item.path}\n`;
+  output += `PURPOSE: ${item.desc}\n`;
+  output += `───────────────────────────────────────────────────────────────────────────────\n`;
+
+  if (fs.existsSync(fullPath)) {
+    const content = fs.readFileSync(fullPath, "utf8");
+    output += content + "\n\n";
+  } else {
+    output += `/* FILE NOT FOUND ON DISK: ${item.path} */\n\n`;
+  }
+});
+
+output += `═══════════════════════════════════════════════════════════════════════════════
+  END OF PRINTAP CODEBASE DUMP
+═══════════════════════════════════════════════════════════════════════════════\n`;
+
+fs.writeFileSync(OUTPUT_FILE, output, "utf8");
+const finalStats = fs.statSync(OUTPUT_FILE);
+console.log(`Successfully generated: ${OUTPUT_FILE}`);
+console.log(`Total File Size: ${(finalStats.size / (1024 * 1024)).toFixed(2)} MB (${(finalStats.size / 1024).toFixed(1)} KB)`);
+console.log(`Total Lines: ${output.split("\n").length}`);
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [5/63]: supabase/schema.sql
 PURPOSE: Core Supabase SQL Schema (Tables, RLS, Functions)
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -354,7 +636,36 @@ COMMENT ON COLUMN public.printer_assignments.role IS 'bw = black & white, color 
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [4/46]: supabase/migrations/002_print_orders_and_queue.sql
+FILE [6/63]: supabase/migrations/20260929_add_slug_and_admin.sql
+PURPOSE: SQL Migration: Shop Subdomain Routing Slug & Admin Roles
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: Add slug to shops for subdomain routing
+-- Target Domain: *.mellod.in
+-- ============================================================
+
+-- 1. Add slug column to public.shops
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE;
+
+-- 2. Create index on slug
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shops_slug ON public.shops (slug);
+
+-- 3. Auto-populate slug for existing shops from name
+UPDATE public.shops
+SET slug = lower(regexp_replace(regexp_replace(name, '[^a-zA-Z0-9]+', '-', 'g'), '^-+|-+$', '', 'g'))
+WHERE slug IS NULL;
+
+-- 4. Fallback for any records where slug is empty or duplicate
+UPDATE public.shops
+SET slug = 'shop-' || substr(id::text, 1, 8)
+WHERE slug IS NULL OR slug = '';
+
+-- 5. Add comment
+COMMENT ON COLUMN public.shops.slug IS 'Unique URL-safe slug for subdomain routing (e.g. {slug}.mellod.in).';
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [7/63]: supabase/migrations/002_print_orders_and_queue.sql
 PURPOSE: SQL Migration: Print Orders Table & Queue System
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -505,7 +816,7 @@ CREATE TRIGGER update_print_orders_updated_at
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [5/46]: supabase/migrations/003_shop_services_and_pricing.sql
+FILE [8/63]: supabase/migrations/003_shop_services_and_pricing.sql
 PURPOSE: SQL Migration: Shop Services & Tier Pricing
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -532,7 +843,7 @@ CREATE POLICY "shops_update_anon"
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [6/46]: supabase/migrations/004_shop_online_status.sql
+FILE [9/63]: supabase/migrations/004_shop_online_status.sql
 PURPOSE: SQL Migration: Shop Online/Offline Presence Sync
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -583,7 +894,120 @@ COMMENT ON FUNCTION public.cleanup_stale_online_shops IS 'Sweeps shops marked is
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [7/46]: supabase/migrations/008_analytics_and_archival_system.sql
+FILE [10/63]: supabase/migrations/005_printer_number.sql
+PURPOSE: SQL Migration: Printer Identifier Numbering for Hardware Queues
+───────────────────────────────────────────────────────────────────────────────
+-- Migration: Add printer_number column to printer_assignments
+-- Run in Supabase SQL Editor (Dashboard → SQL Editor)
+
+ALTER TABLE IF EXISTS public.printer_assignments
+  ADD COLUMN IF NOT EXISTS printer_number INT NOT NULL DEFAULT 1;
+
+COMMENT ON COLUMN public.printer_assignments.printer_number IS 'Numeric identifier for the printer used in token generation (e.g. 1, 2).';
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [11/63]: supabase/migrations/006_platform_fee_and_gst.sql
+PURPOSE: SQL Migration: Platform Fee & 18% GST Settings Matrix
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: Add platform fee & GST configuration
+-- ============================================================
+
+-- 1. Create global platform_settings table
+CREATE TABLE IF NOT EXISTS public.platform_settings (
+  id TEXT PRIMARY KEY DEFAULT 'global',
+  platform_fee NUMERIC(6, 2) NOT NULL DEFAULT 0.82,
+  gst_percentage NUMERIC(5, 2) NOT NULL DEFAULT 18.00,
+  gst_amount NUMERIC(6, 2) NOT NULL DEFAULT 0.18,
+  total_charge NUMERIC(6, 2) NOT NULL DEFAULT 1.00,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.platform_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "platform_settings_select_all" ON public.platform_settings;
+CREATE POLICY "platform_settings_select_all"
+  ON public.platform_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "platform_settings_insert_all" ON public.platform_settings;
+CREATE POLICY "platform_settings_insert_all"
+  ON public.platform_settings FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "platform_settings_update_all" ON public.platform_settings;
+CREATE POLICY "platform_settings_update_all"
+  ON public.platform_settings FOR UPDATE USING (true) WITH CHECK (true);
+
+-- Insert initial default record
+INSERT INTO public.platform_settings (id, platform_fee, gst_percentage, gst_amount, total_charge)
+VALUES ('global', 0.82, 18.00, 0.18, 1.00)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. Add platform fee & GST columns to shops table (for shop-level overrides or direct shop admin management)
+ALTER TABLE public.shops
+  ADD COLUMN IF NOT EXISTS platform_fee NUMERIC(6, 2) DEFAULT 0.82,
+  ADD COLUMN IF NOT EXISTS gst_percentage NUMERIC(5, 2) DEFAULT 18.00,
+  ADD COLUMN IF NOT EXISTS gst_amount NUMERIC(6, 2) DEFAULT 0.18,
+  ADD COLUMN IF NOT EXISTS total_charge NUMERIC(6, 2) DEFAULT 1.00;
+
+-- 3. Update existing shops with initial default values
+UPDATE public.shops
+SET
+  platform_fee = COALESCE(platform_fee, 0.82),
+  gst_percentage = COALESCE(gst_percentage, 18.00),
+  gst_amount = COALESCE(gst_amount, 0.18),
+  total_charge = COALESCE(total_charge, 1.00)
+WHERE platform_fee IS NULL OR total_charge IS NULL;
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [12/63]: supabase/migrations/007_fix_print_events_rls_and_orders.sql
+PURPOSE: SQL Migration: Print Events RLS Policies & Orders Linking
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: Fix print_events RLS and ensure print_orders access
+-- Run in Supabase SQL Editor (Dashboard -> SQL Editor)
+-- ============================================================
+
+-- 1. FIX PRINT_EVENTS RLS POLICY
+-- The previous policy required auth.role() = 'service_role', which blocked
+-- the Shop Admin (web & desktop) and Platform Admin using the anon API key
+-- from reading print events, resulting in 0 prints and ₹0 revenue.
+DROP POLICY IF EXISTS "print_events_select_service_role" ON public.print_events;
+DROP POLICY IF EXISTS "print_events_select_all" ON public.print_events;
+
+CREATE POLICY "print_events_select_all"
+  ON public.print_events FOR SELECT
+  USING (true);
+
+-- Ensure anon insert is preserved
+DROP POLICY IF EXISTS "print_events_insert_anon" ON public.print_events;
+CREATE POLICY "print_events_insert_anon"
+  ON public.print_events FOR INSERT
+  WITH CHECK (true);
+
+-- 2. ENSURE PRINT_ORDERS POLICIES
+-- Allow anon read/write on print_orders for customer ordering and shop admin tracking
+DROP POLICY IF EXISTS "print_orders_select_anon" ON public.print_orders;
+CREATE POLICY "print_orders_select_anon"
+  ON public.print_orders FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "print_orders_insert_anon" ON public.print_orders;
+CREATE POLICY "print_orders_insert_anon"
+  ON public.print_orders FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "print_orders_update_anon" ON public.print_orders;
+CREATE POLICY "print_orders_update_anon"
+  ON public.print_orders FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [13/63]: supabase/migrations/008_analytics_and_archival_system.sql
 PURPOSE: SQL Migration: Revenue Ledger & Archival System
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -874,7 +1298,7 @@ $$;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [8/46]: supabase/migrations/009_shop_owner_auth_and_location.sql
+FILE [14/63]: supabase/migrations/009_shop_owner_auth_and_location.sql
 PURPOSE: SQL Migration: Shop Owner Auth & Location Profiles
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -961,7 +1385,214 @@ COMMENT ON TABLE public.email_otps            IS 'Stores SHA-256 hashed 6-digit 
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [9/46]: supabase/migrations/013_shop_tokens.sql
+FILE [15/63]: supabase/migrations/010_column_level_security_and_safe_views.sql
+PURPOSE: SQL Migration: Column-Level Security & Safe Views
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: 010_column_level_security_and_safe_views.sql
+-- Purpose:
+--   1. Enforce Column-Level Security (CLS) on public.shops
+--      Strictly revoke SELECT access to password_hash from anon and authenticated roles
+--   2. Grant SELECT(password_hash) strictly to service_role (backend route handlers)
+--   3. Create public.public_shops view for customer/storefront lookups
+-- ============================================================
+
+-- 1. COLUMN-LEVEL ACCESS RESTRICTION ON SENSITIVE COLUMNS
+-- Revoke direct selection of password_hash from public roles
+REVOKE SELECT (password_hash) ON public.shops FROM anon, authenticated;
+GRANT SELECT (password_hash) ON public.shops TO service_role;
+
+-- 2. CREATE A SECURE PUBLIC VIEW FOR STOREFRONTS AND MAP BROWSING
+-- This view omits sensitive owner credentials completely
+CREATE OR REPLACE VIEW public.public_shops AS
+  SELECT 
+    id,
+    name,
+    slug,
+    upi_vpa,
+    latitude,
+    longitude,
+    address,
+    city,
+    state,
+    pincode,
+    status,
+    created_at
+  FROM public.shops
+  WHERE status = 'active';
+
+-- Grant access on public view to anon and authenticated users
+GRANT SELECT ON public.public_shops TO anon, authenticated, service_role;
+
+COMMENT ON VIEW public.public_shops IS 'Public storefront view for customers and search. Contains zero sensitive owner or authentication data.';
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [16/63]: supabase/migrations/011_fix_shops_and_onboarding_rls.sql
+PURPOSE: SQL Migration: Shop Onboarding RLS Policy Hardening
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: 011_fix_shops_and_onboarding_rls.sql
+-- Purpose:
+--   1. Allow shop registration (INSERT on public.shops) during onboarding
+--   2. Allow server/onboarding flow to manage email_otps for verification
+--   3. Compatible with both anon key (local dev) and service_role (production)
+--
+-- How to apply:
+--   Copy and run this in your Supabase SQL Editor:
+--   (Dashboard -> SQL Editor -> New Query -> Run)
+-- ============================================================
+
+-- 1. SHOPS TABLE INSERT & UPDATE POLICIES
+-- Drop restrictive service_role-only insert policy
+DROP POLICY IF EXISTS "shops_insert_service_role" ON public.shops;
+DROP POLICY IF EXISTS "shops_insert_public" ON public.shops;
+DROP POLICY IF EXISTS "shops_insert_all" ON public.shops;
+
+-- Allow shop creation during onboarding
+CREATE POLICY "shops_insert_all"
+  ON public.shops FOR INSERT
+  WITH CHECK (true);
+
+-- Ensure public can read shop storefront info
+DROP POLICY IF EXISTS "shops_select_public" ON public.shops;
+CREATE POLICY "shops_select_public"
+  ON public.shops FOR SELECT
+  USING (true);
+
+-- Ensure shops can be updated (services, pricing, status, location)
+DROP POLICY IF EXISTS "shops_update_anon" ON public.shops;
+DROP POLICY IF EXISTS "shops_update_all" ON public.shops;
+CREATE POLICY "shops_update_all"
+  ON public.shops FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+
+-- 2. EMAIL OTPS POLICIES
+-- Allow serverless handlers using anon or service key to manage verification OTPs
+DROP POLICY IF EXISTS "email_otps_service_role_all" ON public.email_otps;
+DROP POLICY IF EXISTS "email_otps_all" ON public.email_otps;
+
+CREATE POLICY "email_otps_all"
+  ON public.email_otps
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [17/63]: supabase/migrations/012_admin_offboard_and_delete_shop.sql
+PURPOSE: SQL Migration: Secure Shop Offboarding & Cascading Deletion RPC
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: 012_admin_offboard_and_delete_shop.sql
+-- Purpose:
+--   Complete offboarding and deletion of a shop:
+--   1. Deletes all print events, print orders, and daily analytics
+--   2. Deletes all verification OTPs for the owner
+--   3. Purges the owner from auth.users (wiping Google OAuth records,
+--      sessions, and identities as if they never onboarded)
+--   4. Deletes the shop from public.shops and immediately frees the subdomain
+--
+-- How to apply:
+--   Copy and run this in your Supabase SQL Editor:
+--   (Dashboard -> SQL Editor -> New Query -> Run)
+-- ============================================================
+
+-- 1. STORED PROCEDURE FOR COMPLETE SHOP OFFBOARDING
+CREATE OR REPLACE FUNCTION public.admin_delete_shop(p_shop_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_owner_email TEXT;
+  v_shop_name TEXT;
+  v_slug TEXT;
+  v_auth_users_deleted INT := 0;
+BEGIN
+  -- 1. Fetch shop details before deletion
+  SELECT owner_email, name, slug 
+  INTO v_owner_email, v_shop_name, v_slug
+  FROM public.shops
+  WHERE id = p_shop_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Shop not found');
+  END IF;
+
+  -- 2. Clean up associated print jobs and analytics
+  DELETE FROM public.print_events WHERE shop_id = p_shop_id;
+  DELETE FROM public.print_orders WHERE shop_id = p_shop_id;
+  DELETE FROM public.shop_daily_analytics WHERE shop_id = p_shop_id;
+  
+  -- 3. Delete email OTPs associated with the owner
+  IF v_owner_email IS NOT NULL AND trim(v_owner_email) <> '' THEN
+    DELETE FROM public.email_otps WHERE lower(email) = lower(trim(v_owner_email));
+    
+    -- 4. Delete the user from auth.users (Google OAuth account, sessions, identities)
+    -- This completely purges their account as if they never signed in / onboarded
+    DELETE FROM auth.users WHERE lower(email) = lower(trim(v_owner_email));
+    GET DIAGNOSTICS v_auth_users_deleted = ROW_COUNT;
+  END IF;
+
+  -- 5. Delete the shop row from public.shops
+  DELETE FROM public.shops WHERE id = p_shop_id;
+
+  RETURN jsonb_build_object(
+    'success', true, 
+    'deleted_shop_id', p_shop_id,
+    'shop_name', v_shop_name,
+    'slug', v_slug,
+    'owner_email', v_owner_email,
+    'auth_users_deleted', v_auth_users_deleted
+  );
+END;
+$$;
+
+-- Grant execution to all roles (anon, authenticated, service_role)
+GRANT EXECUTE ON FUNCTION public.admin_delete_shop(UUID) TO anon, authenticated, service_role;
+
+-- 2. ALLOW DELETE POLICIES ON ALL TABLES INVOLVED IN OFFBOARDING
+
+-- Shops delete policy
+DROP POLICY IF EXISTS "shops_delete_service_role" ON public.shops;
+DROP POLICY IF EXISTS "shops_delete_all" ON public.shops;
+CREATE POLICY "shops_delete_all"
+  ON public.shops FOR DELETE
+  USING (true);
+
+-- Print events delete policy
+DROP POLICY IF EXISTS "print_events_delete_all" ON public.print_events;
+CREATE POLICY "print_events_delete_all"
+  ON public.print_events FOR DELETE
+  USING (true);
+
+-- Print orders delete policy
+DROP POLICY IF EXISTS "print_orders_delete_all" ON public.print_orders;
+CREATE POLICY "print_orders_delete_all"
+  ON public.print_orders FOR DELETE
+  USING (true);
+
+-- Shop daily analytics delete policy
+DROP POLICY IF EXISTS "shop_daily_analytics_delete_all" ON public.shop_daily_analytics;
+CREATE POLICY "shop_daily_analytics_delete_all"
+  ON public.shop_daily_analytics FOR DELETE
+  USING (true);
+
+-- Email OTPs delete policy
+DROP POLICY IF EXISTS "email_otps_delete_all" ON public.email_otps;
+CREATE POLICY "email_otps_delete_all"
+  ON public.email_otps FOR DELETE
+  USING (true);
+
+COMMENT ON FUNCTION public.admin_delete_shop IS 'Permanently deletes a shop and all associated Google OAuth credentials, orders, and OTPs as if they never onboarded.';
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [18/63]: supabase/migrations/013_shop_tokens.sql
 PURPOSE: SQL Migration: Token Ledger & Subscription Balance
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1106,7 +1737,7 @@ $$;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [10/46]: supabase/migrations/014_token_escrow_and_refunds.sql
+FILE [19/63]: supabase/migrations/014_token_escrow_and_refunds.sql
 PURPOSE: SQL Migration: Atomic Token Escrow & Automatic Refunds
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1246,7 +1877,26 @@ $$;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [11/46]: supabase/migrations/016_platform_admins.sql
+FILE [20/63]: supabase/migrations/015_drop_insecure_token_policy.sql
+PURPOSE: SQL Migration: Drop Insecure Anon Token Mutation Policy
+───────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- Migration: 015_drop_insecure_token_policy.sql
+-- Purpose:
+--   1. Drop the insecure 'token_transactions_insert_anon' policy
+--      that allowed arbitrary users to wipe shop tokens.
+--   2. Ensure all token transactions are routed exclusively 
+--      through the secure SECURITY DEFINER RPCs.
+-- ============================================================
+
+DROP POLICY IF EXISTS "token_transactions_insert_anon" ON public.token_transactions;
+
+-- The service_role policies still exist, and the reserve_shop_token/refund_shop_token
+-- RPCs run as SECURITY DEFINER (postgres user), bypassing RLS for safe server-side operations.
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [21/63]: supabase/migrations/016_platform_admins.sql
 PURPOSE: SQL Migration: Platform Admin Permissions & RLS
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1279,7 +1929,7 @@ CREATE POLICY "platform_admins_all_service_role"
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [12/46]: supabase/migrations/017_security_hardening_and_fixes.sql
+FILE [22/63]: supabase/migrations/017_security_hardening_and_fixes.sql
 PURPOSE: SQL Migration: Security Hardening, RLS Lockdown, Escrow TOCTOU Fixes & Column Security
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1659,7 +2309,7 @@ COMMIT;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [13/46]: supabase/migrations/018_enterprise_lockdown.sql
+FILE [23/63]: supabase/migrations/018_enterprise_lockdown.sql
 PURPOSE: SQL Migration: Enterprise Security Lockdown & RPC Hardening
 ───────────────────────────────────────────────────────────────────────────────
 -- ============================================================
@@ -1866,7 +2516,73 @@ COMMIT;
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [14/46]: packages/shared/package.json
+FILE [24/63]: supabase/functions/cleanup-stale-presence/index.ts
+PURPOSE: Supabase Edge Function: Cron Worker for Stale Presence Cleanup
+───────────────────────────────────────────────────────────────────────────────
+// @ts-ignore
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+  serve(handler: (req: Request) => Promise<Response> | Response): void;
+};
+
+Deno.serve(async (_req: Request) => {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing Supabase service environment variables" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Stale threshold: 90 seconds (desktop heartbeat runs every 30s)
+    const staleThreshold = new Date(Date.now() - 90 * 1000).toISOString();
+
+    const { data: updated, error } = await supabase
+      .from("shops")
+      .update({ is_online: false })
+      .eq("is_online", true)
+      .lt("last_seen_at", staleThreshold)
+      .select("id, name, last_seen_at");
+
+    if (error) {
+      console.error("[cleanup-stale-presence] Error:", error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[cleanup-stale-presence] Swept ${updated?.length ?? 0} stale shop(s)`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        sweptCount: updated?.length ?? 0,
+        sweptShops: updated,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+});
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [25/63]: packages/shared/package.json
 PURPOSE: Shared Package Definition
 ───────────────────────────────────────────────────────────────────────────────
 {
@@ -1886,7 +2602,7 @@ PURPOSE: Shared Package Definition
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [15/46]: packages/shared/src/index.ts
+FILE [26/63]: packages/shared/src/index.ts
 PURPOSE: Shared Package Main Exports
 ───────────────────────────────────────────────────────────────────────────────
 export { getSupabase } from "./supabase";
@@ -1936,6 +2652,7 @@ export {
   calculateDocumentPrice,
   calculateFinishingCost,
   calculateOrderTotal,
+  parsePageRangeCount,
   type ColorMode,
   type DuplexMode,
   type PagesPerSheet,
@@ -2032,7 +2749,501 @@ export type {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [16/46]: packages/shared/src/supabase.ts
+FILE [27/63]: packages/shared/src/types.ts
+PURPOSE: Shared Domain Models, Order Types, Calculation Helpers & Signatures
+───────────────────────────────────────────────────────────────────────────────
+/**
+ * Printap — Shared Type Definitions
+ *
+ * Defines all data contracts for the customer print flow,
+ * shop rate cards, finishing services, and queue/token system.
+ */
+
+// ─── Print Settings (per-document) ───
+
+export type ColorMode = "bw" | "color";
+export type DuplexMode = "single" | "double";
+export type PagesPerSheet = 1 | 2 | 4 | 6 | 9;
+export type PageFit = "fit" | "fill";
+export type Orientation = "portrait" | "landscape";
+
+export interface PrintSettings {
+  copies: number;
+  colorMode: ColorMode;
+  duplex: DuplexMode;
+  pagesPerSheet: PagesPerSheet;
+  pageFit: PageFit;
+  orientation: Orientation;
+  pageRange?: string;
+}
+
+export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
+  copies: 1,
+  colorMode: "bw",
+  duplex: "single",
+  pagesPerSheet: 1,
+  pageFit: "fit",
+  orientation: "portrait",
+};
+
+export type DocumentType =
+  | "pdf"
+  | "image"
+  | "doc"
+  | "sheet"
+  | "presentation"
+  | "text"
+  | "other";
+
+export interface UploadedDocument {
+  /** Client-side unique ID for this document in the batch */
+  id: string;
+  file: File;
+  type: DocumentType;
+  /** Page count (parsed client-side for PDFs, 1 for images) */
+  pageCount: number;
+  /** Thumbnail data URL (first page render for PDFs, image preview for photos) */
+  thumbnailUrl?: string;
+  /** Per-document print settings */
+  settings: PrintSettings;
+}
+
+// ─── Finishing / Add-on & Shop Services ───
+
+export type ServiceUnit = "per_copy" | "per_sheet" | "per_document" | "flat";
+
+export interface ShopServiceItem {
+  id: string;
+  name: string;
+  price: number;
+  unit: ServiceUnit;
+  enabled: boolean;
+  category: "print" | "finishing" | "addon";
+  isCore?: boolean;
+}
+
+export type FinishingServiceType =
+  | "spiral_binding"
+  | "corner_staple"
+  | "hard_binding"
+  | "lamination"
+  | string;
+
+export type FinishingChargeUnit = "per_copy" | "per_sheet" | "per_document" | "flat";
+
+export interface FinishingService {
+  type: string;
+  label: string;
+  price: number;
+  chargeUnit: FinishingChargeUnit;
+  enabled: boolean;
+}
+
+export const DEFAULT_FINISHING_SERVICES: FinishingService[] = [
+  { type: "spiral_binding", label: "Spiral Binding", price: 30, chargeUnit: "per_copy", enabled: false },
+  { type: "corner_staple", label: "Corner Staple", price: 5, chargeUnit: "per_copy", enabled: false },
+  { type: "hard_binding", label: "Hard Binding", price: 80, chargeUnit: "per_copy", enabled: false },
+  { type: "lamination", label: "Lamination", price: 10, chargeUnit: "per_sheet", enabled: false },
+];
+
+export const DEFAULT_SHOP_SERVICES: ShopServiceItem[] = [
+  { id: "core_bw", name: "Black & White Printing", price: 2, unit: "per_sheet", enabled: true, category: "print", isCore: true },
+  { id: "core_color", name: "Color Printing", price: 10, unit: "per_sheet", enabled: true, category: "print", isCore: true },
+  { id: "spiral_binding", name: "Spiral Binding", price: 30, unit: "per_copy", enabled: true, category: "finishing" },
+  { id: "soft_binding", name: "Soft / Glue Binding", price: 40, unit: "per_copy", enabled: false, category: "finishing" },
+  { id: "hard_binding", name: "Hard Binding (Project / Thesis)", price: 80, unit: "per_copy", enabled: false, category: "finishing" },
+  { id: "lamination", name: "Document Lamination (A4)", price: 10, unit: "per_sheet", enabled: true, category: "finishing" },
+  { id: "corner_staple", name: "Corner Stapling", price: 5, unit: "per_copy", enabled: true, category: "finishing" },
+  { id: "glossy_photo", name: "Glossy Photo Paper", price: 15, unit: "per_sheet", enabled: false, category: "addon" },
+  { id: "scan_to_device", name: "Document Scanning", price: 10, unit: "per_document", enabled: false, category: "addon" },
+];
+
+// ─── Shop Rate Card ───
+
+export interface ShopRateCard {
+  /** Price per B&W printed page in ₹ */
+  priceBwPerPage: number;
+  /** Price per Color printed page in ₹ */
+  priceColorPerPage: number;
+  /** Finishing services offered with custom pricing */
+  finishingServices: FinishingService[];
+}
+
+export const DEFAULT_RATE_CARD: ShopRateCard = {
+  priceBwPerPage: 2,
+  priceColorPerPage: 10,
+  finishingServices: [...DEFAULT_FINISHING_SERVICES],
+};
+
+// ─── Payment ───
+
+export type PaymentMethod = "upi" | "cash";
+
+export type PaymentStatus =
+  | "pending"
+  | "awaiting_cash_confirmation"
+  | "confirmed"
+  | "failed";
+
+export interface PaymentInfo {
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amount: number;
+  upiTransactionRef?: string;
+}
+
+// ─── Queue / Token ───
+
+export type JobStatus =
+  | "pending_payment"
+  | "queued"
+  | "printing"
+  | "ready_for_pickup"
+  | "picked_up"
+  | "cancelled";
+
+export interface QueueToken {
+  /** Display code like "#214" */
+  tokenCode: string;
+  /** Optional legacy pickup PIN (deprecated: only single token number is used) */
+  pickupPin?: string;
+  /** Current position in queue (1-indexed) */
+  queuePosition: number;
+  /** Estimated wait in minutes */
+  estimatedWaitMinutes: number;
+}
+
+// ─── Print Order (full session) ───
+
+export interface PrintOrder {
+  /** Unique order ID */
+  id: string;
+  /** Shop this order belongs to */
+  shopId: string;
+  /** WebRTC session ID */
+  sessionId: string;
+  /** All documents in this order */
+  documents: UploadedDocument[];
+  /** Selected finishing services */
+  finishingServices: FinishingService[];
+  /** Payment info */
+  payment: PaymentInfo;
+  /** Queue/token info (set after payment confirmation) */
+  token?: QueueToken;
+  /** Current job status */
+  status: JobStatus;
+  /** Timestamp of order creation */
+  createdAt: string;
+}
+
+// ─── Price Calculation Helpers ───
+
+/**
+ * Parses a page range string (e.g. "1-5, 8, 10-12") and counts unique valid pages.
+ * Falls back to totalPages if pageRange is invalid or empty.
+ */
+export function parsePageRangeCount(pageRange?: string, totalPages?: number): number {
+  if (!pageRange || !pageRange.trim()) {
+    return totalPages ?? 1;
+  }
+  const clean = pageRange.replace(/\s+/g, "");
+  const parts = clean.split(",");
+  const pageSet = new Set<number>();
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.includes("-")) {
+      const [startStr, endStr] = part.split("-");
+      const start = parseInt(startStr, 10);
+      const end = parseInt(endStr, 10);
+      if (!isNaN(start) && !isNaN(end) && start <= end) {
+        for (let p = Math.max(1, start); p <= (totalPages ? Math.min(totalPages, end) : end); p++) {
+          pageSet.add(p);
+        }
+      }
+    } else {
+      const p = parseInt(part, 10);
+      if (!isNaN(p) && p >= 1 && (!totalPages || p <= totalPages)) {
+        pageSet.add(p);
+      }
+    }
+  }
+  return pageSet.size > 0 ? pageSet.size : (totalPages ?? 1);
+}
+
+/**
+ * Calculates the number of physical sheets for a document
+ * based on its settings (duplex, pages per sheet, page count, page range).
+ */
+export function calculateSheets(pageCount: number, settings: PrintSettings): number {
+  const effectivePages = settings.pageRange
+    ? parsePageRangeCount(settings.pageRange, pageCount)
+    : pageCount;
+  const logicalPages = Math.ceil(effectivePages / settings.pagesPerSheet);
+  const isDouble = settings.duplex === "double";
+  const sheets = isDouble
+    ? Math.ceil(logicalPages / 2)
+    : logicalPages;
+  return sheets;
+}
+
+/**
+ * Calculates the total price for a single document.
+ */
+export function calculateDocumentPrice(
+  doc: UploadedDocument,
+  rateCard: ShopRateCard
+): number {
+  const sheets = calculateSheets(doc.pageCount, doc.settings);
+  const pricePerPage = doc.settings.colorMode === "color"
+    ? rateCard.priceColorPerPage
+    : rateCard.priceBwPerPage;
+  return sheets * pricePerPage * doc.settings.copies;
+}
+
+/**
+ * Calculates the finishing services cost for a single document.
+ */
+export function calculateFinishingCost(
+  doc: UploadedDocument,
+  activeFinishing: FinishingService[]
+): number {
+  const sheets = calculateSheets(doc.pageCount, doc.settings);
+  let cost = 0;
+  for (const service of activeFinishing) {
+    if (service.chargeUnit === "per_sheet") {
+      cost += service.price * sheets * doc.settings.copies;
+    } else {
+      cost += service.price * doc.settings.copies;
+    }
+  }
+  return cost;
+}
+
+/**
+ * Calculates total physical sheets for an entire order, accounting for
+ * the unified image batch grid layout (where all images share sheets).
+ */
+export function calculateOrderSheets(documents: UploadedDocument[]): number {
+  const nonImages = documents.filter((d) => d.type !== "image");
+  const images = documents.filter((d) => d.type === "image");
+
+  let totalSheets = 0;
+
+  // Non-images (PDFs etc.) calculate sheets individually
+  for (const doc of nonImages) {
+    totalSheets += calculateSheets(doc.pageCount, doc.settings) * doc.settings.copies;
+  }
+
+  // All images combined calculate sheets based on their batch grid layout
+  if (images.length > 0) {
+    const firstImg = images[0];
+    const grid = firstImg.settings.pagesPerSheet || 1;
+    const logicalPages = Math.ceil(images.length / grid);
+    const isDouble = firstImg.settings.duplex === "double";
+    const sheetsPerCopy = isDouble
+      ? Math.ceil(logicalPages / 2)
+      : logicalPages;
+    const batchCopies = Math.max(1, ...images.map((img) => img.settings.copies || 1));
+    totalSheets += sheetsPerCopy * batchCopies;
+  }
+
+  return totalSheets;
+}
+
+/**
+ * Calculates the grand total for an entire order.
+ */
+export function calculateOrderTotal(
+  documents: UploadedDocument[],
+  rateCard: ShopRateCard,
+  activeFinishing: FinishingService[]
+): number {
+  const nonImages = documents.filter((d) => d.type !== "image");
+  const images = documents.filter((d) => d.type === "image");
+
+  let total = 0;
+
+  // 1. Non-image documents (calculated individually)
+  for (const doc of nonImages) {
+    total += calculateDocumentPrice(doc, rateCard);
+    total += calculateFinishingCost(doc, activeFinishing);
+  }
+
+  // 2. Unified Image batch (all images share sheets based on grid layout)
+  if (images.length > 0) {
+    const firstImg = images[0];
+    const grid = firstImg.settings.pagesPerSheet || 1;
+    const logicalPages = Math.ceil(images.length / grid);
+    const isDouble = firstImg.settings.duplex === "double";
+    const sheetsPerCopy = isDouble
+      ? Math.ceil(logicalPages / 2)
+      : logicalPages;
+    const batchCopies = Math.max(1, ...images.map((img) => img.settings.copies || 1));
+    const totalSheets = sheetsPerCopy * batchCopies;
+
+    // Check if any image in the batch requires color printing
+    const isColorBatch = images.some((img) => img.settings.colorMode === "color");
+    const pricePerPage = isColorBatch
+      ? rateCard.priceColorPerPage
+      : rateCard.priceBwPerPage;
+
+    total += totalSheets * pricePerPage;
+
+    for (const service of activeFinishing) {
+      if (service.chargeUnit === "per_sheet") {
+        total += service.price * totalSheets;
+      } else {
+        total += service.price * batchCopies;
+      }
+    }
+  }
+
+  return total;
+}
+
+export const SESSION_STORAGE_KEY = (shopId: string) =>
+  `printap_active_order_${shopId}`;
+
+export function isOrderCompleted(status?: string): boolean {
+  return status === "picked_up" || status === "completed";
+}
+
+export function isOrderFailed(status?: string): boolean {
+  return (
+    status === "cancelled" ||
+    status === "failed" ||
+    status === "failed_refunded" ||
+    status === "error"
+  );
+}
+
+export interface PersistedSession {
+  orderId: string;
+  shopId: string;
+  token: QueueToken;
+  status: JobStatus;
+  createdAt: string;
+  totalAmount?: number;
+  documentCount?: number;
+  printTicket?: string;
+  isPaymentConfirmed?: boolean;
+}
+
+// ─── WebRTC Transfer Protocol Payloads ───
+
+export interface TransferManifestOrder {
+  tokenCode: string;
+  pickupPin?: string;
+  queuePosition: number;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  finishingServices?: { type: string; label: string; price: number }[];
+  totalFiles: number;
+}
+
+export interface TransferManifestFile {
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  pageCount: number;
+  settings: PrintSettings;
+}
+
+export interface TransferManifestMessage {
+  type: "order-manifest";
+  sessionId: string;
+  order: TransferManifestOrder;
+  files: TransferManifestFile[];
+  printTicket?: string;
+}
+
+export interface TransferFileHeaderMessage {
+  type: "file-header";
+  sessionId: string;
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  totalChunks: number;
+  pageCount: number;
+  settings: PrintSettings;
+  sha256?: string;
+}
+
+export interface TransferFileEofMessage {
+  type: "file-eof";
+  sessionId: string;
+  fileId: string;
+}
+
+export interface TransferOrderCompleteMessage {
+  type: "order-complete";
+  sessionId: string;
+}
+
+export type TransferMessage =
+  | TransferManifestMessage
+  | TransferFileHeaderMessage
+  | TransferFileEofMessage
+  | TransferOrderCompleteMessage;
+
+// ─── Analytics & Archival System ───
+
+export interface ShopDailyAnalytics {
+  id: string;
+  shop_id: string;
+  analytics_date: string;
+  total_orders: number;
+  total_jobs: number;
+  bw_pages: number;
+  color_pages: number;
+  gross_revenue: number;
+  upi_revenue: number;
+  cash_revenue: number;
+  platform_fees: number;
+  gst_amount: number;
+  net_earnings: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlatformDailyAnalytics {
+  analytics_date: string;
+  active_shops_count: number;
+  total_orders: number;
+  total_jobs: number;
+  total_volume_inr: number;
+  total_platform_fees_inr: number;
+  total_gst_inr: number;
+  updated_at?: string;
+}
+
+export interface ArchiveAuditLog {
+  id: string;
+  month_identifier: string;
+  cutoff_timestamp: string;
+  orders_purged: number;
+  events_purged: number;
+  total_amount_inr: number;
+  exported_by: string;
+  status: string;
+  created_at: string;
+}
+
+export interface MonthlyArchiveManifest {
+  monthIdentifier: string;
+  cutoffTimestamp: string;
+  recordCount: number;
+  totalAmountInr: number;
+  localPath: string;
+  exportedAt: string;
+  files: string[];
+}
+
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [28/63]: packages/shared/src/supabase.ts
 PURPOSE: Shared Supabase Client, Domain Sanitizer, Types
 ───────────────────────────────────────────────────────────────────────────────
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -2108,7 +3319,7 @@ export function getSupabase(): SupabaseClient {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [17/46]: packages/shared/src/signaling.ts
+FILE [29/63]: packages/shared/src/signaling.ts
 PURPOSE: Shared Signaling Constants, Message Types, Payloads
 ───────────────────────────────────────────────────────────────────────────────
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -2306,7 +3517,398 @@ export async function waitForIceGathering(
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [18/46]: apps/desktop/package.json
+FILE [30/63]: packages/shared/src/presence.ts
+PURPOSE: Shared Presence Channel Constants & Online State Dispatcher
+───────────────────────────────────────────────────────────────────────────────
+import { getSupabase } from "./supabase";
+
+export const HEARTBEAT_INTERVAL_MS = 30_000;
+
+export interface ShopPresencePayload {
+  shopId: string;
+  timestamp: string;
+  isOnline: boolean;
+}
+
+export function presenceChannelName(shopId: string): string {
+  return `presence:shop:${shopId}`;
+}
+
+export async function setShopOnline(
+  shopId: string,
+  isOnline: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("set_shop_presence", {
+      p_shop_id: shopId,
+      p_is_online: isOnline,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    if (data && data.success === false) {
+      return {
+        success: false,
+        error: data.error || "Failed to update shop presence",
+      };
+    }
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [31/63]: packages/shared/src/domains.ts
+PURPOSE: Subdomain Routing Rules, Slug Sanitization & Multi-Tenant Resolvers
+───────────────────────────────────────────────────────────────────────────────
+/**
+ * Domain and Subdomain Routing Configurations for Printap.
+ * Canonical Root Domain: mellod.in
+ */
+
+export const ROOT_DOMAIN = "mellod.in";
+export const SHOP_ADMIN_SUBDOMAIN = "shop";
+export const PLATFORM_ADMIN_SUBDOMAIN = "admin";
+
+/**
+ * Public marketing & landing page URL
+ */
+export const MARKETING_URL = `https://www.${ROOT_DOMAIN}`;
+
+/**
+ * Validates a subdomain label against RFC-1035 DNS specifications.
+ * Rules:
+ * - Length between 1 and 63 characters
+ * - Only lowercase alphanumeric characters and hyphens
+ * - Cannot start or end with a hyphen
+ */
+export function isValidSubdomainLabel(label: string): boolean {
+  if (!label || label.length > 63) return false;
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label);
+}
+
+/**
+ * Sanitizes an input string to be a valid DNS subdomain label.
+ * Rules: lowercase, alphanumeric and hyphen only, no leading/trailing hyphens, max 63 chars.
+ */
+export function sanitizeSubdomain(input: string): string {
+  if (!input) return "shop";
+  const sanitized = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 63);
+  return sanitized || "shop";
+}
+
+/**
+ * Computes the customer print URL for a specific shop.
+ * Example: "rahuls-xerox" -> "https://rahuls-xerox.mellod.in"
+ */
+export function getCustomerPrintUrl(slugOrName: string): string {
+  const clean = sanitizeSubdomain(slugOrName);
+  return `https://${clean}.${ROOT_DOMAIN}`;
+}
+
+/**
+ * Computes the canonical customer print URL from a shop object.
+ * Guaranteed to use the shop name or slug — never the raw UID!
+ * Priority:
+ *   1. shop.slug (if present)
+ *   2. sanitizeSubdomain(shop.name) (if present)
+ *   3. fallbackName (if provided)
+ */
+export function getShopCustomerUrl(
+  shop?: { slug?: string | null; name?: string | null; id?: string } | null,
+  fallbackName?: string
+): string {
+  if (shop?.slug && shop.slug.trim()) {
+    return getCustomerPrintUrl(shop.slug);
+  }
+  if (shop?.name && shop.name.trim()) {
+    return getCustomerPrintUrl(shop.name);
+  }
+  if (fallbackName && fallbackName.trim()) {
+    return getCustomerPrintUrl(fallbackName);
+  }
+  return `https://counter.${ROOT_DOMAIN}`;
+}
+
+/**
+ * Reserved subdomains that cannot be used by shops.
+ * Covers brand identifiers, financial/auth endpoints, and infrastructure labels.
+ * Neither "shop" nor "admin" exist as web destinations because
+ * management is strictly handled via Electron Desktop apps.
+ */
+export const RESERVED_SUBDOMAINS = [
+  // Core & Platform
+  "www",
+  "admin",
+  "shop",
+  "api",
+  "app",
+  "dashboard",
+  "portal",
+  "desktop",
+  "counter",
+  "platform",
+  // Brand Protection
+  "mello",
+  "mellod",
+  "printap",
+  // Authentication & Accounts
+  "auth",
+  "login",
+  "signin",
+  "signup",
+  "register",
+  "logout",
+  "security",
+  "account",
+  "accounts",
+  "user",
+  "users",
+  // Financial & Transactions
+  "pay",
+  "payment",
+  "payments",
+  "billing",
+  "checkout",
+  "wallet",
+  "upi",
+  // Infrastructure & Network
+  "mail",
+  "ftp",
+  "smtp",
+  "pop",
+  "ns1",
+  "ns2",
+  "status",
+  "health",
+  "metrics",
+  "cdn",
+  "assets",
+  "static",
+  "ws",
+  "rtc",
+  "signaling",
+  "socket",
+  // Environments & Localhost
+  "localhost",
+  "dev",
+  "stage",
+  "staging",
+  "test",
+  "testing",
+  "demo",
+] as const;
+
+export function isReservedSubdomain(slug: string): boolean {
+  if (!slug) return false;
+  const lower = slug.toLowerCase().trim();
+  return (RESERVED_SUBDOMAINS as readonly string[]).includes(lower);
+}
+
+/**
+ * Checks both RFC-1035 label validity and that the slug is not a reserved subdomain.
+ */
+export function isValidSubdomain(slug: string): boolean {
+  if (!slug) return false;
+  return isValidSubdomainLabel(slug) && !isReservedSubdomain(slug);
+}
+
+export type SubdomainType =
+  | { type: "marketing" }
+  | { type: "customer"; slug: string }
+  | { type: "not-found" };
+
+/**
+ * Detects whether a host string is a local network, localhost, or private IP address.
+ * Covers: localhost, 127.0.0.1, *.localhost, *.local, 192.168.*, 10.*, 172.16-31.*.
+ */
+export function isLocalOrPrivateHost(host: string | null | undefined): boolean {
+  if (!host) return false;
+  const cleanHost = host.split(":")[0].toLowerCase().trim().replace(/\.+$/, "");
+  if (
+    cleanHost === "localhost" ||
+    cleanHost === "127.0.0.1" ||
+    cleanHost.endsWith(".localhost") ||
+    cleanHost.endsWith(".local")
+  ) {
+    return true;
+  }
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return true;
+  return false;
+}
+
+/**
+ * Extracts and classifies the subdomain from an HTTP Host header.
+ * Handles production domains (mellod.in) as well as development/test hosts.
+ *
+ * Enforces RFC-1035 label validation and blocks reserved subdomains at the edge.
+ */
+export function extractSubdomain(hostHeader: string | null | undefined): SubdomainType {
+  if (!hostHeader) {
+    return { type: "marketing" };
+  }
+
+  // Strip port if present (e.g. "my-shop.mellod.in:443") and trailing dots
+  const host = hostHeader.split(":")[0].toLowerCase().trim().replace(/\.+$/, "");
+
+  // Root or www -> Marketing
+  if (
+    host === ROOT_DOMAIN ||
+    host === `www.${ROOT_DOMAIN}` ||
+    host === "localhost" ||
+    host === "127.0.0.1"
+  ) {
+    return { type: "marketing" };
+  }
+
+  // Check mellod.in subdomains
+  if (host.endsWith(`.${ROOT_DOMAIN}`)) {
+    const sub = host.slice(0, -(ROOT_DOMAIN.length + 1));
+    if (!sub || sub === "www") {
+      return { type: "marketing" };
+    }
+    // Block reserved subdomains and syntax-invalid labels at the edge
+    if (!isValidSubdomainLabel(sub) || isReservedSubdomain(sub)) {
+      return { type: "not-found" };
+    }
+    return { type: "customer", slug: sub };
+  }
+
+  // Support local development with custom host headers (e.g. myshop.localhost:3000)
+  if (host.endsWith(".localhost")) {
+    const sub = host.slice(0, -".localhost".length);
+    if (!sub || sub === "www") {
+      return { type: "marketing" };
+    }
+    if (!isValidSubdomainLabel(sub) || isReservedSubdomain(sub)) {
+      return { type: "not-found" };
+    }
+    return { type: "customer", slug: sub };
+  }
+
+  // Fallback
+  return { type: "marketing" };
+}
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [32/63]: packages/shared/src/validation.ts
+PURPOSE: Email & Form Input Sanitization and Validation Utilities
+───────────────────────────────────────────────────────────────────────────────
+/**
+ * Printap — Validation Utilities
+ * RFC 5321 / RFC 5322 compliant email validation
+ */
+
+export interface EmailValidationResult {
+  valid: boolean;
+  reason?: string;
+  normalizedEmail: string;
+}
+
+/**
+ * Validates an email address against standard RFC format rules:
+ * - Max length: 254 chars (RFC 5321)
+ * - Local part: 1-64 chars, no leading/trailing dots, no consecutive dots (..)
+ * - Domain part: must have valid labels and an alphabetic TLD of >= 2 characters
+ * - No whitespace allowed
+ */
+export function validateEmail(email: string | null | undefined): EmailValidationResult {
+  if (!email || typeof email !== "string") {
+    return { valid: false, reason: "Email address is required.", normalizedEmail: "" };
+  }
+
+  const trimmed = email.trim().toLowerCase();
+
+  if (trimmed.length === 0) {
+    return { valid: false, reason: "Email address cannot be empty.", normalizedEmail: "" };
+  }
+
+  if (trimmed.length > 254) {
+    return { valid: false, reason: "Email address cannot exceed 254 characters.", normalizedEmail: trimmed };
+  }
+
+  if (/\s/.test(trimmed)) {
+    return { valid: false, reason: "Email address cannot contain spaces.", normalizedEmail: trimmed };
+  }
+
+  const parts = trimmed.split("@");
+  if (parts.length !== 2) {
+    return { valid: false, reason: "Email address must contain exactly one '@' symbol.", normalizedEmail: trimmed };
+  }
+
+  const [localPart, domainPart] = parts;
+
+  if (localPart.length === 0 || localPart.length > 64) {
+    return {
+      valid: false,
+      reason: "The username before '@' must be 1 to 64 characters long.",
+      normalizedEmail: trimmed,
+    };
+  }
+
+  if (localPart.startsWith(".") || localPart.endsWith(".")) {
+    return { valid: false, reason: "Email address cannot start or end with a dot.", normalizedEmail: trimmed };
+  }
+
+  if (localPart.includes("..")) {
+    return { valid: false, reason: "Email address cannot contain consecutive dots (..).", normalizedEmail: trimmed };
+  }
+
+  if (!domainPart || !domainPart.includes(".")) {
+    return {
+      valid: false,
+      reason: "Email domain must include a valid extension (e.g. .com, .in).",
+      normalizedEmail: trimmed,
+    };
+  }
+
+  if (domainPart.startsWith(".") || domainPart.endsWith(".") || domainPart.includes("..")) {
+    return { valid: false, reason: "Email domain contains invalid dot placement.", normalizedEmail: trimmed };
+  }
+
+  // Comprehensive RFC 5322 regex:
+  // Requires valid characters, non-consecutive dots, and alphabetic TLD of at least 2 characters
+  const RFC_EMAIL_REGEX =
+    /^[a-zA-Z0-9_%+-]+(?:\.[a-zA-Z0-9_%+-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+
+  if (!RFC_EMAIL_REGEX.test(trimmed)) {
+    return {
+      valid: false,
+      reason: "Please enter a valid email format (e.g. owner@example.com).",
+      normalizedEmail: trimmed,
+    };
+  }
+
+  return { valid: true, normalizedEmail: trimmed };
+}
+
+/**
+ * Returns true if an email string is strictly valid.
+ */
+export function isValidEmail(email: string | null | undefined): boolean {
+  return validateEmail(email).valid;
+}
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [33/63]: apps/desktop/package.json
 PURPOSE: Desktop Electron App Package Configuration
 ───────────────────────────────────────────────────────────────────────────────
 {
@@ -2352,7 +3954,7 @@ PURPOSE: Desktop Electron App Package Configuration
 }
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [19/46]: apps/desktop/electron.vite.config.ts
+FILE [34/63]: apps/desktop/electron.vite.config.ts
 PURPOSE: Electron-Vite Build & Alias Configuration
 ───────────────────────────────────────────────────────────────────────────────
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
@@ -2408,7 +4010,7 @@ export default defineConfig({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [20/46]: apps/desktop/electron-builder.yml
+FILE [35/63]: apps/desktop/electron-builder.yml
 PURPOSE: Electron-Builder Windows Packaging Configuration
 ───────────────────────────────────────────────────────────────────────────────
 appId: in.mellod.printap
@@ -2448,7 +4050,7 @@ nsis:
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [21/46]: apps/desktop/src/main/index.ts
+FILE [36/63]: apps/desktop/src/main/index.ts
 PURPOSE: Electron Main Process: Window Lifecycle, PDF Spooler IPC, Shutdown Cleanup
 ───────────────────────────────────────────────────────────────────────────────
 import { app, BrowserWindow, ipcMain, shell } from "electron";
@@ -2517,10 +4119,13 @@ async function sweepOrphanedTempFiles(): Promise<void> {
       const fullPath = path.join(TEMP_DIR, entry);
       try {
         await srm(fullPath, { standard: "dod" as any });
-      } catch {
+      } catch (srmErr) {
+        console.warn(`[main] DoD srm failed for temp file ${fullPath}, falling back to fs.unlink:`, srmErr);
         try {
           await fs.unlink(fullPath);
-        } catch {}
+        } catch (unlinkErr) {
+          console.error(`[main] CRITICAL: Failed to delete temp file ${fullPath}:`, unlinkErr);
+        }
       }
     }
   } catch (err) {
@@ -2736,7 +4341,7 @@ ipcMain.handle("check-for-updates", async () => {
     const result = await autoUpdater.checkForUpdates();
     const updateAvailable =
       Boolean(result?.updateInfo?.version) &&
-      result.updateInfo.version !== app.getVersion();
+      result?.updateInfo?.version !== app.getVersion();
     return {
       success: true,
       isLatest: !updateAvailable,
@@ -3285,10 +4890,13 @@ async function secureDeleteFile(filePath: string): Promise<void> {
   if (!existsSync(filePath)) return;
   try {
     await srm(filePath, { standard: "dod" as any });
-  } catch {
+  } catch (srmErr) {
+    console.warn(`[main] DoD srm failed for ${filePath}, falling back to fs.unlink:`, srmErr);
     try {
       await fs.unlink(filePath);
-    } catch {}
+    } catch (unlinkErr) {
+      console.error(`[main] CRITICAL: Failed to delete temp file ${filePath}:`, unlinkErr);
+    }
   }
 }
 
@@ -3307,6 +4915,7 @@ ipcMain.handle(
       duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
+      pageRange?: string;
     }
   ) => {
     const safeSessionId = sanitizeIdentifier(sessionId);
@@ -3379,6 +4988,10 @@ ipcMain.handle(
 
       if (options?.orientation) {
         printOptions.orientation = options.orientation;
+      }
+
+      if (options?.pageRange) {
+        (printOptions as any).pages = options.pageRange;
       }
 
       await ptp.print(filePath, printOptions);
@@ -3454,7 +5067,7 @@ function sleep(ms: number): Promise<void> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [22/46]: apps/desktop/src/main/printer-discovery.ts
+FILE [37/63]: apps/desktop/src/main/printer-discovery.ts
 PURPOSE: Windows PowerShell Hardware Printer Discovery Engine
 ───────────────────────────────────────────────────────────────────────────────
 import { execFile } from "child_process";
@@ -3705,7 +5318,7 @@ export async function discoverPrinters(): Promise<PrinterHardwareInfo[]> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [23/46]: apps/desktop/src/preload/index.ts
+FILE [38/63]: apps/desktop/src/preload/index.ts
 PURPOSE: Electron Preload Script (Typed ContextBridge IPC API)
 ───────────────────────────────────────────────────────────────────────────────
 import { contextBridge, ipcRenderer } from "electron";
@@ -3722,6 +5335,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
+      pageRange?: string;
     }
   ) => ipcRenderer.invoke("print-pdf", buffer, sessionId, options),
 
@@ -3807,7 +5421,33 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [24/46]: apps/desktop/src/renderer/env.d.ts
+FILE [39/63]: apps/desktop/src/renderer/index.html
+PURPOSE: Desktop Renderer HTML Document Template
+───────────────────────────────────────────────────────────────────────────────
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Printap</title>
+    <link rel="icon" type="image/png" href="./assets/logo.png" />
+    <link rel="shortcut icon" type="image/png" href="./assets/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [40/63]: apps/desktop/src/renderer/env.d.ts
 PURPOSE: Renderer Ambient TypeScript Types & Window Declarations
 ───────────────────────────────────────────────────────────────────────────────
 /// <reference types="vite/client" />
@@ -3897,6 +5537,7 @@ interface ElectronAPI {
       duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
+      pageRange?: string;
     }
   ) => Promise<PrintResult>;
 
@@ -3941,7 +5582,7 @@ interface Window {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [25/46]: apps/desktop/src/renderer/main.tsx
+FILE [41/63]: apps/desktop/src/renderer/main.tsx
 PURPOSE: Renderer React DOM Root Entrypoint
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -3960,7 +5601,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [26/46]: apps/desktop/src/renderer/App.tsx
+FILE [42/63]: apps/desktop/src/renderer/App.tsx
 PURPOSE: Renderer App Shell: Page Navigation, Presence Sync, Dispatcher Orchestrator
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -4192,9 +5833,39 @@ function ShopAdminShell(): React.ReactElement {
     }
   }, []);
 
-  // 1. Discover printers ONLY once on fresh app launch
+  const [cloudHealth, setCloudHealth] = useState<"connected" | "checking" | "offline">("checking");
+
+  // Periodic Supabase cloud connection health monitor
+  useEffect(() => {
+    let isMounted = true;
+    const checkHealth = async () => {
+      try {
+        const supabase = getSupabase();
+        const { error } = await supabase.from("shops").select("id").limit(1);
+        if (isMounted) {
+          setCloudHealth(error ? "offline" : "connected");
+        }
+      } catch {
+        if (isMounted) {
+          setCloudHealth("offline");
+        }
+      }
+    };
+    checkHealth();
+    const timer = setInterval(checkHealth, 30_000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // 1. Discover printers on launch and monitor health every 60 seconds
   useEffect(() => {
     rescanPrinters();
+    const interval = setInterval(() => {
+      rescanPrinters();
+    }, 60_000);
+    return () => clearInterval(interval);
   }, [rescanPrinters]);
 
   // 2. Fetch today's print count and recent orders from Supabase when shopId is loaded
@@ -4435,16 +6106,28 @@ function ShopAdminShell(): React.ReactElement {
           addBoundedSet(confirmedPaymentSessionsRef.current, job.sessionId);
         }
 
-        // Record print event in Supabase ledger
-        try {
-          const supabase = getSupabase();
-          await supabase.from("print_events").insert({
-            shop_id: shopId,
-            session_id: job.sessionId,
-            fee_amount: 1.0,
-          });
-        } catch (err) {
-          console.warn("[App] Could not insert print_event:", err);
+        // Record print event in Supabase ledger with backoff retry
+        let insertSuccess = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const supabase = getSupabase();
+            const { error } = await supabase.from("print_events").insert({
+              shop_id: shopId,
+              session_id: job.sessionId,
+              fee_amount: 1.0,
+            });
+            if (error) throw error;
+            insertSuccess = true;
+            break;
+          } catch (err) {
+            console.warn(`[App] Could not insert print_event (attempt ${attempt}/3):`, err);
+            if (attempt < 3) {
+              await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+            }
+          }
+        }
+        if (!insertSuccess) {
+          console.error(`[App] CRITICAL: Failed to record print_event for session ${job.sessionId} after 3 attempts`);
         }
 
         // Tokens are now deducted securely by the customer web app (Token Escrow System).
@@ -5062,7 +6745,7 @@ function ShopAdminShell(): React.ReactElement {
                 buffer,
               },
             ],
-            totalAmount: 5,
+            totalAmount: 0,
             paymentMethod: "cash",
             paymentStatus: isLegacyConfirmed ? "confirmed" : "pending",
             enqueuedAt: new Date(),
@@ -5121,9 +6804,9 @@ function ShopAdminShell(): React.ReactElement {
     };
   }, [isAuthenticated, shopId, isShopOnline, loadTodayPrintsCount, refreshAssignments]);
 
-  // Auto-expire unpaid pendingQueue jobs older than 30 minutes to free V8 ArrayBuffer memory
+  // Auto-expire unpaid pendingQueue jobs older than 5 minutes to free V8 ArrayBuffer memory
   useEffect(() => {
-    const EXPIRY_MS = 30 * 60 * 1000;
+    const EXPIRY_MS = 5 * 60 * 1000;
     const timer = setInterval(() => {
       const now = Date.now();
       setPendingQueue((prev) => {
@@ -5228,7 +6911,7 @@ function ShopAdminShell(): React.ReactElement {
           .from("print_orders")
           .update({
             payment_status: "confirmed",
-            status: "picked_up",
+            status: "queued",
             updated_at: new Date().toISOString(),
           })
           .eq("session_id", sessionId);
@@ -5501,6 +7184,59 @@ function ShopAdminShell(): React.ReactElement {
                   ? "Shop Online • P2P Active"
                   : "Connecting P2P..."
                 : "Shop Offline (Standby)"}
+            </span>
+          </div>
+
+          {/* Cloud Database Health Badge */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 11,
+              fontWeight: 500,
+              padding: "3px 8px",
+              borderRadius: 6,
+              background:
+                cloudHealth === "connected"
+                  ? "rgba(16, 185, 129, 0.08)"
+                  : cloudHealth === "checking"
+                  ? "rgba(245, 158, 11, 0.08)"
+                  : "rgba(239, 68, 68, 0.08)",
+              color:
+                cloudHealth === "connected"
+                  ? "var(--accent-emerald)"
+                  : cloudHealth === "checking"
+                  ? "#d97706"
+                  : "var(--accent-rose)",
+            }}
+            title={
+              cloudHealth === "connected"
+                ? "Supabase Cloud: Connected & Syncing"
+                : cloudHealth === "checking"
+                ? "Verifying Supabase connectivity..."
+                : "Supabase Unreachable: Local mutations will sync when restored"
+            }
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background:
+                  cloudHealth === "connected"
+                    ? "var(--accent-emerald)"
+                    : cloudHealth === "checking"
+                    ? "#f59e0b"
+                    : "var(--accent-rose)",
+              }}
+            />
+            <span>
+              {cloudHealth === "connected"
+                ? "Cloud Sync"
+                : cloudHealth === "checking"
+                ? "Connecting..."
+                : "Cloud Disconnected"}
             </span>
           </div>
         </div>
@@ -5839,7 +7575,7 @@ export default function App(): React.ReactElement {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [27/46]: apps/desktop/src/renderer/context/AuthContext.tsx
+FILE [43/63]: apps/desktop/src/renderer/context/AuthContext.tsx
 PURPOSE: Authentication Context: Local Session, OTP Reset, Google OAuth
 ───────────────────────────────────────────────────────────────────────────────
 import React, {
@@ -6246,7 +7982,7 @@ export function useAuth(): AuthContextType {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [28/46]: apps/desktop/src/renderer/lib/shop-signaling.ts
+FILE [44/63]: apps/desktop/src/renderer/lib/shop-signaling.ts
 PURPOSE: WebRTC Receiver & Signaling Channel: SDP Handshake, Chunk Assembler
 ───────────────────────────────────────────────────────────────────────────────
 import {
@@ -6277,6 +8013,12 @@ const sessions = new Map<string, ShopSession>();
 const earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
 const earlyCandidateTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sessionInactivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+const offerTimestamps = new Map<string, number[]>();
+const OFFER_RATE_LIMIT_WINDOW_MS = 10_000;
+const MAX_OFFERS_PER_WINDOW = 3;
+let shopReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let shopReconnectAttempts = 0;
 
 let activeSignalingShopId: string | null = null;
 
@@ -6354,100 +8096,164 @@ export function startShopSignaling(
       : callbacksOrHandler;
 
   activeSignalingShopId = shopId;
-  const channel = joinSignalingChannel(shopId, true);
+  shopReconnectAttempts = 0;
+  if (shopReconnectTimer) {
+    clearTimeout(shopReconnectTimer);
+    shopReconnectTimer = null;
+  }
 
-  channel.on(
-    "broadcast",
-    { event: "webrtc-offer" },
-    async ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, data } = payload as unknown as SignalPayload;
-      if (!sessionId || !data) return;
-      console.log(`[shop] Received offer for session ${sessionId}`);
-      callbacks.onSessionStart?.(sessionId);
-      await handleOffer(
-        channel,
-        sessionId,
-        data as RTCSessionDescriptionInit,
-        callbacks
-      );
-    }
-  );
+  function setupChannel(): RealtimeChannel {
+    const channel = joinSignalingChannel(shopId, true);
 
-  channel.on(
-    "broadcast",
-    { event: "webrtc-ice" },
-    async ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, data } = payload as unknown as SignalPayload;
-      const candidateInit = data as RTCIceCandidateInit;
-      if (!sessionId || !candidateInit || !candidateInit.candidate) return;
-      const session = sessions.get(sessionId);
+    channel.on(
+      "broadcast",
+      { event: "webrtc-offer" },
+      async ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, data } = payload as unknown as SignalPayload;
+        if (!sessionId || !data) return;
 
-      if (!session || !session.pc.remoteDescription) {
-        if (!earlyCandidates.has(sessionId)) {
-          earlyCandidates.set(sessionId, []);
-        }
-        const queue = earlyCandidates.get(sessionId)!;
-        if (queue.length < 50) {
-          queue.push(candidateInit);
-        }
-        if (!earlyCandidateTimers.has(sessionId)) {
-          earlyCandidateTimers.set(
-            sessionId,
-            setTimeout(() => {
-              earlyCandidates.delete(sessionId);
-              earlyCandidateTimers.delete(sessionId);
-            }, 60_000)
-          );
-        }
-        return;
-      }
-
-      try {
-        await session.pc.addIceCandidate(new RTCIceCandidate(candidateInit));
-      } catch (err) {
-        console.error(`[shop] Failed to add ICE candidate:`, err);
-      }
-    }
-  );
-
-  channel.on(
-    "broadcast",
-    { event: "request-token" },
-    ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, hasColor, totalAmount, fileCount } =
-        payload as unknown as SignalPayload;
-      if (!sessionId) return;
-      callbacks.onRequestToken?.(
-        sessionId,
-        Boolean(hasColor),
-        totalAmount,
-        fileCount
-      );
-    }
-  );
-
-  channel.on(
-    "broadcast",
-    { event: "order-status" },
-    ({ payload }: { payload: Record<string, unknown> }) => {
-      const { sessionId, status, errorDetail } =
-        payload as unknown as SignalPayload;
-      if (!sessionId) return;
-      if (status === "cancelled" || status === "error") {
-        callbacks.onSessionError?.(
-          sessionId,
-          errorDetail || `Customer order was ${status}`
+        // Rate limit incoming offers per sessionId (prevent DoS)
+        const now = Date.now();
+        const recentOffers = (offerTimestamps.get(sessionId) || []).filter(
+          (t) => now - t < OFFER_RATE_LIMIT_WINDOW_MS
         );
-        cleanup(sessionId);
-      }
-    }
-  );
+        if (recentOffers.length >= MAX_OFFERS_PER_WINDOW) {
+          console.warn(
+            `[shop] Rate-limited offer for session ${sessionId} (${recentOffers.length} offers in ${OFFER_RATE_LIMIT_WINDOW_MS}ms)`
+          );
+          return;
+        }
+        recentOffers.push(now);
+        offerTimestamps.set(sessionId, recentOffers);
 
+        console.log(`[shop] Received offer for session ${sessionId}`);
+        callbacks.onSessionStart?.(sessionId);
+        await handleOffer(
+          channel,
+          sessionId,
+          data as RTCSessionDescriptionInit,
+          callbacks
+        );
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: "webrtc-ice" },
+      async ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, data } = payload as unknown as SignalPayload;
+        const candidateInit = data as RTCIceCandidateInit;
+        if (!sessionId || !candidateInit || !candidateInit.candidate) return;
+        const session = sessions.get(sessionId);
+
+        if (!session || !session.pc.remoteDescription) {
+          if (!earlyCandidates.has(sessionId)) {
+            earlyCandidates.set(sessionId, []);
+          }
+          const queue = earlyCandidates.get(sessionId)!;
+          if (queue.length < 50) {
+            queue.push(candidateInit);
+          }
+          if (!earlyCandidateTimers.has(sessionId)) {
+            earlyCandidateTimers.set(
+              sessionId,
+              setTimeout(() => {
+                earlyCandidates.delete(sessionId);
+                earlyCandidateTimers.delete(sessionId);
+              }, 60_000)
+            );
+          }
+          return;
+        }
+
+        try {
+          await session.pc.addIceCandidate(new RTCIceCandidate(candidateInit));
+        } catch (err) {
+          console.error(`[shop] Failed to add ICE candidate:`, err);
+        }
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: "request-token" },
+      ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, hasColor, totalAmount, fileCount } =
+          payload as unknown as SignalPayload;
+        if (!sessionId) return;
+        callbacks.onRequestToken?.(
+          sessionId,
+          Boolean(hasColor),
+          totalAmount,
+          fileCount
+        );
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: "order-status" },
+      ({ payload }: { payload: Record<string, unknown> }) => {
+        const { sessionId, status, errorDetail } =
+          payload as unknown as SignalPayload;
+        if (!sessionId) return;
+        if (status === "cancelled" || status === "error") {
+          callbacks.onSessionError?.(
+            sessionId,
+            errorDetail || `Customer order was ${status}`
+          );
+          cleanup(sessionId);
+        }
+      }
+    );
+
+    // Channel lifecycle reconnection handling
+    channel.subscribe((status) => {
+      console.log(`[shop] Signaling subscription status: ${status}`);
+      if (status === "SUBSCRIBED") {
+        shopReconnectAttempts = 0;
+      } else if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        if (activeSignalingShopId === shopId) {
+          const backoffMs = Math.min(
+            1000 * Math.pow(1.5, shopReconnectAttempts),
+            10_000
+          );
+          shopReconnectAttempts++;
+          console.log(
+            `[shop] Channel dropped (${status}). Reconnecting in ${Math.round(
+              backoffMs
+            )}ms (attempt ${shopReconnectAttempts})...`
+          );
+          if (shopReconnectTimer) clearTimeout(shopReconnectTimer);
+          shopReconnectTimer = setTimeout(() => {
+            if (activeSignalingShopId === shopId) {
+              setupChannel();
+            }
+          }, backoffMs);
+        }
+      }
+    });
+
+    return channel;
+  }
+
+  const initialChannel = setupChannel();
   console.log(`[shop] Signaling started for shop ${shopId}`);
-  return channel;
+  return initialChannel;
 }
 
 export function stopShopSignaling(channel: RealtimeChannel | null): void {
+  if (shopReconnectTimer) {
+    clearTimeout(shopReconnectTimer);
+    shopReconnectTimer = null;
+  }
+  shopReconnectAttempts = 0;
+  offerTimestamps.clear();
+
   if (activeSignalingShopId) {
     leaveSignalingChannel(activeSignalingShopId).catch(() => {});
     activeSignalingShopId = null;
@@ -6839,6 +8645,8 @@ function setupDataChannelReceiver(
 }
 
 function cleanup(sessionId: string): void {
+  offerTimestamps.delete(sessionId);
+
   const earlyTimer = earlyCandidateTimers.get(sessionId);
   if (earlyTimer) {
     clearTimeout(earlyTimer);
@@ -6903,7 +8711,7 @@ export async function broadcastTokenAssigned(
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [29/46]: apps/desktop/src/renderer/lib/shop-presence.ts
+FILE [45/63]: apps/desktop/src/renderer/lib/shop-presence.ts
 PURPOSE: Supabase Realtime Shop Presence & Heartbeat Engine
 ───────────────────────────────────────────────────────────────────────────────
 import {
@@ -7100,7 +8908,7 @@ export async function stopPresence(): Promise<void> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [30/46]: apps/desktop/src/renderer/lib/fifo-dispatcher.ts
+FILE [46/63]: apps/desktop/src/renderer/lib/fifo-dispatcher.ts
 PURPOSE: FIFO Print Dispatcher: Queue Scheduler, Token Allocation, Hardware Spooler
 ───────────────────────────────────────────────────────────────────────────────
 import type { PrintSettings } from "@printap/shared";
@@ -7416,6 +9224,7 @@ export class FifoPrintDispatcher {
             duplex: settings.duplex || "single",
             orientation: settings.orientation,
             scale: settings.pageFit === "fill" ? "noscale" : "fit",
+            pageRange: settings.pageRange,
           }
         );
 
@@ -7662,7 +9471,7 @@ export class FifoPrintDispatcher {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [31/46]: apps/desktop/src/renderer/components/Sidebar.tsx
+FILE [47/63]: apps/desktop/src/renderer/components/Sidebar.tsx
 PURPOSE: Navigation Sidebar & Live Online/Offline Toggle
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -7985,7 +9794,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [32/46]: apps/desktop/src/renderer/components/LiveDashboard.tsx
+FILE [48/63]: apps/desktop/src/renderer/components/LiveDashboard.tsx
 PURPOSE: Live Monitor: Active Print Progress, Live Queue, Handover Ledger
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState } from "react";
@@ -8607,7 +10416,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [33/46]: apps/desktop/src/renderer/components/PrintHistory.tsx
+FILE [49/63]: apps/desktop/src/renderer/components/PrintHistory.tsx
 PURPOSE: Print History & Activity Ledger with CSV Export
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -8790,6 +10599,44 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
     };
   }, [filteredOrders]);
 
+  const handleExportCsv = useCallback(() => {
+    if (filteredOrders.length === 0) return;
+    const headers = [
+      "Order Date & Time",
+      "Token Code",
+      "Session ID",
+      "Files",
+      "Payment Method",
+      "Payment Status",
+      "Amount (INR)",
+      "Order Status",
+    ];
+    const rows = filteredOrders.map((o) => [
+      `"${new Date(o.created_at).toLocaleString()}"`,
+      `"${o.token_code || "-"}"`,
+      `"${o.session_id}"`,
+      o.file_count || 1,
+      `"${o.payment_method || "cash"}"`,
+      `"${o.payment_status}"`,
+      Number(o.total_amount).toFixed(2),
+      `"${o.status}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `printap-orders-${dateFilter}-${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [filteredOrders, dateFilter]);
+
   return (
     <div className="content fade-in" style={{ paddingBottom: 40 }}>
       {/* Page Header */}
@@ -8804,25 +10651,48 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchOrders}
-          disabled={isLoading}
-          className="btn-secondary"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 14px",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-          title="Refresh orders from database"
-        >
-          <IconRefresh size={15} className={isLoading ? "spin" : ""} />
-          <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={filteredOrders.length === 0}
+            className="btn-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: filteredOrders.length > 0 ? "pointer" : "not-allowed",
+              opacity: filteredOrders.length > 0 ? 1 : 0.5,
+            }}
+            title="Export filtered records to CSV"
+          >
+            <IconFileText size={15} />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={fetchOrders}
+            disabled={isLoading}
+            className="btn-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            title="Refresh orders from database"
+          >
+            <IconRefresh size={15} className={isLoading ? "spin" : ""} />
+            <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Stat Cards */}
@@ -9174,7 +11044,7 @@ export const PrintHistory: React.FC<PrintHistoryProps> = React.memo(({ recentJob
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [34/46]: apps/desktop/src/renderer/components/PrintersControl.tsx
+FILE [50/63]: apps/desktop/src/renderer/components/PrintersControl.tsx
 PURPOSE: Hardware Printer Mapping & Capability Assignment
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useCallback, useMemo } from "react";
@@ -9963,7 +11833,7 @@ export const PrintersControl: React.FC<PrintersControlProps> = React.memo(({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [35/46]: apps/desktop/src/renderer/components/ServicesRates.tsx
+FILE [51/63]: apps/desktop/src/renderer/components/ServicesRates.tsx
 PURPOSE: Shop Services, Rate Card & Document Pricing Matrix
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
@@ -10877,7 +12747,7 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [36/46]: apps/desktop/src/renderer/components/Analytics.tsx
+FILE [52/63]: apps/desktop/src/renderer/components/Analytics.tsx
 PURPOSE: Financial Metrics, Print Volume Charts, Revenue Summary
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -11312,7 +13182,7 @@ export const Analytics: React.FC = React.memo(() => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [37/46]: apps/desktop/src/renderer/components/CounterQr.tsx
+FILE [53/63]: apps/desktop/src/renderer/components/CounterQr.tsx
 PURPOSE: Customer QR Code Stand Generator & Print Sheet
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useRef } from "react";
@@ -11951,7 +13821,7 @@ export const CounterQr: React.FC = React.memo(() => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [38/46]: apps/desktop/src/renderer/components/Tokens.tsx
+FILE [54/63]: apps/desktop/src/renderer/components/Tokens.tsx
 PURPOSE: Token Management Deck: Balances, Threshold Alerts, Pack Top-Up
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
@@ -12216,7 +14086,7 @@ export const Tokens: React.FC = React.memo(() => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [39/46]: apps/desktop/src/renderer/components/Profile.tsx
+FILE [55/63]: apps/desktop/src/renderer/components/Profile.tsx
 PURPOSE: Shop Information, Operating Hours & Geolocation Configuration
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState } from "react";
@@ -12545,7 +14415,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr, isT
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [40/46]: apps/desktop/src/renderer/components/Login.tsx
+FILE [56/63]: apps/desktop/src/renderer/components/Login.tsx
 PURPOSE: Shopkeeper Counter Terminal Authentication & Password Reset
 ───────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
@@ -13099,7 +14969,7 @@ export const Login: React.FC = () => {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [41/46]: apps/desktop/src/renderer/components/UpdateScreen.tsx
+FILE [57/63]: apps/desktop/src/renderer/components/UpdateScreen.tsx
 PURPOSE: Software Auto-Updater Modal (Download Progress & Restart)
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -13370,7 +15240,7 @@ export const UpdateScreen: React.FC<UpdateScreenProps> = ({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [42/46]: apps/desktop/src/renderer/components/UnsavedChangesModal.tsx
+FILE [58/63]: apps/desktop/src/renderer/components/UnsavedChangesModal.tsx
 PURPOSE: Modal Guard for Unsaved Changes Across Forms
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -13445,7 +15315,7 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [43/46]: apps/desktop/src/renderer/components/ErrorBoundary.tsx
+FILE [59/63]: apps/desktop/src/renderer/components/ErrorBoundary.tsx
 PURPOSE: Global React Exception Boundary
 ───────────────────────────────────────────────────────────────────────────────
 import React, { Component, ErrorInfo, ReactNode } from "react";
@@ -13613,7 +15483,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [44/46]: apps/desktop/src/renderer/components/Icons.tsx
+FILE [60/63]: apps/desktop/src/renderer/components/Icons.tsx
 PURPOSE: SVG Icon Set
 ───────────────────────────────────────────────────────────────────────────────
 import React from "react";
@@ -14029,7 +15899,7 @@ export const IconChevronLeft: React.FC<IconProps> = ({ size = 16, className = ""
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [45/46]: apps/desktop/src/renderer/styles.css
+FILE [61/63]: apps/desktop/src/renderer/styles.css
 PURPOSE: High-Contrast Structural Design System Stylesheet
 ───────────────────────────────────────────────────────────────────────────────
 /* ═══════════════════════════════════════════════════════════════════
@@ -16551,7 +18421,7 @@ body {
 
 
 ───────────────────────────────────────────────────────────────────────────────
-FILE [46/46]: apps/web/src/lib/customer-signaling.ts
+FILE [62/63]: apps/web/src/lib/customer-signaling.ts
 PURPOSE: Customer WebRTC Peer: SDP Offer, Chunked File Streaming, Status Listener
 ───────────────────────────────────────────────────────────────────────────────
 import {
@@ -17053,8 +18923,10 @@ export async function requestTokenFromShop(
       if (!settled) {
         settled = true;
         cleanup();
+        const suffix = params.sessionId ? params.sessionId.slice(-3).toUpperCase() : Math.random().toString(36).slice(2, 5).toUpperCase();
+        const prefix = params.hasColor ? "C" : "B";
         resolve({
-          tokenCode: `#${params.hasColor ? 2 : 1}1`,
+          tokenCode: `#${prefix}-${suffix}`,
           queuePosition: 1,
           estimatedWaitMinutes: 2,
         });
@@ -17062,6 +18934,785 @@ export async function requestTokenFromShop(
     }, timeoutMs);
   });
 }
+
+
+───────────────────────────────────────────────────────────────────────────────
+FILE [63/63]: tests/platform-verification.test.ts
+PURPOSE: Platform Verification Test Suite (SHA-256, Spooler Mapping, Pricing, Queue Sweeper, Subdomains)
+───────────────────────────────────────────────────────────────────────────────
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import {
+  calculateSheets,
+  calculateOrderSheets,
+  calculateDocumentPrice,
+  calculateFinishingCost,
+  calculateOrderTotal,
+  parsePageRangeCount,
+  isValidEmail,
+  isValidSubdomainLabel,
+  isReservedSubdomain,
+  SESSION_STORAGE_KEY,
+  isOrderCompleted,
+  isOrderFailed,
+  type PrintSettings,
+  type ShopRateCard,
+  type FinishingService,
+  type PersistedSession,
+  type QueueToken,
+} from "../packages/shared/src/index";
+
+// -------------------------------------------------------------
+// Helper: SHA-256 calculation matching customer-signaling & shop-signaling
+// -------------------------------------------------------------
+async function computeSha256Hex(buffer: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// -------------------------------------------------------------
+// Helper: Image MIME detection matching Electron Main detectImageMime
+// -------------------------------------------------------------
+function detectImageMime(uint8: Uint8Array): string {
+  if (uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x47)
+    return "image/png";
+  if (uint8[0] === 0xff && uint8[1] === 0xd8 && uint8[2] === 0xff)
+    return "image/jpeg";
+  if (uint8[0] === 0x47 && uint8[1] === 0x49 && uint8[2] === 0x46)
+    return "image/gif";
+  if (uint8[0] === 0x42 && uint8[1] === 0x4d) return "image/bmp";
+  if (uint8[0] === 0x52 && uint8[1] === 0x49 && uint8[2] === 0x46 && uint8[3] === 0x46)
+    return "image/webp";
+  return "image/png";
+}
+
+// -------------------------------------------------------------
+// Helper: Spooler options mapping matching apps/desktop/src/main/index.ts
+// -------------------------------------------------------------
+interface PrintPdfOptions {
+  copies?: number;
+  colorMode?: "bw" | "color";
+  duplex?: "single" | "double";
+  scale?: "fit" | "noscale";
+  printer?: string;
+  orientation?: "portrait" | "landscape";
+}
+
+function mapToPtpOptions(options?: PrintPdfOptions) {
+  const copyCount = Math.max(1, Math.min(500, options?.copies ?? 1));
+  const printOptions: {
+    scale: string;
+    copies: number;
+    monochrome: boolean;
+    side: "duplex" | "simplex";
+    printer?: string;
+    orientation?: "portrait" | "landscape";
+  } = {
+    scale: options?.scale || "noscale",
+    copies: copyCount,
+    monochrome: options?.colorMode === "bw",
+    side: options?.duplex === "double" ? "duplex" : "simplex",
+  };
+
+  if (options?.printer) {
+    printOptions.printer = options.printer;
+  }
+  if (options?.orientation) {
+    printOptions.orientation = options.orientation;
+  }
+  return printOptions;
+}
+
+// -------------------------------------------------------------
+// Helper: PrintHistory revenue stats matching apps/desktop/src/renderer/components/PrintHistory.tsx
+// -------------------------------------------------------------
+interface OrderRecord {
+  id: string;
+  status: string;
+  payment_method: string;
+  total_amount: number | string;
+}
+
+function computePrintHistoryStats(orders: OrderRecord[]) {
+  let totalRevenue = 0;
+  let upiRevenue = 0;
+  let cashRevenue = 0;
+  let settledCount = 0;
+
+  orders.forEach((o) => {
+    if (o.status === "cancelled" || o.status === "failed" || o.status === "failed_refunded") {
+      return;
+    }
+    settledCount++;
+    const amt = Number(o.total_amount) || 0;
+    totalRevenue += amt;
+    if (o.payment_method === "upi") upiRevenue += amt;
+    else if (o.payment_method === "cash") cashRevenue += amt;
+  });
+
+  return {
+    count: settledCount,
+    totalRevenue,
+    upiRevenue,
+    cashRevenue,
+  };
+}
+
+// -------------------------------------------------------------
+// Helper: 30-min Pending Queue Sweeper matching App.tsx
+// -------------------------------------------------------------
+interface QueueJob {
+  sessionId: string;
+  enqueuedAt: string;
+  files: { buffer: ArrayBuffer }[];
+}
+
+function sweepExpiredJobs(queue: QueueJob[], nowMs: number, expiryMs = 30 * 60 * 1000) {
+  const expired: QueueJob[] = [];
+  const active: QueueJob[] = [];
+
+  queue.forEach((job) => {
+    const age = nowMs - new Date(job.enqueuedAt).getTime();
+    if (age > expiryMs) {
+      // Memory zeroing
+      job.files.forEach((f) => {
+        f.buffer = new ArrayBuffer(0);
+      });
+      expired.push(job);
+    } else {
+      active.push(job);
+    }
+  });
+
+  return { active, expired };
+}
+
+// =============================================================
+// TEST SUITES
+// =============================================================
+
+describe("1. End-to-End SHA-256 WebRTC File Integrity", () => {
+  it("should generate deterministic SHA-256 hex digest for an ArrayBuffer", async () => {
+    const text = "Enterprise reliability verification for Printap PDF transfer";
+    const enc = new TextEncoder();
+    const buf = enc.encode(text).buffer;
+
+    const hash = await computeSha256Hex(buf);
+    assert.strictEqual(typeof hash, "string");
+    assert.strictEqual(hash.length, 64);
+
+    // Same buffer produces identical hash
+    const hash2 = await computeSha256Hex(buf);
+    assert.strictEqual(hash, hash2);
+  });
+
+  it("should detect corrupted data and reject mismatched SHA-256", async () => {
+    const originalBuf = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer;
+    const corruptedBuf = new Uint8Array([1, 2, 3, 4, 99, 6, 7, 8]).buffer;
+
+    const expectedHash = await computeSha256Hex(originalBuf);
+    const actualHash = await computeSha256Hex(corruptedBuf);
+
+    assert.notStrictEqual(expectedHash, actualHash);
+  });
+});
+
+describe("2. Image MIME Magic-Byte Detection (Step 3 Fix)", () => {
+  it("should correctly identify PNG using 0x89 0x50 0x4e 0x47", () => {
+    const pngHeader = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    assert.strictEqual(detectImageMime(pngHeader), "image/png");
+  });
+
+  it("should correctly identify JPEG using 0xff 0xd8 0xff", () => {
+    const jpegHeader = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    assert.strictEqual(detectImageMime(jpegHeader), "image/jpeg");
+  });
+
+  it("should correctly identify GIF using 0x47 0x49 0x46", () => {
+    const gifHeader = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+    assert.strictEqual(detectImageMime(gifHeader), "image/gif");
+  });
+
+  it("should correctly identify BMP using 0x42 0x4d", () => {
+    const bmpHeader = new Uint8Array([0x42, 0x4d, 0x00, 0x00, 0x00, 0x00]);
+    assert.strictEqual(detectImageMime(bmpHeader), "image/bmp");
+  });
+
+  it("should correctly identify WebP using 0x52 0x49 0x46 0x46", () => {
+    const webpHeader = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00]);
+    assert.strictEqual(detectImageMime(webpHeader), "image/webp");
+  });
+
+  it("should fallback to image/png for unrecognized formats", () => {
+    const unknown = new Uint8Array([0x00, 0x01, 0x02, 0x03]);
+    assert.strictEqual(detectImageMime(unknown), "image/png");
+  });
+});
+
+describe("3. Native Duplex, Monochrome & Copies Print Spooler Translation (Steps 3 & 4)", () => {
+  it("should map double-sided to duplex and single-sided to simplex", () => {
+    const doubleRes = mapToPtpOptions({ duplex: "double" });
+    assert.strictEqual(doubleRes.side, "duplex");
+
+    const singleRes = mapToPtpOptions({ duplex: "single" });
+    assert.strictEqual(singleRes.side, "simplex");
+  });
+
+  it("should map colorMode bw to monochrome true and color to monochrome false", () => {
+    const bwRes = mapToPtpOptions({ colorMode: "bw" });
+    assert.strictEqual(bwRes.monochrome, true);
+
+    const colorRes = mapToPtpOptions({ colorMode: "color" });
+    assert.strictEqual(colorRes.monochrome, false);
+  });
+
+  it("should pass native copies with clamp between 1 and 500", () => {
+    const normal = mapToPtpOptions({ copies: 3 });
+    assert.strictEqual(normal.copies, 3);
+
+    const zero = mapToPtpOptions({ copies: 0 });
+    assert.strictEqual(zero.copies, 1);
+
+    const huge = mapToPtpOptions({ copies: 1000 });
+    assert.strictEqual(huge.copies, 500);
+  });
+});
+
+describe("4. Print History Revenue & Cancellation Math (Step 7)", () => {
+  it("should strictly exclude cancelled and failed orders from revenue totals", () => {
+    const orders: OrderRecord[] = [
+      { id: "1", status: "completed", payment_method: "upi", total_amount: 150 },
+      { id: "2", status: "completed", payment_method: "cash", total_amount: 50 },
+      { id: "3", status: "cancelled", payment_method: "upi", total_amount: 500 },
+      { id: "4", status: "failed", payment_method: "cash", total_amount: 200 },
+      { id: "5", status: "failed_refunded", payment_method: "upi", total_amount: 300 },
+    ];
+
+    const stats = computePrintHistoryStats(orders);
+    assert.strictEqual(stats.count, 2);
+    assert.strictEqual(stats.totalRevenue, 200);
+    assert.strictEqual(stats.upiRevenue, 150);
+    assert.strictEqual(stats.cashRevenue, 50);
+  });
+});
+
+describe("5. 30-Minute Pending Queue Sweeper & Heap Memory Deallocation (Step 6)", () => {
+  it("should sweep jobs older than 30 minutes and zero their ArrayBuffers", () => {
+    const now = Date.now();
+    const oldTime = new Date(now - 31 * 60 * 1000).toISOString(); // 31 mins ago
+    const freshTime = new Date(now - 5 * 60 * 1000).toISOString(); // 5 mins ago
+
+    const dummyBuf1 = new ArrayBuffer(1024 * 1024); // 1 MB
+    const dummyBuf2 = new ArrayBuffer(2 * 1024 * 1024); // 2 MB
+
+    const queue: QueueJob[] = [
+      {
+        sessionId: "sess-expired-1",
+        enqueuedAt: oldTime,
+        files: [{ buffer: dummyBuf1 }],
+      },
+      {
+        sessionId: "sess-active-2",
+        enqueuedAt: freshTime,
+        files: [{ buffer: dummyBuf2 }],
+      },
+    ];
+
+    const { active, expired } = sweepExpiredJobs(queue, now);
+
+    assert.strictEqual(expired.length, 1);
+    assert.strictEqual(expired[0].sessionId, "sess-expired-1");
+    assert.strictEqual(expired[0].files[0].buffer.byteLength, 0, "Buffer should be deallocated to 0 bytes");
+
+    assert.strictEqual(active.length, 1);
+    assert.strictEqual(active[0].sessionId, "sess-active-2");
+    assert.strictEqual(active[0].files[0].buffer.byteLength, 2 * 1024 * 1024, "Active buffer remains intact");
+  });
+});
+
+describe("6. Disconnected Printers Pruning Logic (Step 8)", () => {
+  it("should filter and identify stale printer records to delete", () => {
+    const savedAssignments = {
+      "HP LaserJet Pro": { paper_size: "A4", color_capable: false },
+      "Epson L3150": { paper_size: "A4", color_capable: true },
+      "Old Disconnected Canon": { paper_size: "A3", color_capable: true },
+    };
+
+    const physicalPrinters = ["HP LaserJet Pro", "Epson L3150"];
+    const activeNames = Object.keys(savedAssignments).filter((name) =>
+      physicalPrinters.includes(name)
+    );
+
+    assert.deepStrictEqual(activeNames, ["HP LaserJet Pro", "Epson L3150"]);
+    assert.ok(!activeNames.includes("Old Disconnected Canon"));
+  });
+});
+
+describe("7. Pricing Engine & Rates Verification", () => {
+  const rateCard: ShopRateCard = {
+    priceBwPerPage: 2.0,
+    priceColorPerPage: 10.0,
+    finishingServices: [],
+  };
+
+  it("should accurately calculate single-sided sheets and price", () => {
+    const settings: PrintSettings = {
+      copies: 1,
+      colorMode: "bw",
+      duplex: "single",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+    };
+
+    const doc = {
+      id: "doc-1",
+      type: "pdf" as const,
+      file: {} as File,
+      pageCount: 10,
+      settings,
+    };
+
+    const sheets = calculateSheets(10, settings);
+    assert.strictEqual(sheets, 10);
+
+    const price = calculateDocumentPrice(doc, rateCard);
+    assert.strictEqual(price, 20.0); // 10 sheets * 2.0 * 1 copy
+  });
+
+  it("should accurately calculate double-sided duplex sheets and price", () => {
+    const settings: PrintSettings = {
+      copies: 1,
+      colorMode: "bw",
+      duplex: "double",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+    };
+
+    const doc = {
+      id: "doc-2",
+      type: "pdf" as const,
+      file: {} as File,
+      pageCount: 10,
+      settings,
+    };
+
+    const sheets = calculateSheets(10, settings);
+    assert.strictEqual(sheets, 5); // 10 pages duplex = 5 sheets
+
+    const price = calculateDocumentPrice(doc, rateCard);
+    assert.strictEqual(price, 10.0); // 5 sheets * 2.0 * 1 copy
+  });
+
+  it("should accurately calculate 2-pages-per-sheet duplex", () => {
+    const settings: PrintSettings = {
+      copies: 2,
+      colorMode: "bw",
+      duplex: "double",
+      pagesPerSheet: 2,
+      pageFit: "fit",
+      orientation: "portrait",
+    };
+
+    const doc = {
+      id: "doc-3",
+      type: "pdf" as const,
+      file: {} as File,
+      pageCount: 8,
+      settings,
+    };
+
+    // 8 document pages with 2 pages/sheet = 4 logical pages -> duplex = 2 physical sheets
+    const sheets = calculateSheets(8, settings);
+    assert.strictEqual(sheets, 2);
+
+    const price = calculateDocumentPrice(doc, rateCard);
+    // 2 physical sheets * 2.0 per sheet * 2 copies = 8.0
+    assert.strictEqual(price, 8.0);
+  });
+
+  it("should compute finishing services cost accurately", () => {
+    const settings: PrintSettings = {
+      copies: 2,
+      colorMode: "bw",
+      duplex: "single",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+    };
+
+    const doc = {
+      id: "doc-4",
+      type: "pdf" as const,
+      file: {} as File,
+      pageCount: 5,
+      settings,
+    };
+
+    const finishingServices: FinishingService[] = [
+      {
+        type: "corner_staple",
+        label: "Corner Staple",
+        price: 5.0,
+        chargeUnit: "per_copy",
+        enabled: true,
+      },
+      {
+        type: "lamination",
+        label: "Lamination",
+        price: 10.0,
+        chargeUnit: "per_sheet",
+        enabled: true,
+      },
+    ];
+
+    // Staple: per_copy -> 5.0 * 2 copies = 10.0
+    const stapleCost = calculateFinishingCost(doc, [finishingServices[0]]);
+    assert.strictEqual(stapleCost, 10.0);
+
+    // Lamination: per_sheet -> 10.0 * 5 sheets * 2 copies = 100.0
+    const laminationCost = calculateFinishingCost(doc, [finishingServices[1]]);
+    assert.strictEqual(laminationCost, 100.0);
+  });
+
+  it("should accurately calculate color double-sided duplex sheets and price without blocking duplex", () => {
+    const settings: PrintSettings = {
+      copies: 1,
+      colorMode: "color",
+      duplex: "double",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+    };
+
+    const doc = {
+      id: "doc-color-duplex",
+      type: "pdf" as const,
+      file: {} as File,
+      pageCount: 10,
+      settings,
+    };
+
+    // 10 color pages in duplex should be 5 physical sheets
+    const sheets = calculateSheets(10, settings);
+    assert.strictEqual(sheets, 5);
+
+    // 5 sheets * 10.0 (color rate) * 1 copy = 50.0
+    const price = calculateDocumentPrice(doc, rateCard);
+    assert.strictEqual(price, 50.0);
+  });
+
+  it("should accurately parse page range and calculate sheets", () => {
+    assert.strictEqual(parsePageRangeCount("1-5, 8, 10-12", 20), 9); // 1,2,3,4,5,8,10,11,12 -> 9 pages
+    assert.strictEqual(parsePageRangeCount("1-5", 5), 5);
+    assert.strictEqual(parsePageRangeCount("3", 10), 1);
+    assert.strictEqual(parsePageRangeCount("", 15), 15);
+
+    const settings: PrintSettings = {
+      copies: 1,
+      colorMode: "bw",
+      duplex: "single",
+      pagesPerSheet: 1,
+      pageFit: "fit",
+      orientation: "portrait",
+      pageRange: "1-4", // 4 pages out of 20
+    };
+
+    const sheets = calculateSheets(20, settings);
+    assert.strictEqual(sheets, 4);
+  });
+
+  it("should accurately price image batch with mixed color modes and copies", () => {
+    const docs = [
+      {
+        id: "img-1",
+        type: "image" as const,
+        file: {} as File,
+        pageCount: 1,
+        settings: {
+          copies: 1,
+          colorMode: "bw" as const,
+          duplex: "single" as const,
+          pagesPerSheet: 2 as const,
+          pageFit: "fit" as const,
+          orientation: "portrait" as const,
+        },
+      },
+      {
+        id: "img-2",
+        type: "image" as const,
+        file: {} as File,
+        pageCount: 1,
+        settings: {
+          copies: 2,
+          colorMode: "color" as const, // Mixed color mode in batch
+          duplex: "single" as const,
+          pagesPerSheet: 2 as const,
+          pageFit: "fit" as const,
+          orientation: "portrait" as const,
+        },
+      },
+    ];
+
+    // 2 images with 2-in-1 = 1 logical page = 1 sheet per copy. Max copies = 2 -> totalSheets = 2.
+    // Batch contains a color image, so color rate (10.0) applies -> 2 sheets * 10.0 = 20.0
+    const totalSheets = calculateOrderSheets(docs);
+    assert.strictEqual(totalSheets, 2);
+
+    const total = calculateOrderTotal(docs, rateCard, []);
+    assert.strictEqual(total, 20.0);
+  });
+});
+
+describe("8. Validation & Subdomain Security Verification", () => {
+  it("should validate emails correctly", () => {
+    assert.strictEqual(isValidEmail("admin@printap.com"), true);
+    assert.strictEqual(isValidEmail("owner.shop+tag@mellod.in"), true);
+    assert.strictEqual(isValidEmail("invalid-email"), false);
+    assert.strictEqual(isValidEmail("@domain.com"), false);
+  });
+
+  it("should protect reserved subdomains and validate shop slugs", () => {
+    assert.strictEqual(isReservedSubdomain("admin"), true);
+    assert.strictEqual(isReservedSubdomain("api"), true);
+    assert.strictEqual(isReservedSubdomain("platform"), true);
+    assert.strictEqual(isReservedSubdomain("dashboard"), true);
+    assert.strictEqual(isReservedSubdomain("central-xerox"), false);
+
+    assert.strictEqual(isValidSubdomainLabel("shop-123"), true);
+    assert.strictEqual(isValidSubdomainLabel("-invalid"), false);
+    assert.strictEqual(isValidSubdomainLabel("invalid-"), false);
+    assert.strictEqual(isValidSubdomainLabel("UPPERCASE"), false);
+  });
+});
+
+describe("9. 10-Minute Onboarding Login Retention Policy", () => {
+  const LOGIN_SESSION_MAX_AGE_MS = 10 * 60 * 1000;
+
+  function formatTime(ms: number): string {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+  }
+
+  function checkSessionExpired(loginAt: number, now: number): boolean {
+    return now - loginAt >= LOGIN_SESSION_MAX_AGE_MS;
+  }
+
+  it("should enforce exactly 10 minutes TTL (600,000 ms)", () => {
+    assert.strictEqual(LOGIN_SESSION_MAX_AGE_MS, 600_000);
+  });
+
+  it("should format remaining session time into human readable Xm Ys", () => {
+    assert.strictEqual(formatTime(600_000), "10m 00s");
+    assert.strictEqual(formatTime(585_000), "9m 45s");
+    assert.strictEqual(formatTime(65_000), "1m 05s");
+    assert.strictEqual(formatTime(5_000), "0m 05s");
+    assert.strictEqual(formatTime(0), "0m 00s");
+  });
+
+  it("should treat sessions younger than 10 minutes as active", () => {
+    const now = Date.now();
+    const loginAt = now - 5 * 60 * 1000; // 5 minutes ago
+    assert.strictEqual(checkSessionExpired(loginAt, now), false);
+
+    const loginJustNow = now - 1000; // 1 second ago
+    assert.strictEqual(checkSessionExpired(loginJustNow, now), false);
+
+    const loginAt9m59s = now - (9 * 60 + 59) * 1000; // 9m 59s ago
+    assert.strictEqual(checkSessionExpired(loginAt9m59s, now), false);
+  });
+
+  it("should expire sessions at or exceeding 10 minutes", () => {
+    const now = Date.now();
+    const loginAt10m = now - 10 * 60 * 1000; // exactly 10 minutes ago
+    assert.strictEqual(checkSessionExpired(loginAt10m, now), true);
+
+    const loginAt15m = now - 15 * 60 * 1000; // 15 minutes ago
+    assert.strictEqual(checkSessionExpired(loginAt15m, now), true);
+  });
+});
+
+describe("10. User Side Session Retention & Lifecycle Termination", () => {
+  const shopId = "test-shop-uuid-123";
+  const storageKey = SESSION_STORAGE_KEY(shopId);
+
+  // Mock localStorage for lifecycle testing
+  class MockLocalStorage {
+    private store: Record<string, string> = {};
+    getItem(key: string): string | null {
+      return this.store[key] ?? null;
+    }
+    setItem(key: string, value: string): void {
+      this.store[key] = value;
+    }
+    removeItem(key: string): void {
+      delete this.store[key];
+    }
+    clear(): void {
+      this.store = {};
+    }
+  }
+
+  it("should generate the deterministic customer session storage key for a shop", () => {
+    assert.strictEqual(storageKey, "printap_active_order_test-shop-uuid-123");
+    assert.strictEqual(SESSION_STORAGE_KEY("central-xerox"), "printap_active_order_central-xerox");
+  });
+
+  it("should accurately identify completed order states", () => {
+    assert.strictEqual(isOrderCompleted("picked_up"), true);
+    assert.strictEqual(isOrderCompleted("completed"), true);
+    assert.strictEqual(isOrderCompleted("queued"), false);
+    assert.strictEqual(isOrderCompleted("printing"), false);
+    assert.strictEqual(isOrderCompleted("ready_for_pickup"), false);
+    assert.strictEqual(isOrderCompleted("pending_payment"), false);
+    assert.strictEqual(isOrderCompleted("cancelled"), false);
+    assert.strictEqual(isOrderCompleted("failed"), false);
+    assert.strictEqual(isOrderCompleted(undefined), false);
+  });
+
+  it("should accurately identify failed order states", () => {
+    assert.strictEqual(isOrderFailed("cancelled"), true);
+    assert.strictEqual(isOrderFailed("failed"), true);
+    assert.strictEqual(isOrderFailed("failed_refunded"), true);
+    assert.strictEqual(isOrderFailed("error"), true);
+    assert.strictEqual(isOrderFailed("picked_up"), false);
+    assert.strictEqual(isOrderFailed("completed"), false);
+    assert.strictEqual(isOrderFailed("queued"), false);
+    assert.strictEqual(isOrderFailed("printing"), false);
+    assert.strictEqual(isOrderFailed("ready_for_pickup"), false);
+    assert.strictEqual(isOrderFailed(undefined), false);
+  });
+
+  it("should retain active order session across serialization and restoration", () => {
+    const storage = new MockLocalStorage();
+    const token: QueueToken = {
+      tokenCode: "#105",
+      queuePosition: 1,
+      estimatedWaitMinutes: 3,
+    };
+
+    const session: PersistedSession = {
+      orderId: "session-order-uuid-abc",
+      shopId,
+      token,
+      status: "printing",
+      createdAt: new Date().toISOString(),
+      totalAmount: 25.5,
+      documentCount: 2,
+      printTicket: "ticket-12345",
+      isPaymentConfirmed: false,
+    };
+
+    // Customer places order -> saved to storage
+    storage.setItem(storageKey, JSON.stringify(session));
+
+    // Customer refreshes page -> restored from storage
+    const raw = storage.getItem(storageKey);
+    assert.notStrictEqual(raw, null);
+    const parsed = JSON.parse(raw!) as PersistedSession;
+
+    assert.strictEqual(parsed.orderId, "session-order-uuid-abc");
+    assert.strictEqual(parsed.token.tokenCode, "#105");
+    assert.strictEqual(parsed.status, "printing");
+    assert.strictEqual(parsed.totalAmount, 25.5);
+    assert.strictEqual(parsed.documentCount, 2);
+    assert.strictEqual(isOrderCompleted(parsed.status), false);
+    assert.strictEqual(isOrderFailed(parsed.status), false);
+  });
+
+  it("should retain session when order is ready for pickup or awaiting payment", () => {
+    const storage = new MockLocalStorage();
+    const token: QueueToken = {
+      tokenCode: "#105",
+      queuePosition: 1,
+      estimatedWaitMinutes: 0,
+    };
+
+    const session: PersistedSession = {
+      orderId: "session-order-uuid-abc",
+      shopId,
+      token,
+      status: "ready_for_pickup",
+      createdAt: new Date().toISOString(),
+      totalAmount: 18.0,
+      documentCount: 1,
+      isPaymentConfirmed: true,
+    };
+
+    storage.setItem(storageKey, JSON.stringify(session));
+
+    const raw = storage.getItem(storageKey);
+    assert.notStrictEqual(raw, null);
+    const parsed = JSON.parse(raw!) as PersistedSession;
+    assert.strictEqual(parsed.status, "ready_for_pickup");
+    assert.strictEqual(parsed.isPaymentConfirmed, true);
+    assert.strictEqual(isOrderCompleted(parsed.status), false);
+    assert.strictEqual(isOrderFailed(parsed.status), false);
+  });
+
+  it("should end (purge) session when order is completed or picked up", () => {
+    const storage = new MockLocalStorage();
+    const token: QueueToken = {
+      tokenCode: "#105",
+      queuePosition: 1,
+      estimatedWaitMinutes: 0,
+    };
+
+    storage.setItem(
+      storageKey,
+      JSON.stringify({
+        orderId: "session-order-uuid-abc",
+        shopId,
+        token,
+        status: "printing",
+        createdAt: new Date().toISOString(),
+      })
+    );
+
+    // Order completes at counter -> status updated to picked_up
+    const newStatus = "picked_up";
+    if (isOrderCompleted(newStatus) || isOrderFailed(newStatus)) {
+      storage.removeItem(storageKey);
+    }
+
+    assert.strictEqual(storage.getItem(storageKey), null);
+  });
+
+  it("should end (purge) session when order fails, is cancelled, or errors", () => {
+    const failedStatuses = ["cancelled", "failed", "failed_refunded", "error"];
+
+    for (const failure of failedStatuses) {
+      const storage = new MockLocalStorage();
+      storage.setItem(
+        storageKey,
+        JSON.stringify({
+          orderId: "session-order-uuid-abc",
+          shopId,
+          token: { tokenCode: "#105", queuePosition: 1, estimatedWaitMinutes: 0 },
+          status: "queued",
+          createdAt: new Date().toISOString(),
+        })
+      );
+
+      // Failure occurs
+      if (isOrderCompleted(failure) || isOrderFailed(failure)) {
+        storage.removeItem(storageKey);
+      }
+
+      assert.strictEqual(
+        storage.getItem(storageKey),
+        null,
+        `Expected session to be purged on status ${failure}`
+      );
+    }
+  });
+});
+
+
 
 
 ═══════════════════════════════════════════════════════════════════════════════

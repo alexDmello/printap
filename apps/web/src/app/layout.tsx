@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import CookieConsent from "@/components/CookieConsent";
 
 export const metadata: Metadata = {
   title: "Printap — Skip the Queue, Print Instantly",
@@ -32,7 +33,11 @@ export default function RootLayout({
       lang="en"
       className="h-full antialiased"
     >
-      <body className="min-h-full flex flex-col bg-mesh">{children}</body>
+      <body className="min-h-full flex flex-col bg-mesh">
+        {children}
+        <CookieConsent />
+      </body>
     </html>
   );
 }
+

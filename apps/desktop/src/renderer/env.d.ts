@@ -85,6 +85,7 @@ interface ElectronAPI {
       duplex?: "single" | "double";
       orientation?: "portrait" | "landscape";
       scale?: "fit" | "noscale";
+      pageRange?: string;
     }
   ) => Promise<PrintResult>;
 

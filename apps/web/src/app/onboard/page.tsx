@@ -672,6 +672,25 @@ function OnboardContent() {
                   <span>{isSigningIn ? "Connecting to Google..." : "Continue with Google"}</span>
                 </button>
 
+                <p className="text-[11px] text-zinc-500 leading-relaxed">
+                  By continuing, you agree to Printap&apos;s{" "}
+                  <Link
+                    href="/terms"
+                    target="_blank"
+                    className="text-zinc-900 font-semibold underline underline-offset-2 hover:text-zinc-700"
+                  >
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    className="text-zinc-900 font-semibold underline underline-offset-2 hover:text-zinc-700"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
               </div>
 
               {/* Trust Badge Footer */}
@@ -1298,6 +1317,44 @@ function OnboardContent() {
                       Location: <span className="text-zinc-950 block truncate font-bold">{address || `${city || ""} ${state || ""}` || "Coordinates pinned on map"}</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Legal Terms Acknowledgment */}
+                <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 text-xs text-zinc-600 leading-relaxed text-left flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="terms-consent"
+                    required
+                    defaultChecked
+                    className="mt-0.5 w-4 h-4 rounded text-zinc-900 focus:ring-zinc-950 border-zinc-300 cursor-pointer"
+                  />
+                  <label htmlFor="terms-consent" className="cursor-pointer select-none">
+                    I agree to the{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="text-zinc-950 font-bold underline underline-offset-2 hover:text-zinc-700"
+                    >
+                      Terms and Conditions
+                    </Link>
+                    ,{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="text-zinc-950 font-bold underline underline-offset-2 hover:text-zinc-700"
+                    >
+                      Privacy Policy
+                    </Link>
+                    , and{" "}
+                    <Link
+                      href="/refund-policy"
+                      target="_blank"
+                      className="text-zinc-950 font-bold underline underline-offset-2 hover:text-zinc-700"
+                    >
+                      Refund &amp; Cancellation Policy
+                    </Link>
+                    . I confirm that I am authorized to operate this print shop and accept direct UPI payments.
+                  </label>
                 </div>
 
                 <div className="flex gap-3 pt-3">

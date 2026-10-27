@@ -347,6 +347,45 @@ export const Login: React.FC = () => {
           <IconShield size={14} color="var(--accent-emerald)" />
           <span>Zero Cloud Storage • Direct Peer-to-Peer</span>
         </div>
+
+        {/* Legal links */}
+        <div
+          style={{
+            marginTop: 16,
+            fontSize: 11,
+            color: "var(--text-muted)",
+            display: "flex",
+            justifyContent: "center",
+            gap: 12,
+          }}
+        >
+          <a
+            href="https://mellod.in/terms"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "var(--text-muted)", textDecoration: "underline" }}
+          >
+            Terms
+          </a>
+          <span>•</span>
+          <a
+            href="https://mellod.in/privacy"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "var(--text-muted)", textDecoration: "underline" }}
+          >
+            Privacy Policy
+          </a>
+          <span>•</span>
+          <a
+            href="https://mellod.in/refund-policy"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "var(--text-muted)", textDecoration: "underline" }}
+          >
+            Refunds
+          </a>
+        </div>
       </div>
 
       {/* MODAL: FORGOT & RESET PASSWORD */}

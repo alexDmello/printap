@@ -266,6 +266,31 @@ export default function PrintAndPay({
               </p>
             </div>
           )}
+
+          {/* Payment & Refund Legal Disclosure */}
+          <div className="pt-3 border-t border-zinc-100 text-center">
+            <p className="text-[10px] text-zinc-400 leading-relaxed">
+              Payments are deposited directly to {shopName}. By paying, you agree to Printap&apos;s{" "}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-600 underline underline-offset-1 hover:text-zinc-900"
+              >
+                Terms
+              </a>{" "}
+              and{" "}
+              <a
+                href="/refund-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-600 underline underline-offset-1 hover:text-zinc-900"
+              >
+                Refund Policy
+              </a>
+              .
+            </p>
+          </div>
         </div>
       )}
     </div>

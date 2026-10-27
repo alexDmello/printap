@@ -311,6 +311,7 @@ export class FifoPrintDispatcher {
             duplex: settings.duplex || "single",
             orientation: settings.orientation,
             scale: settings.pageFit === "fill" ? "noscale" : "fit",
+            pageRange: settings.pageRange,
           }
         );
 

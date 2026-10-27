@@ -23,7 +23,7 @@ import {
   joinSignalingChannel,
   broadcast,
 } from "@printap/shared";
-import type { PersistedSession } from "@printap/shared";
+import type { PersistedSession, SignalPayload } from "@printap/shared";
 import {
   sendOrderToShop,
   requestTokenFromShop,
@@ -537,6 +537,39 @@ export default function PrintClient({
       )
       .subscribe();
 
+    // Direct real-time broadcast listener from Shop Terminal
+    const directSignaling = joinSignalingChannel(shopId);
+    directSignaling.on(
+      "broadcast",
+      { event: "order-status" },
+      ({ payload }: { payload: SignalPayload }) => {
+        if (payload.sessionId !== currentSessionId) return;
+        if (
+          payload.status === "printing" ||
+          payload.status === "shredding" ||
+          payload.status === "ready_for_pickup"
+        ) {
+          setJobStatus(payload.status as JobStatus);
+        }
+        if (payload.paymentStatus === "confirmed") {
+          setIsPaymentConfirmedByShop(true);
+          setJobStatus("ready_for_pickup");
+        }
+        if (payload.tokenCode) {
+          setToken((prev) => (prev ? { ...prev, tokenCode: payload.tokenCode! } : prev));
+        }
+      }
+    );
+    directSignaling.on(
+      "broadcast",
+      { event: "payment-confirmed" },
+      ({ payload }: { payload: SignalPayload }) => {
+        if (payload.sessionId !== currentSessionId) return;
+        setIsPaymentConfirmedByShop(true);
+        setJobStatus("ready_for_pickup");
+      }
+    );
+
     return () => {
       try {
         supabase.removeChannel(orderChannel);
@@ -544,7 +577,7 @@ export default function PrintClient({
         console.warn("[PrintClient] Cleanup error:", err);
       }
     };
-  }, [currentSessionId]);
+  }, [currentSessionId, shopId]);
 
   // ─── Handlers ───
 
@@ -627,21 +660,51 @@ export default function PrintClient({
       currentFileName: documents[0]?.file.name,
     });
 
-    // 1. Insert order into Supabase print_orders
-    try {
-      const supabase = getSupabase();
-      await supabase.from("print_orders").insert({
-        shop_id: shopId,
-        session_id: sessionId,
-        token_code: newToken.tokenCode,
-        queue_position: newToken.queuePosition,
-        payment_method: "upi",
-        payment_status: "pending",
-        total_amount: totalAmount,
-        status: "printing",
-      });
-    } catch (err) {
-      console.warn("[PrintClient] print_orders insert:", err);
+    // 1. Insert order into Supabase print_orders with retry and offline queue fallback
+    let dbSuccess = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const supabase = getSupabase();
+        const { error } = await supabase.from("print_orders").insert({
+          shop_id: shopId,
+          session_id: sessionId,
+          token_code: newToken.tokenCode,
+          queue_position: newToken.queuePosition,
+          payment_method: "upi",
+          payment_status: "pending",
+          total_amount: totalAmount,
+          status: "printing",
+        });
+        if (error) throw error;
+        dbSuccess = true;
+        break;
+      } catch (err) {
+        console.warn(`[PrintClient] print_orders insert attempt ${attempt}/3:`, err);
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 800 * attempt));
+        }
+      }
+    }
+
+    if (!dbSuccess) {
+      try {
+        const offlineQueueKey = `printap_offline_orders_${shopId}`;
+        const queue = JSON.parse(localStorage.getItem(offlineQueueKey) || "[]");
+        queue.push({
+          shop_id: shopId,
+          session_id: sessionId,
+          token_code: newToken.tokenCode,
+          queue_position: newToken.queuePosition,
+          payment_method: "upi",
+          payment_status: "pending",
+          total_amount: totalAmount,
+          status: "printing",
+          created_at: new Date().toISOString(),
+        });
+        localStorage.setItem(offlineQueueKey, JSON.stringify(queue));
+      } catch (e) {
+        console.warn("[PrintClient] Local offline queue error:", e);
+      }
     }
 
     // 2. Automatically beam document to shop printer over WebRTC!
@@ -1049,11 +1112,50 @@ export default function PrintClient({
 
       {/* ─── Footer ─── */}
       <footer
-        className={`py-4 text-center text-zinc-400 text-[11px] tracking-wider font-medium select-none ${
+        className={`py-6 text-center text-zinc-400 text-[11px] font-medium space-y-2 select-none ${
           hasBottomBar ? "mb-20 sm:mb-24" : "mb-2"
         }`}
       >
-        powered by PRINTAP
+        <div className="flex items-center justify-center gap-3 text-zinc-500">
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-zinc-800 transition-colors underline-offset-2 hover:underline"
+          >
+            Terms
+          </a>
+          <span>•</span>
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-zinc-800 transition-colors underline-offset-2 hover:underline"
+          >
+            Privacy
+          </a>
+          <span>•</span>
+          <a
+            href="/refund-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-zinc-800 transition-colors underline-offset-2 hover:underline"
+          >
+            Refunds
+          </a>
+          <span>•</span>
+          <a
+            href="/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-zinc-800 transition-colors underline-offset-2 hover:underline"
+          >
+            Contact
+          </a>
+        </div>
+        <div className="text-[10px] uppercase tracking-wider text-zinc-400">
+          powered by PRINTAP
+        </div>
       </footer>
     </div>
   );

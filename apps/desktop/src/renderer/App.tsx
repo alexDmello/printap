@@ -227,9 +227,39 @@ function ShopAdminShell(): React.ReactElement {
     }
   }, []);
 
-  // 1. Discover printers ONLY once on fresh app launch
+  const [cloudHealth, setCloudHealth] = useState<"connected" | "checking" | "offline">("checking");
+
+  // Periodic Supabase cloud connection health monitor
+  useEffect(() => {
+    let isMounted = true;
+    const checkHealth = async () => {
+      try {
+        const supabase = getSupabase();
+        const { error } = await supabase.from("shops").select("id").limit(1);
+        if (isMounted) {
+          setCloudHealth(error ? "offline" : "connected");
+        }
+      } catch {
+        if (isMounted) {
+          setCloudHealth("offline");
+        }
+      }
+    };
+    checkHealth();
+    const timer = setInterval(checkHealth, 30_000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // 1. Discover printers on launch and monitor health every 60 seconds
   useEffect(() => {
     rescanPrinters();
+    const interval = setInterval(() => {
+      rescanPrinters();
+    }, 60_000);
+    return () => clearInterval(interval);
   }, [rescanPrinters]);
 
   // 2. Fetch today's print count and recent orders from Supabase when shopId is loaded
@@ -470,16 +500,28 @@ function ShopAdminShell(): React.ReactElement {
           addBoundedSet(confirmedPaymentSessionsRef.current, job.sessionId);
         }
 
-        // Record print event in Supabase ledger
-        try {
-          const supabase = getSupabase();
-          await supabase.from("print_events").insert({
-            shop_id: shopId,
-            session_id: job.sessionId,
-            fee_amount: 1.0,
-          });
-        } catch (err) {
-          console.warn("[App] Could not insert print_event:", err);
+        // Record print event in Supabase ledger with backoff retry
+        let insertSuccess = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const supabase = getSupabase();
+            const { error } = await supabase.from("print_events").insert({
+              shop_id: shopId,
+              session_id: job.sessionId,
+              fee_amount: 1.0,
+            });
+            if (error) throw error;
+            insertSuccess = true;
+            break;
+          } catch (err) {
+            console.warn(`[App] Could not insert print_event (attempt ${attempt}/3):`, err);
+            if (attempt < 3) {
+              await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+            }
+          }
+        }
+        if (!insertSuccess) {
+          console.error(`[App] CRITICAL: Failed to record print_event for session ${job.sessionId} after 3 attempts`);
         }
 
         // Tokens are now deducted securely by the customer web app (Token Escrow System).
@@ -1097,7 +1139,7 @@ function ShopAdminShell(): React.ReactElement {
                 buffer,
               },
             ],
-            totalAmount: 5,
+            totalAmount: 0,
             paymentMethod: "cash",
             paymentStatus: isLegacyConfirmed ? "confirmed" : "pending",
             enqueuedAt: new Date(),
@@ -1156,9 +1198,9 @@ function ShopAdminShell(): React.ReactElement {
     };
   }, [isAuthenticated, shopId, isShopOnline, loadTodayPrintsCount, refreshAssignments]);
 
-  // Auto-expire unpaid pendingQueue jobs older than 30 minutes to free V8 ArrayBuffer memory
+  // Auto-expire unpaid pendingQueue jobs older than 5 minutes to free V8 ArrayBuffer memory
   useEffect(() => {
-    const EXPIRY_MS = 30 * 60 * 1000;
+    const EXPIRY_MS = 5 * 60 * 1000;
     const timer = setInterval(() => {
       const now = Date.now();
       setPendingQueue((prev) => {
@@ -1263,7 +1305,7 @@ function ShopAdminShell(): React.ReactElement {
           .from("print_orders")
           .update({
             payment_status: "confirmed",
-            status: "picked_up",
+            status: "queued",
             updated_at: new Date().toISOString(),
           })
           .eq("session_id", sessionId);
@@ -1536,6 +1578,59 @@ function ShopAdminShell(): React.ReactElement {
                   ? "Shop Online • P2P Active"
                   : "Connecting P2P..."
                 : "Shop Offline (Standby)"}
+            </span>
+          </div>
+
+          {/* Cloud Database Health Badge */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 11,
+              fontWeight: 500,
+              padding: "3px 8px",
+              borderRadius: 6,
+              background:
+                cloudHealth === "connected"
+                  ? "rgba(16, 185, 129, 0.08)"
+                  : cloudHealth === "checking"
+                  ? "rgba(245, 158, 11, 0.08)"
+                  : "rgba(239, 68, 68, 0.08)",
+              color:
+                cloudHealth === "connected"
+                  ? "var(--accent-emerald)"
+                  : cloudHealth === "checking"
+                  ? "#d97706"
+                  : "var(--accent-rose)",
+            }}
+            title={
+              cloudHealth === "connected"
+                ? "Supabase Cloud: Connected & Syncing"
+                : cloudHealth === "checking"
+                ? "Verifying Supabase connectivity..."
+                : "Supabase Unreachable: Local mutations will sync when restored"
+            }
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background:
+                  cloudHealth === "connected"
+                    ? "var(--accent-emerald)"
+                    : cloudHealth === "checking"
+                    ? "#f59e0b"
+                    : "var(--accent-rose)",
+              }}
+            />
+            <span>
+              {cloudHealth === "connected"
+                ? "Cloud Sync"
+                : cloudHealth === "checking"
+                ? "Connecting..."
+                : "Cloud Disconnected"}
             </span>
           </div>
         </div>

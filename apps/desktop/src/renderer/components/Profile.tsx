@@ -318,6 +318,70 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onNavigateToQr, isT
           The terminal operates entirely peer-to-peer over encrypted WebRTC connections. Documents are never stored on any cloud server or accessible to third parties. Once spooled to your hardware printer, temporary memory buffers are destroyed immediately.
         </p>
       </div>
+
+      {/* Legal & Compliance Links */}
+      <div
+        className="card"
+        style={{
+          padding: 20,
+          marginTop: 22,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            marginBottom: 8,
+          }}
+        >
+          Legal &amp; Compliance
+        </div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "var(--text-secondary)",
+            lineHeight: 1.6,
+            marginBottom: 12,
+          }}
+        >
+          Printap operates in accordance with the Information Technology Act, 2000 and Consumer Protection (E-Commerce) Rules, 2020.
+        </p>
+        <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+          <a
+            href="https://mellod.in/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--text-primary)", fontWeight: 600, textDecoration: "underline" }}
+          >
+            Terms of Service
+          </a>
+          <a
+            href="https://mellod.in/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--text-primary)", fontWeight: 600, textDecoration: "underline" }}
+          >
+            Privacy Policy
+          </a>
+          <a
+            href="https://mellod.in/refund-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--text-primary)", fontWeight: 600, textDecoration: "underline" }}
+          >
+            Refund Policy
+          </a>
+          <a
+            href="https://mellod.in/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--text-primary)", fontWeight: 600, textDecoration: "underline" }}
+          >
+            Grievance Officer
+          </a>
+        </div>
+      </div>
     </div>
   );
 });

@@ -497,8 +497,10 @@ export async function requestTokenFromShop(
       if (!settled) {
         settled = true;
         cleanup();
+        const suffix = params.sessionId ? params.sessionId.slice(-3).toUpperCase() : Math.random().toString(36).slice(2, 5).toUpperCase();
+        const prefix = params.hasColor ? "C" : "B";
         resolve({
-          tokenCode: `#${params.hasColor ? 2 : 1}1`,
+          tokenCode: `#${prefix}-${suffix}`,
           queuePosition: 1,
           estimatedWaitMinutes: 2,
         });

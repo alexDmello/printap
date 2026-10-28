@@ -65,7 +65,6 @@ const filesToInclude = [
   { path: "apps/desktop/src/renderer/components/ServicesRates.tsx", desc: "Shop Services, Rate Card & Document Pricing Matrix" },
   { path: "apps/desktop/src/renderer/components/Analytics.tsx", desc: "Financial Metrics, Print Volume Charts, Revenue Summary" },
   { path: "apps/desktop/src/renderer/components/CounterQr.tsx", desc: "Customer QR Code Stand Generator & Print Sheet" },
-  { path: "apps/desktop/src/renderer/components/Tokens.tsx", desc: "Token Management Deck: Balances, Threshold Alerts, Pack Top-Up" },
   { path: "apps/desktop/src/renderer/components/Profile.tsx", desc: "Shop Information, Operating Hours & Geolocation Configuration" },
   { path: "apps/desktop/src/renderer/components/Login.tsx", desc: "Shopkeeper Counter Terminal Authentication & Password Reset" },
   { path: "apps/desktop/src/renderer/components/UpdateScreen.tsx", desc: "Software Auto-Updater Modal (Download Progress & Restart)" },
@@ -121,12 +120,10 @@ Printap replaces this with a ZERO-CLOUD-STORAGE peer-to-peer streaming pipeline:
    - Streams PDF buffers directly into the Windows native print spooler (\`pdf-to-printer\`).
    - Implements SECURE SHREDDING (\`secure-rm\` DoD 5220.22-M 3-pass overwrite with unlinking fallback) immediately after two-phase spooler lock release.
 
-4. TOKEN & ESCROW MONETIZATION ENGINE:
-   - Each print transaction requires 1 Printap Token.
-   - PostgreSQL RPCs (\`reserve_shop_token\`, \`refund_shop_token\`, \`credit_shop_tokens\`) enforce atomic token balance verification.
-   - Pessimistic row-locking (\`FOR UPDATE\`) and unique partial constraints eliminate race conditions and double reservations/refunds.
-   - Tokens are escrowed upon WebRTC handshake and atomically consumed only when the physical print job succeeds.
-   - If the printer jams, runs out of paper, or the customer cancels, the escrowed token is instantly refunded back to the shop's balance.
+4. 100% FREE TIER ARCHITECTURE:
+   - Printap operates with zero platform convenience fees, zero GST surcharges, and zero token subscriptions.
+   - Shopkeepers have unlimited free access to the terminal software with zero token meters or wallet balances.
+   - Revenue model is completely decoupled from per-print fees and supported via non-intrusive banner advertisements.
 
 ───────────────────────────────────────────────────────────────────────────────
 2. MONOREPO STRUCTURE & DATA FLOW MAP

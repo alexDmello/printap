@@ -27,11 +27,11 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
   const [priceColor, setPriceColor] = useState<number>(10);
   const [colorEnabled, setColorEnabled] = useState<boolean>(true);
 
-  // Platform Fee & GST Surcharge
-  const [platformFee, setPlatformFee] = useState<number>(0.82);
-  const [gstPercentage, setGstPercentage] = useState<number>(18.0);
-  const [gstAmount, setGstAmount] = useState<number>(0.18);
-  const [totalCharge, setTotalCharge] = useState<number>(1.00);
+  // Platform Fee & GST Surcharge (0 in free tier)
+  const [platformFee, setPlatformFee] = useState<number>(0);
+  const [gstPercentage, setGstPercentage] = useState<number>(0);
+  const [gstAmount, setGstAmount] = useState<number>(0);
+  const [totalCharge, setTotalCharge] = useState<number>(0);
 
   const handlePlatformFeeChange = (val: number) => {
     const fee = Math.max(0, val);

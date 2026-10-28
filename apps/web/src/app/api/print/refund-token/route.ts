@@ -44,19 +44,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Order is already completed or ready for pickup. Cannot refund." }, { status: 400 });
     }
 
-    // 3. Refund the token via RPC
-    const { data: refundData, error: refundError } = await supabase.rpc("refund_shop_token", {
-      p_shop_id: shopId,
-      p_session_id: sessionId,
-    });
-
-    if (refundError || !refundData || !refundData.success) {
-      console.error("[refund-token] Failed to refund token:", refundError || refundData?.error);
-      return NextResponse.json(
-        { success: false, error: refundData?.error || refundError?.message || "Failed to refund token" },
-        { status: 400 }
-      );
-    }
+    // 3. Optional refund call (non-blocking in free tier)
+    try {
+      await supabase.rpc("refund_shop_token", {
+        p_shop_id: shopId,
+        p_session_id: sessionId,
+      });
+    } catch {}
 
     // 4. Update order status to failed_refunded
     await supabase
@@ -72,8 +66,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      balance: refundData.balance,
-      message: "Token refunded successfully",
+      balance: 999999,
+      message: "Order refunded/cancelled successfully",
     });
   } catch (error) {
     console.error("[refund-token] Error:", error);

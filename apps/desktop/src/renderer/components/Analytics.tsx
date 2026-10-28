@@ -128,10 +128,10 @@ export const Analytics: React.FC = React.memo(() => {
 
   // Derived financial metrics
   const CUSTOMER_RATE_PER_PAGE = 3.0; // ₹3.00/page estimated Xerox rate fallback
-  const PLATFORM_FEE_PER_PAGE = 1.0;  // ₹1.00/print platform fee
+  const PLATFORM_FEE_PER_PAGE = 0.0;  // 100% free platform
 
   const totalPrints = Math.max(filteredEvents.length, filteredOrders.length);
-  const platformFees = totalPrints * PLATFORM_FEE_PER_PAGE;
+  const platformFees = 0;
 
   // Real verified revenue from orders
   const confirmedOrders = useMemo(() => {
@@ -162,7 +162,7 @@ export const Analytics: React.FC = React.memo(() => {
 
   const estGrossRevenue = totalPrints * CUSTOMER_RATE_PER_PAGE;
   const grossRevenue = verifiedOrderRevenue > 0 ? verifiedOrderRevenue : estGrossRevenue;
-  const netEarnings = Math.max(0, grossRevenue - platformFees);
+  const netEarnings = grossRevenue;
   const successRate = totalPrints > 0 ? "99.8%" : "100%";
 
   // 7-day volume & revenue chart
@@ -304,36 +304,24 @@ export const Analytics: React.FC = React.memo(() => {
 
         <div className="stat-card">
           <div className="stat-label">
-            <span>Platform Fees</span>
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>₹1 / print</span>
+            <span>Platform Commission</span>
+            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>100% Free</span>
           </div>
-          <div className="stat-value" style={{ color: "var(--text-secondary)" }}>
-            ₹{platformFees.toFixed(0)}
+          <div className="stat-value" style={{ color: "var(--accent-emerald)" }}>
+            ₹0
           </div>
-          <div className="stat-footnote">Pay-as-you-print model</div>
+          <div className="stat-footnote">Ad-supported utility platform</div>
         </div>
 
         <div className="stat-card">
           <div className="stat-label">
             <span>Net Profit Retained</span>
-            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>Net Margin</span>
+            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>100% Margin</span>
           </div>
           <div className="stat-value green">
             ₹{netEarnings.toFixed(0)}
           </div>
-          <div className="stat-footnote">Retained by your counter</div>
-        </div>
-      </div>
-
-      {/* Token Stats Grid */}
-      <div className="stats-grid" style={{ marginTop: "16px" }}>
-        <div className="stat-card" style={{ border: "1px solid var(--accent-amber)" }}>
-          <div className="stat-label">
-            <span>🪙 Token Balance</span>
-            <span style={{ fontSize: 11, color: "var(--accent-amber)", fontWeight: 600 }}>Subscription</span>
-          </div>
-          <div className="stat-value">{(shop as any)?.token_balance || 0}</div>
-          <div className="stat-footnote">Valid for {(shop as any)?.token_balance || 0} successful prints</div>
+          <div className="stat-footnote">100% retained by your counter</div>
         </div>
       </div>
 

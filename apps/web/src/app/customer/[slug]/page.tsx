@@ -121,8 +121,6 @@ export default async function CustomerShopPage({ params }: Props) {
 
   const isActuallyOnline = Boolean(
     shop.is_online && 
-    shop.token_balance !== undefined && 
-    shop.token_balance > 0 && 
     shop.status !== "suspended"
   );
 
@@ -135,10 +133,10 @@ export default async function CustomerShopPage({ params }: Props) {
       priceColor={shop.price_color ?? undefined}
       services={shop.services ?? undefined}
       initialIsOnline={isActuallyOnline}
-      platformFee={shop.platform_fee ?? undefined}
-      gstPercentage={shop.gst_percentage ?? undefined}
-      gstAmount={shop.gst_amount ?? undefined}
-      totalCharge={shop.total_charge ?? undefined}
+      platformFee={0}
+      gstPercentage={0}
+      gstAmount={0}
+      totalCharge={0}
     />
   );
 }

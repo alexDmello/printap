@@ -23,10 +23,10 @@ interface BottomPriceBarProps {
 export default function BottomPriceBar({
   totalPrice,
   printingCost,
-  platformFee = 0.82,
-  gstPercentage = 18,
-  gstAmount = 0.18,
-  totalCharge = 1.0,
+  platformFee = 0,
+  gstPercentage = 0,
+  gstAmount = 0,
+  totalCharge = 0,
   documentCount,
   totalSheets,
   colorMode,
@@ -42,7 +42,7 @@ export default function BottomPriceBar({
   const basePrintCost =
     printingCost !== undefined
       ? printingCost
-      : Math.max(0, totalPrice - totalCharge);
+      : totalPrice;
 
   return (
     <>
@@ -119,14 +119,6 @@ export default function BottomPriceBar({
                   <span>Printing Charges</span>
                   <span className="font-semibold font-mono text-zinc-900">
                     ₹{basePrintCost.toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Digital Convenience Fee */}
-                <div className="pt-2 border-t border-zinc-100 flex justify-between items-center text-zinc-600 text-xs font-medium">
-                  <span>Digital Convenience Fee</span>
-                  <span className="font-semibold font-mono text-zinc-900">
-                    ₹{totalCharge.toFixed(2)}
                   </span>
                 </div>
               </div>

@@ -508,7 +508,7 @@ function ShopAdminShell(): React.ReactElement {
             const { error } = await supabase.from("print_events").insert({
               shop_id: shopId,
               session_id: job.sessionId,
-              fee_amount: 1.0,
+              fee_amount: 0.0,
             });
             if (error) throw error;
             insertSuccess = true;
@@ -765,14 +765,6 @@ function ShopAdminShell(): React.ReactElement {
     };
   }, [isAuthenticated, shopId]);
 
-  // Auto-offline when tokens reach 0
-  useEffect(() => {
-    if (tokenBalance === 0 && isShopOnline) {
-      console.warn("[App] Token balance is 0. Automatically going offline.");
-      handleToggleOnline(false);
-    }
-  }, [tokenBalance, isShopOnline, handleToggleOnline]);
-
   // Graceful shutdown listener from Electron Main
   useEffect(() => {
     if (!window.electronAPI?.onAppWillQuit) return;
@@ -987,43 +979,6 @@ function ShopAdminShell(): React.ReactElement {
         console.log(
           `[App] Order received: Token ${finalTokenCode} (₹${finalAmount}) for printer #${allocation.printerNumber}, ${files.length} files. Enqueueing into FIFO queue.`
         );
-
-        // Pre-print token gate
-        // We do a lightweight optimistic check here before enqueuing.
-        // If balance is <= 0, we reject the job to save paper/ink.
-        const currentBalance = tokenBalanceRef.current !== null ? tokenBalanceRef.current : 1;
-        if (currentBalance <= 0) {
-          console.warn(`[App] Rejected order ${sessionId}: Shop is out of tokens.`);
-          
-          if (signalingChannelRef.current) {
-            broadcastOrderStatus(signalingChannelRef.current, {
-              sessionId,
-              tokenCode: "ERR",
-              status: "error",
-              errorDetail: "Shop is out of printing tokens. Please try again later.",
-            }).catch((err) => console.warn("[App] Error broadcasting error detail:", err));
-          }
-          
-          setRecentJobs((prev) => {
-            const filtered = prev.filter((j) => j.sessionId !== sessionId);
-            const failedJob: LiveJob = {
-              sessionId,
-              tokenCode: "ERR",
-              fileName: `Order (No Tokens)`,
-              status: "error",
-              detail: "Rejected: Shop is out of printing tokens",
-              timestamp: new Date(),
-              totalAmount: finalAmount,
-              paymentMethod: order.paymentMethod || "upi",
-              paymentStatus: "pending",
-              fileCount: files.length,
-            };
-            return [failedJob, ...filtered.slice(0, 19)];
-          });
-          setActiveJob((prev) => (prev?.sessionId === sessionId ? null : prev));
-          
-          return;
-        }
 
         // Update Supabase print_orders token_code asynchronously
         try {

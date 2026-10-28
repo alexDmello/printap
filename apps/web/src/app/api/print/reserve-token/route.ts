@@ -11,23 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
 
-    const supabase = getServerSupabase();
-
-    // 1. Reserve the token via RPC
-    const { data, error } = await supabase.rpc("reserve_shop_token", {
-      p_shop_id: shopId,
-      p_session_id: sessionId,
-    });
-
-    if (error || !data || !data.success) {
-      console.error("[reserve-token] Failed to reserve:", error || data?.error);
-      return NextResponse.json(
-        { success: false, error: data?.error || error?.message || "Failed to reserve token" },
-        { status: 400 }
-      );
-    }
-
-    // 2. Generate a cryptographically signed Print Ticket
+    // In 100% free tier, token deductions are bypassed; print tickets are issued directly.
     const jwt = await new jose.SignJWT({ shopId, sessionId, totalAmount, paymentMethod })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -37,8 +21,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       printTicket: jwt,
-      balance: data.balance,
-      alert: data.alert,
+      balance: 999999,
+      alert: false,
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Internal Server Error";

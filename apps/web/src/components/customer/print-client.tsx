@@ -227,11 +227,11 @@ export default function PrintClient({
         token,
         status: jobStatus,
         createdAt: new Date().toISOString(),
-        totalAmount: documents.length > 0 ? (calculateOrderTotal(documents, {
+        totalAmount: documents.length > 0 ? calculateOrderTotal(documents, {
             priceBwPerPage: priceBw ?? DEFAULT_RATE_CARD.priceBwPerPage,
             priceColorPerPage: priceColor ?? DEFAULT_RATE_CARD.priceColorPerPage,
             finishingServices,
-          }, finishingServices.filter((s) => s.enabled)) + (totalCharge !== undefined ? totalCharge : Math.round(((platformFee !== undefined ? platformFee : 0.82) + (gstAmount !== undefined ? gstAmount : Math.round((platformFee !== undefined ? platformFee : 0.82) * ((gstPercentage !== undefined ? gstPercentage : 18) / 100) * 100) / 100)) * 100) / 100)) : persistedTotalAmount,
+          }, finishingServices.filter((s) => s.enabled)) : persistedTotalAmount,
         documentCount: documents.length > 0 ? documents.length : persistedDocumentCount,
         printTicket,
         isPaymentConfirmed: isPaymentConfirmedByShop,
@@ -347,11 +347,11 @@ export default function PrintClient({
 
   const activeFinishing = finishingServices.filter((s) => s.enabled);
   const printingCost = calculateOrderTotal(documents, rateCard, activeFinishing);
-  const resolvedPlatformFee = platformFee !== undefined ? platformFee : 0.82;
-  const resolvedGstPercentage = gstPercentage !== undefined ? gstPercentage : 18;
-  const resolvedGstAmount = gstAmount !== undefined ? gstAmount : Math.round(resolvedPlatformFee * (resolvedGstPercentage / 100) * 100) / 100;
-  const resolvedTotalCharge = totalCharge !== undefined ? totalCharge : Math.round((resolvedPlatformFee + resolvedGstAmount) * 100) / 100;
-  const totalAmount = documents.length > 0 ? printingCost + resolvedTotalCharge : persistedTotalAmount;
+  const resolvedPlatformFee = 0;
+  const resolvedGstPercentage = 0;
+  const resolvedGstAmount = 0;
+  const resolvedTotalCharge = 0;
+  const totalAmount = documents.length > 0 ? printingCost : persistedTotalAmount;
   const activeDocumentCount = documents.length > 0 ? documents.length : persistedDocumentCount;
 
   // Total sheets calculated

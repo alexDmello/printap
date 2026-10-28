@@ -91,15 +91,10 @@ export interface ShopInfo {
   status: "active" | "suspended" | string;
   is_online?: boolean;
   last_seen_at?: string;
-  token_balance?: number;
   /** Shop rate card (pricing) */
   price_bw?: number;
   price_color?: number;
   services?: import("./types").ShopServiceItem[];
-  platform_fee?: number;
-  gst_percentage?: number;
-  gst_amount?: number;
-  total_charge?: number;
   /** Owner authentication & Contact */
   owner_name?: string;
   owner_email?: string;
@@ -114,23 +109,6 @@ export interface ShopInfo {
   pincode?: string;
   created_at?: string;
 }
-
-export interface PlatformSettings {
-  id: string;
-  platform_fee: number;
-  gst_percentage: number;
-  gst_amount: number;
-  total_charge: number;
-  updated_at?: string;
-}
-
-export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
-  id: "global",
-  platform_fee: 0.82,
-  gst_percentage: 18.0,
-  gst_amount: 0.18,
-  total_charge: 1.0,
-};
 
 export type {
   ShopDailyAnalytics,

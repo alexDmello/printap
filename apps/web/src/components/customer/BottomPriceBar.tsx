@@ -5,10 +5,6 @@ import React, { useState } from "react";
 interface BottomPriceBarProps {
   totalPrice: number;
   printingCost?: number;
-  platformFee?: number;
-  gstPercentage?: number;
-  gstAmount?: number;
-  totalCharge?: number;
   documentCount: number;
   totalSheets: number;
   colorMode: "bw" | "color";
@@ -23,10 +19,6 @@ interface BottomPriceBarProps {
 export default function BottomPriceBar({
   totalPrice,
   printingCost,
-  platformFee = 0,
-  gstPercentage = 0,
-  gstAmount = 0,
-  totalCharge = 0,
   documentCount,
   totalSheets,
   colorMode,

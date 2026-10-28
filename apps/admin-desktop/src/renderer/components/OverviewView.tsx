@@ -17,10 +17,6 @@ interface OverviewViewProps {
   events: GlobalPrintEvent[];
   activeCount: number;
   suspendedCount: number;
-  totalRevenue: number;
-  globalPlatformFee: number;
-  globalGstAmount: number;
-  globalTotalCharge: number;
   setActiveTab: (tab: NavigationTab) => void;
   onToggleStatus: (shop: ExtendedShop) => void;
 }
@@ -30,15 +26,10 @@ export function OverviewView({
   events,
   activeCount,
   suspendedCount,
-  totalRevenue,
-  globalPlatformFee,
-  globalGstAmount,
-  globalTotalCharge,
   setActiveTab,
   onToggleStatus,
 }: OverviewViewProps) {
   const recentEvents = events.slice(0, 5);
-  const totalGst = totalRevenue * 0.18;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -134,52 +125,49 @@ export function OverviewView({
           <div className="absolute top-0 right-0 w-32 h-32 bg-black/[0.02] rounded-bl-full pointer-events-none" />
         </div>
 
-        {/* Bento 2: Financial Yield Snapshot (Span 1) */}
+        {/* Bento 2: Network Activity Snapshot (Span 1) */}
         <div className="wabi-bento-card rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 rounded-lg bg-zinc-100 text-black border border-zinc-200">
-                  <IconCoins size={15} />
+                  <IconActivity size={15} />
                 </span>
                 <span className="text-xs font-mono font-medium uppercase tracking-wider text-zinc-500">
-                  Platform Escrow
+                  Network Activity
                 </span>
               </div>
-              <button
-                onClick={() => setActiveTab("pricing")}
-                className="text-[10px] font-mono text-zinc-600 hover:text-black hover:underline"
-              >
-                Configure
-              </button>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                P2P MESH
+              </span>
             </div>
 
             <div className="text-3xl font-extrabold font-mono text-black">
-              ₹{totalRevenue.toFixed(2)}
+              {events.length}
             </div>
             <p className="text-xs text-zinc-500 mt-1">
-              Net convenience fee revenue collected across {events.length} verified jobs.
+              Total print events processed across all active shop terminals.
             </p>
 
             <div className="mt-4 p-3 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2 text-xs">
               <div className="flex justify-between items-center">
-                <span className="text-zinc-500">Customer Surcharge</span>
-                <span className="font-mono font-bold text-black">₹{globalTotalCharge.toFixed(2)} / print</span>
+                <span className="text-zinc-500">Active Counters</span>
+                <span className="font-mono font-bold text-black">{activeCount} / {shops.length}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-zinc-500">Base Platform Fee</span>
-                <span className="font-mono font-semibold text-black">₹{globalPlatformFee.toFixed(2)}</span>
+                <span className="text-zinc-500">Model</span>
+                <span className="font-mono font-semibold text-emerald-600">100% Free Utility</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-zinc-500">Statutory GST (18%)</span>
-                <span className="font-mono text-zinc-600">₹{globalGstAmount.toFixed(2)}</span>
+                <span className="text-zinc-500">Network Routing</span>
+                <span className="font-mono text-zinc-600">Encrypted WebRTC</span>
               </div>
             </div>
           </div>
 
           <div className="pt-3 mt-4 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
-            <span>GST Collected: ₹{totalGst.toFixed(2)}</span>
-            <span className="text-black font-semibold">Ready for payout</span>
+            <span>Terminal Signaling</span>
+            <span className="text-black font-semibold">Healthy</span>
           </div>
         </div>
 
@@ -211,14 +199,13 @@ export function OverviewView({
                   <th className="pb-2.5 font-normal">Session</th>
                   <th className="pb-2.5 font-normal">Terminal Shop</th>
                   <th className="pb-2.5 font-normal">Subdomain</th>
-                  <th className="pb-2.5 font-normal text-right">Fee</th>
                   <th className="pb-2.5 font-normal text-right">Timestamp</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {recentEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-zinc-400">
+                    <td colSpan={4} className="py-6 text-center text-zinc-400">
                       No print transactions recorded yet.
                     </td>
                   </tr>
@@ -233,9 +220,6 @@ export function OverviewView({
                       </td>
                       <td className="py-2.5 font-mono text-zinc-700">
                         {ev.shop_slug}.{ROOT_DOMAIN}
-                      </td>
-                      <td className="py-2.5 text-right font-mono font-bold text-black">
-                        ₹{Number(ev.fee_amount || globalPlatformFee).toFixed(2)}
                       </td>
                       <td className="py-2.5 text-right text-[11px] text-zinc-400">
                         {new Date(ev.created_at).toLocaleTimeString([], {

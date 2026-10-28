@@ -9,7 +9,6 @@ interface PrintEvent {
   id: string;
   shop_id: string;
   session_id: string;
-  fee_amount: number;
   created_at: string;
 }
 
@@ -128,10 +127,8 @@ export const Analytics: React.FC = React.memo(() => {
 
   // Derived financial metrics
   const CUSTOMER_RATE_PER_PAGE = 3.0; // ₹3.00/page estimated Xerox rate fallback
-  const PLATFORM_FEE_PER_PAGE = 0.0;  // 100% free platform
 
   const totalPrints = Math.max(filteredEvents.length, filteredOrders.length);
-  const platformFees = 0;
 
   // Real verified revenue from orders
   const confirmedOrders = useMemo(() => {
@@ -249,7 +246,7 @@ export const Analytics: React.FC = React.memo(() => {
             <span className="status-badge active">Verified Ledger</span>
           </h1>
           <p className="page-subtitle">
-            Counter financial ledger, daily volume trends, and platform fee breakdown.
+            Counter financial ledger and daily volume trends.
           </p>
         </div>
 
@@ -304,13 +301,13 @@ export const Analytics: React.FC = React.memo(() => {
 
         <div className="stat-card">
           <div className="stat-label">
-            <span>Platform Commission</span>
-            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>100% Free</span>
+            <span>Verified Orders</span>
+            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>Completed</span>
           </div>
           <div className="stat-value" style={{ color: "var(--accent-emerald)" }}>
-            ₹0
+            {confirmedOrders.length}
           </div>
-          <div className="stat-footnote">Ad-supported utility platform</div>
+          <div className="stat-footnote">Settled customer transactions</div>
         </div>
 
         <div className="stat-card">
@@ -370,16 +367,6 @@ export const Analytics: React.FC = React.memo(() => {
           <div className="profile-field">
             <span className="profile-field-label">Verified Customer Orders</span>
             <span className="profile-field-value">{confirmedOrders.length}</span>
-          </div>
-
-          <div className="profile-field">
-            <span className="profile-field-label">Software Infrastructure Fee</span>
-            <span
-              className="profile-field-value"
-              style={{ fontFamily: "Geist Mono, monospace" }}
-            >
-              ₹1.00 / document
-            </span>
           </div>
 
           <div className="profile-field">

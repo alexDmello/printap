@@ -10,10 +10,9 @@ import {
   IconTag,
   IconHistory,
   IconChevronLeft,
-  IconCash,
 } from "./Icons";
 
-export type AdminPage = "live" | "history" | "printers" | "services" | "analytics" | "qr" | "tokens" | "profile";
+export type AdminPage = "live" | "history" | "printers" | "services" | "analytics" | "qr" | "profile";
 
 interface SidebarProps {
   currentPage: AdminPage;
@@ -23,8 +22,6 @@ interface SidebarProps {
   isTogglingOnline?: boolean;
   onLogoutRequest?: () => void;
   onHideSidebar?: () => void;
-  tokenBalance?: number | null;
-  tokenAlert?: { balance: number; threshold: boolean } | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,8 +32,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isTogglingOnline = false,
   onLogoutRequest,
   onHideSidebar,
-  tokenBalance,
-  tokenAlert,
 }) => {
   const { shop, logout } = useAuth();
   const [showOfflineConfirm, setShowOfflineConfirm] = React.useState(false);

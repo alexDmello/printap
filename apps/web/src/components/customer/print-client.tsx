@@ -64,10 +64,6 @@ interface Props {
   /** Optional shop custom services */
   services?: ShopServiceItem[];
   initialIsOnline?: boolean;
-  platformFee?: number;
-  gstPercentage?: number;
-  gstAmount?: number;
-  totalCharge?: number;
 }
 
 export default function PrintClient({
@@ -78,10 +74,6 @@ export default function PrintClient({
   priceColor,
   services,
   initialIsOnline = false,
-  platformFee,
-  gstPercentage,
-  gstAmount,
-  totalCharge,
 }: Props) {
   // ─── State ───
   const [step, setStep] = useState<Step>("upload");
@@ -127,7 +119,6 @@ export default function PrintClient({
   const [jobStatus, setJobStatus] = useState<JobStatus>("queued");
   const [isPaymentConfirmedByShop, setIsPaymentConfirmedByShop] = useState(false);
   const [isRefundPromptOpen, setIsRefundPromptOpen] = useState(false);
-  const [printTicket, setPrintTicket] = useState<string>("");
   const [persistedTotalAmount, setPersistedTotalAmount] = useState<number>(0);
   const [persistedDocumentCount, setPersistedDocumentCount] = useState<number>(0);
   
@@ -142,7 +133,6 @@ export default function PrintClient({
           setCurrentSessionId(parsed.orderId);
           setToken(parsed.token);
           setJobStatus(parsed.status);
-          if (parsed.printTicket) setPrintTicket(parsed.printTicket);
           if (parsed.isPaymentConfirmed || parsed.status === "ready_for_pickup") {
             setIsPaymentConfirmedByShop(true);
           }
@@ -233,7 +223,6 @@ export default function PrintClient({
             finishingServices,
           }, finishingServices.filter((s) => s.enabled)) : persistedTotalAmount,
         documentCount: documents.length > 0 ? documents.length : persistedDocumentCount,
-        printTicket,
         isPaymentConfirmed: isPaymentConfirmedByShop,
       };
       try {
@@ -250,13 +239,8 @@ export default function PrintClient({
     priceBw,
     priceColor,
     finishingServices,
-    totalCharge,
-    platformFee,
-    gstAmount,
-    gstPercentage,
     persistedTotalAmount,
     persistedDocumentCount,
-    printTicket,
     isPaymentConfirmedByShop,
   ]);
 
@@ -347,10 +331,6 @@ export default function PrintClient({
 
   const activeFinishing = finishingServices.filter((s) => s.enabled);
   const printingCost = calculateOrderTotal(documents, rateCard, activeFinishing);
-  const resolvedPlatformFee = 0;
-  const resolvedGstPercentage = 0;
-  const resolvedGstAmount = 0;
-  const resolvedTotalCharge = 0;
   const totalAmount = documents.length > 0 ? printingCost : persistedTotalAmount;
   const activeDocumentCount = documents.length > 0 ? documents.length : persistedDocumentCount;
 
@@ -603,55 +583,6 @@ export default function PrintClient({
       fileCount: documents.length,
     });
 
-    // --- Token Reservation (Escrow) ---
-    let localPrintTicket = "";
-    try {
-      const res = await fetch("/api/print/reserve-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shopId,
-          sessionId,
-          totalAmount,
-          paymentMethod: "upi",
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        try {
-          localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-        } catch {}
-        const channel = joinSignalingChannel(shopId);
-        broadcast(channel, "order-status", {
-          sessionId,
-          status: "cancelled",
-          errorDetail: data.error || "Could not reserve print token from shop.",
-        }).catch(() => {});
-
-        setStep("error");
-        setErrorMsg(data.error || "Could not reserve print token from shop.");
-        setIsSubmitting(false);
-        return;
-      }
-      localPrintTicket = data.printTicket;
-      setPrintTicket(localPrintTicket);
-    } catch (err) {
-      try {
-        localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-      } catch {}
-      const channel = joinSignalingChannel(shopId);
-      broadcast(channel, "order-status", {
-        sessionId,
-        status: "cancelled",
-        errorDetail: "Failed to contact server for token reservation.",
-      }).catch(() => {});
-
-      setStep("error");
-      setErrorMsg("Failed to contact server for token reservation.");
-      setIsSubmitting(false);
-      return;
-    }
-
     setToken(newToken);
     setIsPaymentConfirmedByShop(false);
     setStep("print_pay");
@@ -727,7 +658,7 @@ export default function PrintClient({
           totalAmount,
           finishingServices: activeFinishing,
         },
-        localPrintTicket,
+        "",
         (p) => {
           setProgress(p);
           if (p.status === "complete") {
@@ -794,7 +725,6 @@ export default function PrintClient({
     setCurrentSessionId("");
     setIsPaymentConfirmedByShop(false);
     setIsRefundPromptOpen(false);
-    setPrintTicket("");
     setJobStatus("queued");
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
   }, [shopId, initialFinishing]);
@@ -809,42 +739,12 @@ export default function PrintClient({
     }
   }, [documents, handleStartPrintAndPayment, handleReset]);
 
-  const handleRefund = useCallback(async () => {
-    try {
-      const res = await fetch("/api/print/refund-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shopId,
-          sessionId: currentSessionId,
-          printTicket,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsRefundPromptOpen(false);
-        setErrorMsg("Token refunded successfully. You can try printing again.");
-      } else {
-        setErrorMsg("Refund failed: " + data.error);
-      }
-    } catch (err) {
-      setErrorMsg("Failed to request refund.");
-    }
-  }, [shopId, currentSessionId, printTicket]);
+  const handleRefund = useCallback(() => {
+    setIsRefundPromptOpen(false);
+    setErrorMsg("You can try printing again or visit the counter.");
+  }, []);
 
-  const handleEditSettings = useCallback(async () => {
-    if (currentSessionId && printTicket) {
-      try {
-        await fetch("/api/print/refund-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopId, sessionId: currentSessionId, printTicket }),
-        });
-      } catch (err) {
-        console.warn("Failed to refund token on edit settings:", err);
-      }
-    }
-
+  const handleEditSettings = useCallback(() => {
     setStep("settings");
     setProgress(null);
     setErrorMsg("");
@@ -852,10 +752,9 @@ export default function PrintClient({
     setCurrentSessionId("");
     setIsPaymentConfirmedByShop(false);
     setIsRefundPromptOpen(false);
-    setPrintTicket("");
     setJobStatus("queued");
     localStorage.removeItem(SESSION_STORAGE_KEY(shopId));
-  }, [shopId, currentSessionId, printTicket]);
+  }, [shopId]);
 
   // If the shop goes offline and there is no active transfer/order in flight, show offline screen
   const isOrderActive = step === "print_pay";
@@ -1057,10 +956,6 @@ export default function PrintClient({
         <BottomPriceBar
           totalPrice={totalAmount}
           printingCost={printingCost}
-          platformFee={resolvedPlatformFee}
-          gstPercentage={resolvedGstPercentage}
-          gstAmount={resolvedGstAmount}
-          totalCharge={resolvedTotalCharge}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
@@ -1075,10 +970,6 @@ export default function PrintClient({
         <BottomPriceBar
           totalPrice={totalAmount}
           printingCost={printingCost}
-          platformFee={resolvedPlatformFee}
-          gstPercentage={resolvedGstPercentage}
-          gstAmount={resolvedGstAmount}
-          totalCharge={resolvedTotalCharge}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}
@@ -1094,10 +985,6 @@ export default function PrintClient({
         <BottomPriceBar
           totalPrice={totalAmount}
           printingCost={printingCost}
-          platformFee={resolvedPlatformFee}
-          gstPercentage={resolvedGstPercentage}
-          gstAmount={resolvedGstAmount}
-          totalCharge={resolvedTotalCharge}
           documentCount={documents.length}
           totalSheets={totalSheets}
           colorMode={globalColorMode}

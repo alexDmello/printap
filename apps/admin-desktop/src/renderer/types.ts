@@ -12,7 +12,6 @@ export interface GlobalPrintEvent {
   id: string;
   shop_id: string;
   session_id: string;
-  fee_amount: number;
   created_at: string;
   shop_name?: string;
   shop_slug?: string;
@@ -23,7 +22,6 @@ export type NavigationTab =
   | "analytics"
   | "shops"
   | "ledger"
-  | "pricing"
   | "health";
 
 export type DateRangeOption = "7d" | "30d" | "90d" | "all";
@@ -34,7 +32,6 @@ export interface LeaderboardItem {
   slug?: string;
   status: string;
   printCount: number;
-  feeContribution: number;
   percentageOfTotal: number;
 }
 

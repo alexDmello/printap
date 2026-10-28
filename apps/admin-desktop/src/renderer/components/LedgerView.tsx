@@ -6,10 +6,9 @@ import { IconSearch, IconFilter } from "./Icons";
 interface LedgerViewProps {
   events: GlobalPrintEvent[];
   shops: ExtendedShop[];
-  globalPlatformFee: number;
 }
 
-export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps) {
+export function LedgerView({ events, shops }: LedgerViewProps) {
   const [search, setSearch] = useState("");
   const [selectedShopId, setSelectedShopId] = useState<string>("all");
 
@@ -25,10 +24,6 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
       return true;
     });
   }, [events, search, selectedShopId]);
-
-  const totalFilteredFee = useMemo(() => {
-    return filteredEvents.reduce((acc, ev) => acc + (Number(ev.fee_amount) || globalPlatformFee), 0);
-  }, [filteredEvents, globalPlatformFee]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -49,9 +44,9 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
         </div>
 
         <div className="p-2.5 px-4 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
-          <span className="text-xs text-zinc-500">Ledger Yield:</span>
+          <span className="text-xs text-zinc-500">Total Events:</span>
           <span className="text-sm font-bold font-mono text-black">
-            ₹{totalFilteredFee.toFixed(2)}
+            {filteredEvents.length}
           </span>
         </div>
       </div>
@@ -99,14 +94,13 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
                 <th className="py-3.5 px-5 font-normal">Session Hash</th>
                 <th className="py-3.5 px-4 font-normal">Terminal Counter</th>
                 <th className="py-3.5 px-4 font-normal">Subdomain</th>
-                <th className="py-3.5 px-4 font-normal text-right">Fee Accrued</th>
                 <th className="py-3.5 px-5 font-normal text-right">Timestamp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-zinc-400">
+                  <td colSpan={4} className="py-12 text-center text-zinc-400">
                     No print events found matching the filter criteria.
                   </td>
                 </tr>
@@ -121,9 +115,6 @@ export function LedgerView({ events, shops, globalPlatformFee }: LedgerViewProps
                     </td>
                     <td className="py-3.5 px-4 font-mono text-zinc-700">
                       {ev.shop_slug}.{ROOT_DOMAIN}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-black">
-                      ₹{Number(ev.fee_amount || globalPlatformFee).toFixed(2)}
                     </td>
                     <td className="py-3.5 px-5 text-right text-[11px] text-zinc-400">
                       {new Date(ev.created_at).toLocaleString()}

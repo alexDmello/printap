@@ -6,7 +6,6 @@ import {
   IconAnalytics,
   IconShops,
   IconLedger,
-  IconPricing,
   IconHealth,
   IconRefresh,
   IconClose,
@@ -18,7 +17,6 @@ interface SidebarProps {
   shopsCount: number;
   activeCount: number;
   eventsCount: number;
-  globalTotalCharge: number;
   onRefresh: () => void;
   loading: boolean;
   mobileOpen: boolean;
@@ -31,7 +29,6 @@ export function Sidebar({
   shopsCount,
   activeCount,
   eventsCount,
-  globalTotalCharge,
   onRefresh,
   loading,
   mobileOpen,
@@ -69,14 +66,6 @@ export function Sidebar({
       icon: IconLedger,
       badge: `${eventsCount}`,
       badgeColor: "bg-zinc-100 text-zinc-800 border-zinc-200",
-    },
-    {
-      id: "pricing" as NavigationTab,
-      label: "Platform Fee & GST",
-      subtext: "Global Surcharge Config",
-      icon: IconPricing,
-      badge: `₹${globalTotalCharge.toFixed(2)}`,
-      badgeColor: "bg-zinc-100 text-zinc-900 border-zinc-300 font-semibold",
     },
     {
       id: "health" as NavigationTab,

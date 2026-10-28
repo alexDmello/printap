@@ -20,19 +20,11 @@ import {
 interface AnalyticsViewProps {
   shops: ExtendedShop[];
   events: GlobalPrintEvent[];
-  globalPlatformFee: number;
-  globalGstPercentage: number;
-  globalGstAmount: number;
-  globalTotalCharge: number;
 }
 
 export function AnalyticsView({
   shops,
   events,
-  globalPlatformFee,
-  globalGstPercentage,
-  globalGstAmount,
-  globalTotalCharge,
 }: AnalyticsViewProps) {
   const [dateRange, setDateRange] = useState<DateRangeOption>("30d");
   const [hoveredPoint, setHoveredPoint] = useState<DailyVolumePoint | null>(null);
@@ -120,14 +112,10 @@ export function AnalyticsView({
     return events.filter((ev) => new Date(ev.created_at).getTime() >= cutoff);
   }, [events, dateRange]);
 
-  // Aggregate Metrics
-  const totalRevenue = useMemo(() => {
-    return filteredEvents.reduce((acc, ev) => acc + (Number(ev.fee_amount) || globalPlatformFee), 0);
-  }, [filteredEvents, globalPlatformFee]);
-
-  const totalGstCollected = useMemo(() => {
-    return totalRevenue * (globalGstPercentage / 100);
-  }, [totalRevenue, globalGstPercentage]);
+  const dailyAveragePrints = useMemo(() => {
+    const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : dateRange === "90d" ? 90 : 30;
+    return (filteredEvents.length / days).toFixed(1);
+  }, [filteredEvents, dateRange]);
 
   const activeShopCount = useMemo(() => {
     return shops.filter((s) => s.status === "active").length;
@@ -160,7 +148,6 @@ export function AnalyticsView({
       const key = ev.created_at.split("T")[0];
       if (buckets[key]) {
         buckets[key].prints += 1;
-        buckets[key].revenue += Number(ev.fee_amount) || globalPlatformFee;
       }
     });
 
@@ -171,7 +158,7 @@ export function AnalyticsView({
       printCount: val.prints,
       revenue: val.revenue,
     }));
-  }, [filteredEvents, dateRange, globalPlatformFee]);
+  }, [filteredEvents, dateRange]);
 
   const maxPrintsInChart = useMemo(() => {
     const max = Math.max(...chartData.map((d) => d.printCount), 1);
@@ -180,30 +167,27 @@ export function AnalyticsView({
 
   // Shop Leaderboard
   const leaderboard = useMemo<LeaderboardItem[]>(() => {
-    const shopMap = new Map<string, { prints: number; revenue: number }>();
+    const shopMap = new Map<string, number>();
     filteredEvents.forEach((ev) => {
-      const cur = shopMap.get(ev.shop_id) || { prints: 0, revenue: 0 };
-      cur.prints += 1;
-      cur.revenue += Number(ev.fee_amount) || globalPlatformFee;
-      shopMap.set(ev.shop_id, cur);
+      const cur = shopMap.get(ev.shop_id) || 0;
+      shopMap.set(ev.shop_id, cur + 1);
     });
 
     const items: LeaderboardItem[] = shops.map((s) => {
-      const data = shopMap.get(s.id) || { prints: 0, revenue: 0 };
-      const pct = filteredEvents.length > 0 ? (data.prints / filteredEvents.length) * 100 : 0;
+      const prints = shopMap.get(s.id) || 0;
+      const pct = filteredEvents.length > 0 ? (prints / filteredEvents.length) * 100 : 0;
       return {
         shopId: s.id,
         shopName: s.name,
         slug: s.slug,
         status: s.status,
-        printCount: data.prints,
-        feeContribution: data.revenue,
+        printCount: prints,
         percentageOfTotal: Math.round(pct * 10) / 10,
       };
     });
 
     return items.sort((a, b) => b.printCount - a.printCount);
-  }, [shops, filteredEvents, globalPlatformFee]);
+  }, [shops, filteredEvents]);
 
   // Hourly Velocity Breakdown
   const hourlyBreakdown = useMemo(() => {
@@ -267,38 +251,38 @@ export function AnalyticsView({
 
       {/* Bento Grid Row 1: KPI Stat Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Platform Fee Revenue */}
+        {/* Metric 1: Total Print Sessions */}
         <div className="wabi-bento-card rounded-2xl p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between text-zinc-500 mb-2">
-            <span className="text-xs font-medium">Net Platform Fee</span>
+            <span className="text-xs font-medium">Total Print Sessions</span>
             <div className="p-1.5 rounded-lg bg-zinc-100 text-black border border-zinc-200">
-              <IconCoins size={14} />
+              <IconPrinter size={14} />
             </div>
           </div>
           <div className="text-3xl font-extrabold font-mono text-black tracking-tight">
-            ₹{totalRevenue.toFixed(2)}
+            {filteredEvents.length}
           </div>
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 text-[11px]">
-            <span className="text-zinc-400">Rate per print</span>
-            <span className="font-mono text-black font-semibold">₹{globalPlatformFee.toFixed(2)} base</span>
+            <span className="text-zinc-400">Network Volume</span>
+            <span className="font-mono text-black font-semibold">Customer print jobs</span>
           </div>
           <div className="absolute top-0 right-0 w-24 h-24 bg-black/[0.015] rounded-bl-full pointer-events-none" />
         </div>
 
-        {/* Metric 2: GST Collected */}
+        {/* Metric 2: Daily Print Velocity */}
         <div className="wabi-bento-card rounded-2xl p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between text-zinc-500 mb-2">
-            <span className="text-xs font-medium">GST Tax Escrow</span>
+            <span className="text-xs font-medium">Daily Velocity</span>
             <div className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 border border-zinc-200">
               <IconTrendingUp size={14} />
             </div>
           </div>
           <div className="text-3xl font-extrabold font-mono text-zinc-800 tracking-tight">
-            ₹{totalGstCollected.toFixed(2)}
+            {dailyAveragePrints} <span className="text-sm font-normal text-zinc-400">/ day</span>
           </div>
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 text-[11px]">
-            <span className="text-zinc-400">Statutory Rate</span>
-            <span className="font-mono text-zinc-700 font-semibold">{globalGstPercentage}% GST</span>
+            <span className="text-zinc-400">Average Rate</span>
+            <span className="font-mono text-zinc-700 font-semibold">{dateRange.toUpperCase()} window</span>
           </div>
           <div className="absolute top-0 right-0 w-24 h-24 bg-black/[0.015] rounded-bl-full pointer-events-none" />
         </div>
@@ -428,74 +412,59 @@ export function AnalyticsView({
             </div>
           </div>
           <div>
-            <div className="text-[10px] text-zinc-400 uppercase font-mono">Total Accrued</div>
-            <div className="font-bold text-black font-mono mt-0.5">₹{totalRevenue.toFixed(2)}</div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono">Date Window</div>
+            <div className="font-bold text-black font-mono mt-0.5">{dateRange.toUpperCase()}</div>
           </div>
           <div>
-            <div className="text-[10px] text-zinc-400 uppercase font-mono">Customer Fee</div>
-            <div className="font-bold text-zinc-800 font-mono mt-0.5">₹{globalTotalCharge.toFixed(2)} / job</div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono">Total Volume</div>
+            <div className="font-bold text-zinc-800 font-mono mt-0.5">{filteredEvents.length} prints</div>
           </div>
         </div>
       </div>
 
-      {/* Bento Grid Row 3: Economics & Velocity Split (2 Columns) */}
+      {/* Bento Grid Row 3: Architecture & Velocity Split (2 Columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bento Card: Surcharge Economics Breakdown */}
+        {/* Bento Card: Architecture & Privacy */}
         <div className="wabi-bento-card rounded-3xl p-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-black">
-                Customer Surcharge Yield Breakdown
+                Zero-Cloud Privacy Architecture
               </h3>
               <span className="wabi-seal px-2 py-0.5 text-[10px] font-mono">
-                ₹{globalTotalCharge.toFixed(2)} Total
+                100% P2P
               </span>
             </div>
             <p className="text-xs text-zinc-500 mb-5">
-              Each print job collects ₹{globalTotalCharge.toFixed(2)} surcharge via UPI / Cash before file release.
+              Documents stream directly peer-to-peer from customer browsers to local shop print spools.
             </p>
 
-            {/* Split Bar */}
-            <div className="h-4 rounded-full overflow-hidden flex bg-zinc-100 p-0.5 border border-zinc-200 mb-4">
-              <div
-                style={{ width: `${Math.round((globalPlatformFee / globalTotalCharge) * 100)}%` }}
-                className="bg-black h-full rounded-l-full relative group transition-all"
-                title={`Base Platform Fee: ₹${globalPlatformFee.toFixed(2)}`}
-              />
-              <div
-                style={{ width: `${Math.round((globalGstAmount / globalTotalCharge) * 100)}%` }}
-                className="bg-zinc-300 h-full rounded-r-full relative group transition-all"
-                title={`GST Amount: ₹${globalGstAmount.toFixed(2)}`}
-              />
-            </div>
-
-            {/* Breakdown List */}
             <div className="space-y-3 text-xs">
               <div className="flex justify-between items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
                 <div className="flex items-center gap-2.5">
                   <span className="w-2.5 h-2.5 rounded-sm bg-black" />
-                  <span className="text-black font-medium">Net Platform Fee (Keep)</span>
+                  <span className="text-black font-medium">Server Cloud Storage</span>
                 </div>
-                <div className="font-mono font-bold text-black">
-                  ₹{globalPlatformFee.toFixed(2)} ({(100 - globalGstPercentage).toFixed(0)}%)
+                <div className="font-mono font-bold text-emerald-600">
+                  0 MB (Zero Cloud Storage)
                 </div>
               </div>
 
               <div className="flex justify-between items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-zinc-400" />
-                  <span className="text-zinc-700">Statutory GST Escrow (Tax)</span>
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                  <span className="text-zinc-700">In-Memory Shredding</span>
                 </div>
-                <div className="font-mono font-bold text-zinc-700">
-                  ₹{globalGstAmount.toFixed(2)} ({globalGstPercentage}%)
+                <div className="font-mono font-bold text-black">
+                  Instant post-spool
                 </div>
               </div>
             </div>
           </div>
 
           <div className="pt-4 mt-4 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
-            <span>Statutory compliance: Tax invoice ready</span>
-            <span className="font-mono text-zinc-600">0% cloud storage overhead</span>
+            <span>Model: Ad-Supported Free Utility</span>
+            <span className="font-mono text-zinc-600">No platform commissions</span>
           </div>
         </div>
 
@@ -572,7 +541,6 @@ export function AnalyticsView({
                 <th className="pb-3 font-normal">Terminal Subdomain</th>
                 <th className="pb-3 font-normal text-right">Prints</th>
                 <th className="pb-3 font-normal text-right">Share</th>
-                <th className="pb-3 font-normal text-right">Fee Generated</th>
                 <th className="pb-3 font-normal text-right">Counter Link</th>
               </tr>
             </thead>
@@ -624,10 +592,6 @@ export function AnalyticsView({
                         </div>
                         <span>{item.percentageOfTotal}%</span>
                       </div>
-                    </td>
-
-                    <td className="py-3 text-right font-mono font-bold text-black">
-                      ₹{item.feeContribution.toFixed(2)}
                     </td>
 
                     <td className="py-3 text-right">

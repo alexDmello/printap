@@ -27,28 +27,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
   const [priceColor, setPriceColor] = useState<number>(10);
   const [colorEnabled, setColorEnabled] = useState<boolean>(true);
 
-  // Platform Fee & GST Surcharge (0 in free tier)
-  const [platformFee, setPlatformFee] = useState<number>(0);
-  const [gstPercentage, setGstPercentage] = useState<number>(0);
-  const [gstAmount, setGstAmount] = useState<number>(0);
-  const [totalCharge, setTotalCharge] = useState<number>(0);
-
-  const handlePlatformFeeChange = (val: number) => {
-    const fee = Math.max(0, val);
-    setPlatformFee(fee);
-    const calculatedGst = Number((fee * (gstPercentage / 100)).toFixed(2));
-    setGstAmount(calculatedGst);
-    setTotalCharge(Number((fee + calculatedGst).toFixed(2)));
-  };
-
-  const handleGstPercentageChange = (val: number) => {
-    const pct = Math.max(0, Math.min(100, val));
-    setGstPercentage(pct);
-    const calculatedGst = Number((platformFee * (pct / 100)).toFixed(2));
-    setGstAmount(calculatedGst);
-    setTotalCharge(Number((platformFee + calculatedGst).toFixed(2)));
-  };
-
   // Services list
   const [servicesList, setServicesList] = useState<ShopServiceItem[]>(DEFAULT_SHOP_SERVICES);
   const [isSaving, setIsSaving] = useState(false);
@@ -70,10 +48,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
       let c = 10;
       let ce = true;
       let list = DEFAULT_SHOP_SERVICES;
-      let pf = 0.82;
-      let gp = 18.0;
-      let ga = 0.18;
-      let tc = 1.00;
 
       if (shop.price_bw !== undefined && shop.price_bw !== null) {
         b = Number(shop.price_bw);
@@ -82,22 +56,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
       if (shop.price_color !== undefined && shop.price_color !== null) {
         c = Number(shop.price_color);
         setPriceColor(c);
-      }
-      if (shop.platform_fee !== undefined && shop.platform_fee !== null) {
-        pf = Number(shop.platform_fee);
-        setPlatformFee(pf);
-      }
-      if (shop.gst_percentage !== undefined && shop.gst_percentage !== null) {
-        gp = Number(shop.gst_percentage);
-        setGstPercentage(gp);
-      }
-      if (shop.gst_amount !== undefined && shop.gst_amount !== null) {
-        ga = Number(shop.gst_amount);
-        setGstAmount(ga);
-      }
-      if (shop.total_charge !== undefined && shop.total_charge !== null) {
-        tc = Number(shop.total_charge);
-        setTotalCharge(tc);
       }
 
       if (shop.services && Array.isArray(shop.services) && shop.services.length > 0) {
@@ -126,43 +84,7 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
         priceColor: c,
         colorEnabled: ce,
         servicesList: list,
-        platformFee: pf,
-        gstPercentage: gp,
-        gstAmount: ga,
-        totalCharge: tc,
       });
-
-      // Also query global platform_settings if shop does not have platform_fee defined
-      if (shop.platform_fee === undefined || shop.platform_fee === null) {
-        const supabase = getSupabase();
-        supabase
-          .from("platform_settings")
-          .select("*")
-          .eq("id", "global")
-          .maybeSingle()
-          .then(({ data }) => {
-            if (data) {
-              const loadedPf = Number(data.platform_fee) || 0.82;
-              const loadedGp = Number(data.gst_percentage) || 18.0;
-              const loadedGa = Number(data.gst_amount) || 0.18;
-              const loadedTc = Number(data.total_charge) || 1.00;
-              setPlatformFee(loadedPf);
-              setGstPercentage(loadedGp);
-              setGstAmount(loadedGa);
-              setTotalCharge(loadedTc);
-              initialSnapshotRef.current = JSON.stringify({
-                priceBw: b,
-                priceColor: c,
-                colorEnabled: ce,
-                servicesList: list,
-                platformFee: loadedPf,
-                gstPercentage: loadedGp,
-                gstAmount: loadedGa,
-                totalCharge: loadedTc,
-              });
-            }
-          });
-      }
     }
   }, [shop]);
 
@@ -219,10 +141,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
       setPriceColor(parsed.priceColor);
       setColorEnabled(parsed.colorEnabled);
       setServicesList(parsed.servicesList);
-      if (parsed.platformFee !== undefined) setPlatformFee(parsed.platformFee);
-      if (parsed.gstPercentage !== undefined) setGstPercentage(parsed.gstPercentage);
-      if (parsed.gstAmount !== undefined) setGstAmount(parsed.gstAmount);
-      if (parsed.totalCharge !== undefined) setTotalCharge(parsed.totalCharge);
     } catch (e) {
       console.error("Failed to discard changes", e);
     }
@@ -236,10 +154,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
       priceColor,
       colorEnabled,
       servicesList,
-      platformFee,
-      gstPercentage,
-      gstAmount,
-      totalCharge,
     });
     return currentSnapshot !== initialSnapshotRef.current;
   };
@@ -276,10 +190,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
         priceColor,
         colorEnabled,
         servicesList,
-        platformFee,
-        gstPercentage,
-        gstAmount,
-        totalCharge,
       });
       setSaveMessage("Rates and services updated successfully! Web app is now in sync.");
       setTimeout(() => setSaveMessage(""), 4000);
@@ -304,7 +214,7 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
     return () => {
       onRegisterDirtyHandler(null);
     };
-  }, [priceBw, priceColor, colorEnabled, servicesList, platformFee, gstPercentage, gstAmount, totalCharge, shopId]);
+  }, [priceBw, priceColor, colorEnabled, servicesList, shopId]);
 
   // Unit label helper
   const getUnitLabel = (unit: ServiceUnit) => {
@@ -414,14 +324,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
           <div className="stat-footnote">Finishing & custom services enabled</div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">
-            <span>PLATFORM SURCHARGE</span>
-            <span className="tech-tag">Auto</span>
-          </div>
-          <div className="stat-value" style={{ color: "var(--accent-cyan)" }}>₹{totalCharge.toFixed(2)}</div>
-          <div className="stat-footnote">Digital Convenience Fee applied to all orders</div>
-        </div>
       </div>
 
       {/* SECTION 1: Default Core Print Services */}
@@ -821,85 +723,6 @@ export const ServicesRates: React.FC<ServicesRatesProps> = React.memo(({ onRegis
                   </div>
                 </div>
               ))}
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 3: Digital Convenience Fee */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header">
-          <div className="card-title">
-            <span>Digital Convenience Fee</span>
-            <span className="tech-tag active">Auto-Calculated</span>
-          </div>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            Stored in Database • Live Customer Surcharge
-          </span>
-        </div>
-
-        <div className="card-body">
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16, maxWidth: 640 }}>
-            This is a nominal digital convenience fee collected from customers on your behalf to cover the software platform costs.
-          </p>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              background: "rgba(255, 255, 255, 0.6)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-lg)",
-              padding: "20px",
-              marginBottom: 16,
-            }}
-          >
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: 6 }}>
-                Digital Convenience Fee (₹)
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>₹</span>
-                <input
-                  type="number"
-                  value={totalCharge.toFixed(2)}
-                  disabled
-                  style={{
-                    width: 120,
-                    padding: "10px 12px",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "#f4f4f5",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    fontFamily: "var(--font-mono, monospace)",
-                    outline: "none",
-                    color: "var(--text-muted)",
-                  }}
-                />
-              </div>
-            </div>
-            
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: "var(--radius-md)",
-                background: "rgba(99, 102, 241, 0.04)",
-                border: "1px solid rgba(99, 102, 241, 0.15)",
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flex: 1,
-              }}
-            >
-              <span>👁️</span>
-              <span>
-                Customer price drawer will display:{" "}
-                <strong style={{ color: "var(--text-primary)" }}>Digital Convenience Fee: ₹{totalCharge.toFixed(2)}</strong>
-              </span>
-            </div>
           </div>
         </div>
       </div>

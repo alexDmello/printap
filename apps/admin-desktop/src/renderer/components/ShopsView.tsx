@@ -13,7 +13,6 @@ interface ShopsViewProps {
   onOpenEditModal: (shop: ExtendedShop) => void;
   onOpenDeleteModal: (shop: ExtendedShop) => void;
   onToggleStatus: (shop: ExtendedShop) => void;
-  globalPlatformFee: number;
 }
 
 export function ShopsView({
@@ -21,7 +20,6 @@ export function ShopsView({
   onOpenEditModal,
   onOpenDeleteModal,
   onToggleStatus,
-  globalPlatformFee,
 }: ShopsViewProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
@@ -62,7 +60,7 @@ export function ShopsView({
             </span>
           </div>
           <p className="text-xs text-zinc-500 mt-1">
-            Manage terminal subdomains, settlement UPI VPAs, custom surcharges, and emergency kill-switches.
+            Manage terminal subdomains, settlement UPI VPAs, and emergency kill-switches.
           </p>
         </div>
       </div>
@@ -110,7 +108,6 @@ export function ShopsView({
                 <th className="py-3.5 px-5 font-normal">Shop Name & UUID</th>
                 <th className="py-3.5 px-4 font-normal">Subdomain</th>
                 <th className="py-3.5 px-4 font-normal">Settlement UPI</th>
-                <th className="py-3.5 px-4 font-normal">Surcharge Rate</th>
                 <th className="py-3.5 px-4 font-normal text-center">Kill-Switch</th>
                 <th className="py-3.5 px-5 font-normal text-right">Actions</th>
               </tr>
@@ -118,7 +115,7 @@ export function ShopsView({
             <tbody className="divide-y divide-zinc-100">
               {filteredShops.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-zinc-400">
+                  <td colSpan={5} className="py-10 text-center text-zinc-400">
                     No shops match the current filter criteria.
                   </td>
                 </tr>
@@ -126,7 +123,6 @@ export function ShopsView({
                 filteredShops.map((s) => {
                   const shopUrl = getShopCustomerUrl(s);
                   const isSuspended = s.status === "suspended";
-                  const customFee = s.total_charge !== undefined ? Number(s.total_charge) : 1.0;
 
                   return (
                     <tr key={s.id} className="hover:bg-zinc-50/70 transition">
@@ -163,13 +159,6 @@ export function ShopsView({
                             {copiedId === s.id ? "✓ Copied" : "📋"}
                           </span>
                         </button>
-                      </td>
-
-                      {/* Fee Badge */}
-                      <td className="py-3.5 px-4">
-                        <span className="font-mono px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-black font-semibold">
-                          ₹{customFee.toFixed(2)}
-                        </span>
                       </td>
 
                       {/* Kill Switch Toggle */}

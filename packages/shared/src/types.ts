@@ -446,8 +446,6 @@ export interface ShopDailyAnalytics {
   gross_revenue: number;
   upi_revenue: number;
   cash_revenue: number;
-  platform_fees: number;
-  gst_amount: number;
   net_earnings: number;
   created_at?: string;
   updated_at?: string;
@@ -459,8 +457,6 @@ export interface PlatformDailyAnalytics {
   total_orders: number;
   total_jobs: number;
   total_volume_inr: number;
-  total_platform_fees_inr: number;
-  total_gst_inr: number;
   updated_at?: string;
 }
 

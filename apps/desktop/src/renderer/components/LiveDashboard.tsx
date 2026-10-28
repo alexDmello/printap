@@ -52,8 +52,6 @@ interface LiveDashboardProps {
   onRetryJob?: (sessionId: string) => void;
   onDismissJob?: (sessionId: string) => void;
   onNavigateToHistory?: () => void;
-  tokenBalance?: number | null;
-  tokenAlert?: { balance: number; threshold: boolean } | null;
 }
 
 export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
@@ -68,8 +66,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = React.memo(({
   onRetryJob,
   onDismissJob,
   onNavigateToHistory,
-  tokenBalance,
-  tokenAlert,
 }) => {
   const { shop } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);

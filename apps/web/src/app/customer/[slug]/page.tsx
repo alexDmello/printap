@@ -21,7 +21,7 @@ const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
     const { data: shopBySlug, error: slugErr } = await supabase
       .from("shops")
       .select(
-        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online, token_balance"
+        "id, name, slug, upi_vpa, status, price_bw, price_color, services, is_online"
       )
       .eq("slug", clean)
       .maybeSingle();
@@ -44,7 +44,7 @@ const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
       const { data: shopById, error: idErr } = await supabase
         .from("shops")
         .select(
-          "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online, token_balance"
+          "id, name, slug, upi_vpa, status, price_bw, price_color, services, is_online"
         )
         .eq("id", clean)
         .maybeSingle();
@@ -63,7 +63,7 @@ const fetchShopBySlugOrId = cache(async (slugOrId: string) => {
     const { data: legacyShops, error: legacyErr } = await supabase
       .from("shops")
       .select(
-        "id, name, slug, upi_vpa, status, price_bw, price_color, services, platform_fee, gst_percentage, gst_amount, total_charge, is_online, token_balance"
+        "id, name, slug, upi_vpa, status, price_bw, price_color, services, is_online"
       )
       .or("slug.is.null,slug.eq.''");
 
@@ -133,10 +133,6 @@ export default async function CustomerShopPage({ params }: Props) {
       priceColor={shop.price_color ?? undefined}
       services={shop.services ?? undefined}
       initialIsOnline={isActuallyOnline}
-      platformFee={0}
-      gstPercentage={0}
-      gstAmount={0}
-      totalCharge={0}
     />
   );
 }

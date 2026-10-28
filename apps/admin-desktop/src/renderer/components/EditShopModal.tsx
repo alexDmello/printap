@@ -8,8 +8,6 @@ interface EditShopModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onOpenDeleteModal?: (shop: ExtendedShop) => void;
-  globalPlatformFee: number;
-  globalGstPercentage: number;
 }
 
 export function EditShopModal({
@@ -17,16 +15,10 @@ export function EditShopModal({
   onClose,
   onSuccess,
   onOpenDeleteModal,
-  globalPlatformFee,
-  globalGstPercentage,
 }: EditShopModalProps) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [upi, setUpi] = useState("");
-  const [fee, setFee] = useState<number>(0.82);
-  const [gstPct, setGstPct] = useState<number>(18);
-  const [gstAmount, setGstAmount] = useState<number>(0.18);
-  const [totalCharge, setTotalCharge] = useState<number>(1.0);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -35,37 +27,11 @@ export function EditShopModal({
       setName(shop.name || "");
       setSlug(shop.slug || sanitizeSubdomain(shop.name));
       setUpi(shop.upi_vpa || "");
-
-      const pf = shop.platform_fee !== undefined && shop.platform_fee !== null ? Number(shop.platform_fee) : globalPlatformFee;
-      const gp = shop.gst_percentage !== undefined && shop.gst_percentage !== null ? Number(shop.gst_percentage) : globalGstPercentage;
-      const ga = shop.gst_amount !== undefined && shop.gst_amount !== null ? Number(shop.gst_amount) : Math.round(pf * (gp / 100) * 100) / 100;
-      const tc = shop.total_charge !== undefined && shop.total_charge !== null ? Number(shop.total_charge) : Math.round((pf + ga) * 100) / 100;
-
-      setFee(pf);
-      setGstPct(gp);
-      setGstAmount(ga);
-      setTotalCharge(tc);
       setError("");
     }
-  }, [shop, globalPlatformFee, globalGstPercentage]);
+  }, [shop]);
 
   if (!shop) return null;
-
-  const handleFeeChange = (val: number) => {
-    const f = Math.max(0, Number(val) || 0);
-    setFee(f);
-    const gst = Math.round(f * (gstPct / 100) * 100) / 100;
-    setGstAmount(gst);
-    setTotalCharge(Math.round((f + gst) * 100) / 100);
-  };
-
-  const handleGstChange = (val: number) => {
-    const pct = Math.max(0, Math.min(100, Number(val) || 0));
-    setGstPct(pct);
-    const gst = Math.round(fee * (pct / 100) * 100) / 100;
-    setGstAmount(gst);
-    setTotalCharge(Math.round((fee + gst) * 100) / 100);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,10 +54,6 @@ export function EditShopModal({
           name: name.trim(),
           slug: cleanSlug,
           upi_vpa: upi.trim(),
-          platform_fee: fee,
-          gst_percentage: gstPct,
-          gst_amount: gstAmount,
-          total_charge: totalCharge,
         })
         .eq("id", shop.id);
 
@@ -173,51 +135,6 @@ export function EditShopModal({
             />
           </div>
 
-          {/* Surcharge Override Box */}
-          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
-            <div className="text-xs font-bold text-black flex items-center justify-between">
-              <span>Terminal Surcharge Override</span>
-              <span className="text-[11px] text-black font-mono font-bold">
-                Total: ₹{totalCharge.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] text-zinc-500 mb-1">
-                  Base Fee (₹)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={fee}
-                  onChange={(e) => handleFeeChange(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-mono font-bold text-black"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-zinc-500 mb-1">
-                  GST (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="100"
-                  value={gstPct}
-                  onChange={(e) => handleGstChange(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-mono font-bold text-black text-center"
-                />
-              </div>
-            </div>
-
-            <div className="text-[10px] text-zinc-400 flex justify-between pt-1 border-t border-zinc-200">
-              <span>Auto-GST: ₹{gstAmount.toFixed(2)}</span>
-              <span>Customer Surcharge: ₹{totalCharge.toFixed(2)}</span>
-            </div>
-          </div>
 
           {error && (
             <div className="p-3 rounded-xl bg-zinc-100 border border-zinc-300 text-xs text-black">

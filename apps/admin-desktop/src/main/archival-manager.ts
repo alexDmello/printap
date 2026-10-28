@@ -215,12 +215,11 @@ export class ArchivalManager {
     await fs.writeFile(ordersCsvPath, ordersCsvContent, "utf-8");
 
     // 5. Write Events CSV
-    const eventsCsvHeaders = ["Event ID", "Shop ID", "Session ID", "Platform Fee (INR)", "Created At"];
+    const eventsCsvHeaders = ["Event ID", "Shop ID", "Session ID", "Created At"];
     const eventsCsvRows = events.map((e) => [
       `"${e.id}"`,
       `"${e.shop_id}"`,
       `"${e.session_id}"`,
-      Number(e.fee_amount || 1.0).toFixed(2),
       `"${e.created_at}"`,
     ]);
     const eventsCsvContent = [eventsCsvHeaders.join(","), ...eventsCsvRows.map((r) => r.join(","))].join("\n");

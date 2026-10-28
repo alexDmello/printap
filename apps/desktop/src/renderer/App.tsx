@@ -8,7 +8,6 @@ import { PrintersControl, type PrinterAssignment } from "./components/PrintersCo
 import { ServicesRates, type DirtyHandler } from "./components/ServicesRates";
 import { Analytics } from "./components/Analytics";
 import { CounterQr } from "./components/CounterQr";
-import { Tokens } from "./components/Tokens";
 import { PrintHistory } from "./components/PrintHistory";
 import { IconSidebarToggle } from "./components/Icons";
 import {
@@ -82,10 +81,6 @@ function ShopAdminShell(): React.ReactElement {
   const [isShopOnline, setIsShopOnline] = useState<boolean>(false);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   
-  // Token Subscription state
-  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
-  const tokenBalanceRef = useRef<number | null>(null);
-  const [tokenAlert, setTokenAlert] = useState<{ balance: number; threshold: boolean } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -282,22 +277,7 @@ function ShopAdminShell(): React.ReactElement {
         }
       }
 
-      // Fetch shop details including token_balance
-      const { data: shopData } = await supabase
-        .from("shops")
-        .select("token_balance")
-        .eq("id", id)
-        .maybeSingle();
-      
-      if (shopData) {
-        setTokenBalance(shopData.token_balance);
-        tokenBalanceRef.current = shopData.token_balance;
-        if (shopData.token_balance <= 10) {
-          setTokenAlert({ balance: shopData.token_balance, threshold: true });
-        }
-      }
-
-      // Also hydrate today's print_orders into recentJobs so pending payments & history remain visible
+      // Hydrate today's print_orders into recentJobs so pending payments & history remain visible
       const { data: orders } = await supabase
         .from("print_orders")
         .select("session_id, token_code, payment_method, payment_status, total_amount, status, created_at")
@@ -508,7 +488,6 @@ function ShopAdminShell(): React.ReactElement {
             const { error } = await supabase.from("print_events").insert({
               shop_id: shopId,
               session_id: job.sessionId,
-              fee_amount: 0.0,
             });
             if (error) throw error;
             insertSuccess = true;
@@ -523,9 +502,6 @@ function ShopAdminShell(): React.ReactElement {
         if (!insertSuccess) {
           console.error(`[App] CRITICAL: Failed to record print_event for session ${job.sessionId} after 3 attempts`);
         }
-
-        // Tokens are now deducted securely by the customer web app (Token Escrow System).
-        // No local deduction happens here to prevent modding.
 
         const completedJob: LiveJob = {
           sessionId: job.sessionId,
@@ -733,35 +709,8 @@ function ShopAdminShell(): React.ReactElement {
 
     initPresence();
 
-    // Subscribe to token_balance changes (admin top-ups or deductions)
-    const supabase = getSupabase();
-    const channel = supabase
-      .channel(`shop-tokens-${shopId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "shops",
-          filter: `id=eq.${shopId}`,
-        },
-        (payload: any) => {
-          if (payload.new && payload.new.token_balance !== undefined) {
-            const newBalance = payload.new.token_balance;
-            setTokenBalance(newBalance);
-            if (newBalance > 10) {
-              setTokenAlert(null);
-            } else {
-              setTokenAlert({ balance: newBalance, threshold: true });
-            }
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
     };
   }, [isAuthenticated, shopId]);
 
@@ -1131,14 +1080,6 @@ function ShopAdminShell(): React.ReactElement {
             .update({ status: "failed" })
             .eq("session_id", sessionId)
             .then(() => {});
-          if (shopId) {
-            supabase
-              .rpc("refund_shop_token", {
-                p_shop_id: shopId,
-                p_session_id: sessionId,
-              })
-              .then(() => {});
-          }
         } catch {}
       },
     });
@@ -1175,14 +1116,6 @@ function ShopAdminShell(): React.ReactElement {
             .update({ status: "cancelled", updated_at: new Date().toISOString() })
             .eq("session_id", job.sessionId)
             .then(() => {});
-          if (shopId) {
-            supabase
-              .rpc("refund_shop_token", {
-                p_shop_id: shopId,
-                p_session_id: job.sessionId,
-              })
-              .then(() => {});
-          }
         });
 
         return prev.filter(
@@ -1315,14 +1248,8 @@ function ShopAdminShell(): React.ReactElement {
           })
           .eq("session_id", sessionId);
 
-        if (shopId) {
-          await supabase.rpc("refund_shop_token", {
-            p_shop_id: shopId,
-            p_session_id: sessionId,
-          });
-        }
       } catch (err) {
-        console.warn("[App] Error cancelling print_orders or refunding token:", err);
+        console.warn("[App] Error cancelling print_orders:", err);
       }
     },
     [shopId]
@@ -1451,8 +1378,6 @@ function ShopAdminShell(): React.ReactElement {
           isTogglingOnline={isTogglingOnline}
           onLogoutRequest={handleLogoutRequest}
           onHideSidebar={() => setIsSidebarOpen(false)}
-          tokenBalance={tokenBalance}
-          tokenAlert={tokenAlert}
         />
       )}
 
@@ -1486,8 +1411,6 @@ function ShopAdminShell(): React.ReactElement {
                   ? "Revenue & Analytics"
                   : currentPage === "qr"
                   ? "Counter QR Stand"
-                  : currentPage === "tokens"
-                  ? "Token Management"
                   : "Shop Profile"}
               </span>
             </div>
@@ -1615,8 +1538,6 @@ function ShopAdminShell(): React.ReactElement {
               onRetryJob={handleRetryJob}
               onDismissJob={handleDismissJob}
               onNavigateToHistory={() => handleSelectPage("history")}
-              tokenBalance={tokenBalance}
-              tokenAlert={tokenAlert}
             />
           </div>
 
@@ -1661,12 +1582,6 @@ function ShopAdminShell(): React.ReactElement {
           {currentPage === "qr" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
               <CounterQr />
-            </div>
-          )}
-
-          {currentPage === "tokens" && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
-              <Tokens />
             </div>
           )}
 
